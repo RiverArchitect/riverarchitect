@@ -11,10 +11,10 @@ for line in lines.read_text().split("\n"):
 
 
 setup(
-    name="flusstools-docs",
+    name="riverarchitect",
     version=version,
     python_requires=">=3.7",
-    author="FlussTeam",
+    author="River Architect Developers",
     author_email="river.architect.program@gmail.com",
     url="https://github.com/RiverArchitect/riverarchitect",
     project_urls={
@@ -56,6 +56,7 @@ setup(
             "sphinx-copybutton",
             "plotly",
             "sphinxcontrib-bibtex",
+            "sphinx-markdown-tables",
             "sphinx-thebe",
             "ablog~=0.10.11",
         ],
