@@ -113,7 +113,7 @@ html_theme_options = {
     "globaltoc_collapse": True,
     "repository_url": "https://github.com/RiverArchitect/riverarchitect/",
     "repository_branch": "main",
-    "titles_only": True
+    "titles_only": True,
     "use_edit_page_button": False,
     "use_repository_button": True,
 }
