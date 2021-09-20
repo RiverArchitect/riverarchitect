@@ -72,11 +72,11 @@ extensions = [
 ]
 
 templates_path = ["_templates"]
-source_suffix = {
-    ".rst": "restructuredtext",
-    ".txt": "markdown",
-    ".md": "markdown",
-}
+# source_suffix = {
+#     ".rst": "restructuredtext",
+#     ".txt": "markdown",
+#     ".md": "markdown",
+# }
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 locale_dirs = ["locale/", "docs/"]
 gettext_compact = False
