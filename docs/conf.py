@@ -107,7 +107,7 @@ html_theme_options = {
     "nosidebar": False,
     "rightsidebar": "false",
     "relbarbgcolor": "black",
-    # "navigation_with_keys": True,
+    "navigation_with_keys": True,
     "navigation_depth" : 1,
     "globaltoc_collapse": True,
     "repository_url": "https://github.com/RiverArchitect/riverarchitect/",
