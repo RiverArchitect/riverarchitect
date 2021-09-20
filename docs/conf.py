@@ -102,7 +102,7 @@ myst_deflist_enable = True
 myst_url_schemes = ("http", "https", "mailto")
 panels_add_bootstrap_css = False
 
-html_theme = "basic"
+html_theme = "classic"
 html_theme_options = {
     "nosidebar": False,
     "rightsidebar": "true",
