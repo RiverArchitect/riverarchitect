@@ -57,7 +57,6 @@ setup(
             "plotly",
             "sphinxcontrib-bibtex",
             "sphinx-markdown-tables",
-            "m2r2",
             "sphinx-thebe",
             "ablog~=0.10.11",
         ],
