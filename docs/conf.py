@@ -107,11 +107,13 @@ html_theme_options = {
     "nosidebar": False,
     "rightsidebar": "false",
     "relbarbgcolor": "black",
+    "includehidden": False,
     "navigation_with_keys": True,
-    "navigation_depth" : 1,
+    "navigation_depth" : 2,
     "globaltoc_collapse": True,
     "repository_url": "https://github.com/RiverArchitect/riverarchitect/",
     "repository_branch": "main",
+    "titles_only": True
     "use_edit_page_button": False,
     "use_repository_button": True,
 }
