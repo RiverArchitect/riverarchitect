@@ -71,7 +71,7 @@ setup(
         "live-dev": ["sphinx-autobuild", "web-compile~=0.2.1"],
     },
     entry_points={
-        "sphinx.html_themes": ["sphinx_book_theme = sphinx_book_theme"],
+        "sphinx.html_themes": ["classic"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
