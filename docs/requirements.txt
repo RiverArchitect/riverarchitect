@@ -1,5 +1,7 @@
 Sphinx
 sphinxcontrib-bibtex<2.0.0
+recommonmark
+sphinx_markdown_tables
 sphinx-book-theme
 sphinx-thebe
 matplotlib
@@ -14,5 +16,3 @@ git+https://github.com/jelmer/googleanalytics.git@master
 git+https://github.com/executablebooks/MyST-NB.git@master
 pandas-bokeh
 imageio
-recommonmark
-sphinx_markdown_tables
