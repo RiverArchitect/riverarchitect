@@ -11,7 +11,7 @@ for line in lines.read_text().split("\n"):
 
 
 setup(
-    name="riverarchitect",
+    name="sphinx_rtd_theme",
     version=version,
     python_requires=">=3.7",
     author="River Architect Developers",
