@@ -220,7 +220,7 @@ plantings and other
 bioengineering <River-design-features#featoverview>`__, and
 `connectivity features <River-design-features#featoverview>`__ is
 described within the `LifespanDesign Wiki <River-design-features>`__.
-The Installation Wiki pages describe the propper installation, file
+The Installation Wiki pages describe the proper installation, file
 organization and environment of *River Architect*.
 
 --------------

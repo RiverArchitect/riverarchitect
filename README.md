@@ -1,5 +1,7 @@
 ## River Architect
 
+**Important: This repo is auto-imported on readthedocs.org. Please do not make any changes in setup.py nor docs/conf.py without prior local testing. Any changes in those files may cause damage. -- Thanks**
+
 ## HowTo Sphinx RTD
 
 This workflow builds on the developer's [online guide](https://docs.readthedocs.io/en/stable/intro/getting-started-with-sphinx.html).
