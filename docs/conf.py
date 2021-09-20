@@ -168,7 +168,7 @@ texinfo_documents = [
   (master_doc, slug, project, author, slug, project, "Miscellaneous"),
 ]
 
-github_doc_root = 'https://github.com/rtfd/recommonmark/tree/master/doc/'
+
 # Extensions to theme docs
 def setup(app):
     from sphinx.domains.python import PyField
@@ -179,11 +179,6 @@ def setup(app):
         "confval",
         objname="configuration value",
         indextemplate="pair: %s; configuration value",
-        app.add_config_value('recommonmark_config', {
-            'url_resolver': lambda url: github_doc_root + url,
-            'auto_toc_tree_section': 'Contents',
-            }, True)
-        # app.add_transform(AutoStructify)
         doc_field_types=[
             PyField(
                 "type",
