@@ -102,16 +102,13 @@ myst_deflist_enable = True
 myst_url_schemes = ("http", "https", "mailto")
 panels_add_bootstrap_css = False
 
-html_theme = "classic"
+html_theme = "basic"
 html_theme_options = {
-
-    "theme_dev_mode": True,
-    "launch_buttons": {
-        "binderhub_url": "https://mybinder.org",
-        "thebe": True,
-        "notebook_interface": "jupyterlab",
-        "collapse_navigation": False
-    },
+    "nosidebar": False,
+    "rightsidebar": "true",
+    "relbarbgcolor": "black",
+    "navigation_with_keys": True,
+    "globaltoc_collapse": True,
     "repository_url": "https://github.com/RiverArchitect/riverarchitect/",
     "repository_branch": "main",
     "use_edit_page_button": False,
