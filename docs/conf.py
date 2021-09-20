@@ -72,7 +72,7 @@ extensions = [
 ]
 
 templates_path = ["_templates"]
-# source_suffix = {
+source_suffix = ".rst"
 #     ".rst": "restructuredtext",
 #     ".txt": "markdown",
 #     ".md": "markdown",
