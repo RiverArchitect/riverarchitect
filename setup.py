@@ -11,7 +11,7 @@ for line in lines.read_text().split("\n"):
 
 
 setup(
-    name="sphinx_rtd_theme",
+    name="riverarchitect",
     version=version,
     python_requires=">=3.7",
     author="River Architect Developers",
@@ -71,7 +71,7 @@ setup(
         "live-dev": ["sphinx-autobuild", "web-compile~=0.2.1"],
     },
     entry_points={
-        "sphinx.html_themes": ["basic"],
+        "sphinx.html_themes": ["sphinx_rtd_theme = sphinx_rtd_theme"],
     },
     classifiers=[
         "Programming Language :: Python :: 3",
