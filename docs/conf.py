@@ -113,7 +113,7 @@ html_theme_options = {
         "notebook_interface": "jupyterlab",
         "collapse_navigation": False
     },
-    "repository_url": "https://github.com/ecohydraulics/flusstools-pckg/",
+    "repository_url": "https://github.com/RiverArchitect/riverarchitect/",
     "repository_branch": "main",
     "use_edit_page_button": False,
     "use_repository_button": True,
@@ -122,8 +122,8 @@ html_theme_options = {
 html_context = {
     "date": datetime.date.today().strftime("%Y-%m-%d"),
     "display_github": True,
-    "github_user": "Ecohydraulics",
-    "github_repo": "flusstools-docs",
+    "github_user": "RiverArchitect",
+    "github_repo": "riverarchitect",
     "github_version": "main/",
     "conf_py_path": "/docs/"
 }
@@ -142,8 +142,8 @@ html_favicon = os.path.abspath("..") + "/docs/img/browser-icon.ico"
 html_last_updated_fmt = ""
 html_logo = os.path.abspath("..") + "/docs/img/icon.svg"
 html_show_sourcelink = True
-html_title = "FlussTools " + version
-htmlhelp_basename = "FlussTools"
+html_title = "River Architect " + version
+htmlhelp_basename = "RiverArchitect"
 html_copy_source = True
 html_sourcelink_suffix = ""
 
