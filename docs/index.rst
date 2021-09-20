@@ -3,12 +3,12 @@ River Architect Wiki
 
 --------------
 
-**Please refer to the `installation guide <Installation#started>`__ for `first-time installation <Installation#started>`__, `update <Installation#update_ra>`__, and**\ `launch <Installation#launch_ra>`__ assistance.**
+**Please refer to the `Installation section <Installation#started>`__ to learn how to install, update, and launch River Architect.**
 
 --------------
 
-**River Architect is an**\ `open-access, peer-reviewed (Journal
-SoftwareX) <https://doi.org/10.1016/j.softx.2020.100438>`__\ **and
+**River Architect is an   `open-access, peer-reviewed (Journal
+SoftwareX) <https://doi.org/10.1016/j.softx.2020.100438>`__   and
 Python3-based software for the GIS-based planning of habitat enhancing
 river design features regarding their lifespans, parametric
 characteristics, optimum placement in the terrain, and ecological
