@@ -3,10 +3,7 @@ River Architect Wiki
 
 --------------
 
-**Please refer to the**\ `installation
-guide <Installation#started>`__\ **for**\ `first-time
-installation <Installation#started>`__\ **,**\ `update <Installation#update_ra>`__\ **,
-and**\ `launch <Installation#launch_ra>`__\ **assistance.**
+**Please refer to the `installation guide <Installation#started>`__ for `first-time installation <Installation#started>`__, `update <Installation#update_ra>`__, and**\ `launch <Installation#launch_ra>`__ assistance.**
 
 --------------
 

@@ -105,9 +105,9 @@ panels_add_bootstrap_css = False
 html_theme = "alabaster"
 html_theme_options = {
     "nosidebar": False,
-    "rightsidebar": "true",
+    "rightsidebar": "false",
     "relbarbgcolor": "black",
-    "navigation_with_keys": True,
+    # "navigation_with_keys": True,
     "globaltoc_collapse": True,
     "repository_url": "https://github.com/RiverArchitect/riverarchitect/",
     "repository_branch": "main",
