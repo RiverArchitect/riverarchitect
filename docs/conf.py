@@ -145,7 +145,7 @@ html_show_sourcelink = True
 html_title = "River Architect " + version
 htmlhelp_basename = "RiverArchitect"
 html_copy_source = True
-html_sourcelink_suffix = ""
+# html_sourcelink_suffix = ""
 
 
 thebe_config = {
