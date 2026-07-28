@@ -32,13 +32,16 @@ import glob
 import os
 import sys
 
+# Import, but do not exit on failure: this module is a library as well as a command-line
+# tool, and calling sys.exit() at import time breaks every importer - test collection, the
+# GUI's Tools menu, and Sphinx, which imports the module to render its source listing.
+# main() reports the missing dependency instead.
 try:
     import numpy as np
     import rasterio
-except ImportError:
-    print("ERROR: This tool needs numpy and rasterio. Run it in the `ra-env` environment:\n"
-          "       python -m riverarchitect.tools.reconcile_nodata <directory>")
-    sys.exit(1)
+except ImportError:  # pragma: no cover - exercised only without the geospatial stack
+    np = None
+    rasterio = None
 
 try:
     from riverarchitect import config
@@ -132,6 +135,11 @@ def reconcile(path, dry_run=False):
     return True
 
 
+def dependencies_available():
+    """True when numpy and rasterio imported. Callers can degrade instead of failing."""
+    return np is not None and rasterio is not None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -139,6 +147,13 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="report changes without writing")
     parser.add_argument("--recursive", action="store_true", help="descend into sub-folders")
     args = parser.parse_args()
+
+    if not dependencies_available():
+        print("ERROR: This tool needs numpy and rasterio. Run it in the `ra-env` "
+              "environment:\n"
+              "       mamba run -n ra-env python -m riverarchitect.tools.reconcile_nodata "
+              "<directory>", file=sys.stderr)
+        return 1
 
     if not os.path.isdir(args.directory):
         print("ERROR: not a directory: %s" % args.directory)

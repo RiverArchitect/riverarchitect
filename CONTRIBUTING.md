@@ -50,12 +50,27 @@ a network blip - so the check is yours to run before pushing.
 
 Read the Docs installs only `docs/requirements.txt` and mocks the geospatial imports
 (`autodoc_mock_imports` in `docs/conf.py`). Do not add a heavy dependency to the docs build;
-add it to the mock list instead. To reproduce the Read the Docs environment exactly:
+add it to the mock list instead.
+
+**To reproduce a Read the Docs build, use its command, from `docs/`:**
 
 ```bash
 python -m venv /tmp/rtdenv && /tmp/rtdenv/bin/pip install -r docs/requirements.txt
-/tmp/rtdenv/bin/python -m sphinx -W -b html docs /tmp/rtd_html
+cd docs && /tmp/rtdenv/bin/python -m sphinx -T -j auto -W -b html -d /tmp/rtd_dt . /tmp/rtd_html
 ```
+
+The `cd docs` is not cosmetic. Read the Docs runs Sphinx with the working directory set to
+the configuration directory, and a build invoked from the repository root instead can behave
+differently - that difference once hid a failure that only appeared on Read the Docs. See
+the `sys.path` comment at the top of `docs/conf.py`.
+
+> **Modules must import without side effects.**
+> Sphinx imports every documented module to render its source listing, in an environment
+> with no geospatial stack. An `ImportError` there is fine and expected. A `sys.exit()` at
+> module level is a `SystemExit`, which Sphinx does not tolerate, and it kills the whole
+> build - so report a missing optional dependency from `main()`, never at import time.
+> `tests/test_importable.py` enforces this by importing each module out of process with the
+> geospatial packages blocked.
 
 `docs/wiki/` holds the original GitHub wiki, preserved verbatim apart from link rewriting.
 Match the existing style there rather than reformatting the originals.

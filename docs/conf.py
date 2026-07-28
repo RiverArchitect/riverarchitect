@@ -10,8 +10,11 @@ import os
 import sys
 from datetime import date
 
-# The package lives under src/; make it importable for autodoc.
-sys.path.insert(0, os.path.abspath("../src"))
+# The package lives under src/; make it importable for autodoc. Resolve against *this file*,
+# not the working directory: Read the Docs runs sphinx from inside docs/, while a local
+# `sphinx -b html docs docs/_build/html` runs from the repository root. A CWD-relative path
+# silently resolves to nothing in one of the two, and the build then differs between them.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 
 # -- Project ----------------------------------------------------------------
 
