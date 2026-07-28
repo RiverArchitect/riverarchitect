@@ -25,10 +25,25 @@ from tkinter.filedialog import askdirectory
 from tkinter.messagebox import askokcancel, showinfo, showwarning
 
 from .. import __version__, config
-from .volume_tab import VolumeGui
+from .getstarted_tab import GetStartedGui
+from .lifespan_tab import LifespanGui
 from .mapping_tab import MappingGui
+from .maxlifespan_tab import MaxLifespanGui
+from .recruitment_tab import RecruitmentGui
+from .sharc_tab import SharcGui
+from .stranding_tab import StrandingGui
+from .volume_tab import VolumeGui
 
-__all__ = ["RiverArchitectGui", "main"]
+__all__ = ["RiverArchitectGui", "main", "TAB_GROUPS"]
+
+#: Top-level tabs and their sub-tabs, matching the Qt front end and the ArcGIS version.
+TAB_GROUPS = (
+    ("Get Started", (GetStartedGui,)),
+    ("Lifespan", (LifespanGui, MaxLifespanGui)),
+    ("Morphology", (VolumeGui,)),
+    ("Ecohydraulics", (SharcGui, StrandingGui, RecruitmentGui)),
+    ("Maps", (MappingGui,)),
+)
 
 
 class RiverArchitectGui(tk.Frame):
@@ -41,23 +56,24 @@ class RiverArchitectGui(tk.Frame):
 
         top = self.winfo_toplevel()
         top.title("River Architect %s" % __version__)
-        top.geometry("820x600")
+        top.geometry("960x720")
 
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(expand=True, fill=tk.BOTH)
 
         self.tabs = {}
         self.module_tabs = []
-        for label, factory in (("Morphology (Volumes)", VolumeGui),
-                               ("Mapping", MappingGui)):
-            try:
-                tab = factory(self.notebook)
-                self.module_tabs.append(tab)
-            except Exception as exc:  # a broken module must not take the whole GUI down
-                self.logger.error("Could not load the %s tab: %s", label, exc)
-                tab = self._placeholder(label, exc)
-            self.tabs[label] = tab
-            self.notebook.add(tab, text=label)
+        self.groups = {}
+        for group, factories in TAB_GROUPS:
+            if len(factories) == 1:
+                # A group of one is just a tab; nesting it would only add a click.
+                self.notebook.add(self._make_tab(self.notebook, factories[0]), text=group)
+                continue
+            inner = ttk.Notebook(self.notebook)
+            for factory in factories:
+                inner.add(self._make_tab(inner, factory), text=factory.title)
+            self.groups[group] = inner
+            self.notebook.add(inner, text=group)
 
         self.unit = tk.StringVar(value="us")
         self._build_menus()
@@ -66,8 +82,20 @@ class RiverArchitectGui(tk.Frame):
         self.status.pack(side=tk.BOTTOM, fill=tk.X)
         self._update_status()
 
-    def _placeholder(self, label, exc):
-        frame = tk.Frame(self.notebook)
+    def _make_tab(self, parent, factory):
+        """Build a module tab, or a message standing in for one that could not load."""
+        try:
+            tab = factory(parent)
+        except Exception as exc:  # a broken module must not take the whole GUI down
+            self.logger.error("Could not load the %s tab: %s", factory.title, exc)
+            tab = self._placeholder(parent, factory.title, exc)
+        else:
+            self.module_tabs.append(tab)
+        self.tabs[factory.title] = tab
+        return tab
+
+    def _placeholder(self, parent, label, exc):
+        frame = tk.Frame(parent)
         tk.Label(frame, text="The %s tab could not be loaded." % label,
                  font=("TkDefaultFont", 11, "bold")).pack(padx=20, pady=(30, 8))
         tk.Label(frame, text=str(exc), fg="firebrick", wraplength=600,

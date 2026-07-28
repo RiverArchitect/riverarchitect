@@ -14,12 +14,30 @@ from ... import __version__, config
 from .qtcompat import (QAction, QApplication, QDesktopServices, QFileDialog, QLabel,
                        QMainWindow, QMessageBox, QTabWidget, QUrl, QVBoxLayout, QWidget,
                        Qt, QT_BINDING, exec_app)
+from .getstarted_tab import GetStartedTab
+from .lifespan_tab import LifespanTab
 from .mapping_tab import MappingTab
+from .maxlifespan_tab import MaxLifespanTab
+from .recruitment_tab import RecruitmentTab
+from .sharc_tab import SharcTab
+from .stranding_tab import StrandingTab
 from .volume_tab import VolumeTab
 
-__all__ = ["RiverArchitectWindow", "run"]
+__all__ = ["RiverArchitectWindow", "run", "TAB_GROUPS", "TABS"]
 
-TABS = (VolumeTab, MappingTab)
+#: Top-level tabs and their sub-tabs, reproducing the grouping of the ArcGIS version:
+#: a module either stands alone or sits inside a themed group. ``None`` means the entry is
+#: a single tab rather than a group.
+TAB_GROUPS = (
+    ("Get Started", (GetStartedTab,)),
+    ("Lifespan", (LifespanTab, MaxLifespanTab)),
+    ("Morphology", (VolumeTab,)),
+    ("Ecohydraulics", (SharcTab, StrandingTab, RecruitmentTab)),
+    ("Maps", (MappingTab,)),
+)
+
+#: Flat list of every module tab, in the order they appear.
+TABS = tuple(factory for _group, factories in TAB_GROUPS for factory in factories)
 
 
 class RiverArchitectWindow(QMainWindow):
@@ -37,20 +55,34 @@ class RiverArchitectWindow(QMainWindow):
         self.setCentralWidget(self.tabs)
 
         self.module_tabs = []
-        for factory in TABS:
-            try:
-                tab = factory()
-                self.module_tabs.append(tab)
-                self.tabs.addTab(tab, factory.title)
-            except Exception as exc:  # a broken module must not take the window down
-                self.logger.error("Could not load the %s tab: %s", factory.title, exc)
-                self.tabs.addTab(self._placeholder(factory.title, exc), factory.title)
+        self.groups = {}
+        for group, factories in TAB_GROUPS:
+            if len(factories) == 1:
+                # A group of one is just a tab; nesting it would only add a click.
+                self.tabs.addTab(self._make_tab(factories[0]), group)
+                continue
+            inner = QTabWidget()
+            inner.setDocumentMode(True)
+            for factory in factories:
+                inner.addTab(self._make_tab(factory), factory.title)
+            self.groups[group] = inner
+            self.tabs.addTab(inner, group)
 
         self._build_menus()
 
         self.project_label = QLabel()
         self.statusBar().addPermanentWidget(self.project_label)
         self._update_status()
+
+    def _make_tab(self, factory):
+        """Build a module tab, or a message standing in for one that could not load."""
+        try:
+            tab = factory()
+        except Exception as exc:  # a broken module must not take the window down
+            self.logger.error("Could not load the %s tab: %s", factory.title, exc)
+            return self._placeholder(factory.title, exc)
+        self.module_tabs.append(tab)
+        return tab
 
     def _placeholder(self, label, exc):
         widget = QWidget()

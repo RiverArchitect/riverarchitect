@@ -12,7 +12,7 @@ __all__ = ["VolumeTab"]
 class VolumeTab(RaTab):
     """Compare an original and a modified DEM and report fill and excavation volumes."""
 
-    title = "Morphology (Volumes)"
+    title = "Volume Assessment"
     subtitle = ("Earthworks quantities between a pre-project and a post-project DEM. "
                 "Volumes are integrated under the triangulated surface through the cell "
                 "centres, not summed as vertical prisms.")

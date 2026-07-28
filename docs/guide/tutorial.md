@@ -5,21 +5,29 @@ for angular boulders, and a **fish stranding risk** assessment over a receding h
 Both use the public sample data, and every number printed below was produced by the code on
 this page.
 
-```{admonition} These two analyses are scripted, not yet packaged
-:class: important
+```{admonition} Two ways to run these
+:class: tip
 
-`raster.py` provides every primitive the original `LifespanDesign` and `StrandingRisk`
-modules used, but neither has been ported into a turnkey module with a GUI tab yet. The
-scripts below *are* the analyses, expressed directly against the primitives. They are short
-enough to read in one sitting, which also makes them a reasonable starting point for a
-project that needs different threshold values or a different feature.
+Both analyses are packaged modules with a tab in the interface -
+{mod}`riverarchitect.lifespan` and {mod}`riverarchitect.stranding` - so in practice you would
+click *Lifespan and design* and *Ecohydraulics* in the GUI, or call three lines of Python:
 
-The physical background - what the thresholds mean, where they come from - is in
-{doc}`../wiki/LifespanDesign`, {doc}`../wiki/LifespanDesign-parameters` and
-{doc}`../wiki/StrandingRisk`.
+```python
+from riverarchitect.lifespan import LifespanDesign
+from riverarchitect.stranding import StrandingRisk
+
+LifespanDesign("2100_sample").run(["rocks"])
+StrandingRisk.for_fish("2100_sample", "Chinook salmon", "fry").run()
 ```
 
-Both scripts are in the repository under `examples/`, ready to run:
+This page takes the long way round instead, building both analyses out of the raster
+primitives. That is worth reading once: it shows exactly what the modules do, which
+assumptions they make, and where you would change them for a river that behaves differently.
+The physical background is in {doc}`../wiki/LifespanDesign`,
+{doc}`../wiki/LifespanDesign-parameters` and {doc}`../wiki/StrandingRisk`.
+```
+
+The scripts on this page are in `examples/`, ready to run:
 
 ```bash
 mamba run -n ra-env python examples/lifespan_rocks.py
@@ -398,8 +406,31 @@ mapper.make_pdf_maps("lf_rocks")
 
 See {doc}`qgis_mapping` for layouts, atlases and symbology.
 
+## The packaged equivalents
+
+Everything above is what {mod}`riverarchitect.lifespan` and {mod}`riverarchitect.stranding`
+do internally, and both are verified against the numbers on this page. Two further steps are
+only available as modules:
+
+```python
+from riverarchitect.lifespan import LifespanDesign
+from riverarchitect.maxlifespan import MaxLifespan
+
+# map several features at once, with the default threshold values
+LifespanDesign("2100_sample").run(["rocks", "wood", "cot", "gravin"])
+
+# then ask which of them belongs where
+MaxLifespan("sample-data/Output/LifespanDesign/2100_sample").run()
+```
+
+{class}`~riverarchitect.maxlifespan.MaxLifespan` takes the cell-wise maximum across the
+feature lifespan rasters and writes a best-feature mask and polygon layer per feature. It has
+no equivalent above because it only becomes meaningful once several features have been
+mapped.
+
 ## Next
 
+* {doc}`gui` runs all of this from the graphical interface.
 * {doc}`quickstart` covers the remaining primitives: interpolation, zonal statistics,
   reclassification, NoData reconciliation.
 * {doc}`volumes` covers earthwork quantities from DEM differencing.

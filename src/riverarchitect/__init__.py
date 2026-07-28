@@ -13,6 +13,20 @@ Modules
     Triangulated-surface volume integration.
 :mod:`riverarchitect.volume_assessment`
     Earthworks quantities from a pair of DEMs.
+:mod:`riverarchitect.condition`
+    Reading a condition folder and its ``input_definitions.inp``.
+:mod:`riverarchitect.lifespan`
+    Lifespan and design mapping for restoration features.
+:mod:`riverarchitect.maxlifespan`
+    Best-feature assessment across several lifespan maps.
+:mod:`riverarchitect.stranding`
+    Fish stranding risk from disconnecting wetted areas.
+:mod:`riverarchitect.sharc`
+    Habitat suitability indices and Seasonal Habitat Area.
+:mod:`riverarchitect.preprocessing`
+    Preparing a condition: detrended DEM, water levels, morphological units.
+:mod:`riverarchitect.recruitment`
+    Riparian seedling recruitment potential.
 :mod:`riverarchitect.mapping`
     QGIS print layouts and multi-page PDF map series.
 :mod:`riverarchitect.config`
@@ -30,8 +44,9 @@ __license__ = "BSD-3-Clause"
 
 from . import config  # noqa: F401
 
-__all__ = ["config", "raster", "volume", "volume_assessment", "mapping", "tools",
-           "__version__"]
+__all__ = ["config", "condition", "raster", "volume", "volume_assessment",
+           "lifespan", "maxlifespan", "stranding", "sharc", "preprocessing",
+           "recruitment", "mapping", "tools", "__version__"]
 
 
 def __getattr__(name):
@@ -41,7 +56,9 @@ def __getattr__(name):
     optional dependency (QGIS, pykrige, rasterstats) is missing: only the module that needs
     it fails, and only when it is actually used.
     """
-    if name in ("raster", "volume", "volume_assessment", "mapping", "tools"):
+    if name in ("raster", "volume", "volume_assessment", "condition", "lifespan",
+                "maxlifespan", "stranding", "sharc", "preprocessing", "recruitment",
+                "mapping", "tools"):
         import importlib
         module = importlib.import_module("." + name, __name__)
         globals()[name] = module

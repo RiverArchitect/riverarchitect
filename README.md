@@ -127,6 +127,13 @@ More building blocks in the
 | Module | Purpose |
 |---|---|
 | `riverarchitect.raster` | Raster I/O, alignment, map algebra, interpolation (IDW, kriging, nearest neighbour), connectivity, zonal statistics |
+| `riverarchitect.condition` | Reading a condition folder and its `input_definitions.inp` |
+| `riverarchitect.preprocessing` | Detrended DEM, water levels, morphological units, condition setup |
+| `riverarchitect.lifespan` | Lifespan and design mapping for restoration features |
+| `riverarchitect.maxlifespan` | Best-feature assessment across several lifespan maps |
+| `riverarchitect.sharc` | Habitat suitability indices and Seasonal Habitat Area |
+| `riverarchitect.stranding` | Fish stranding risk from disconnecting wetted areas |
+| `riverarchitect.recruitment` | Riparian seedling recruitment potential |
 | `riverarchitect.volume` | Triangulated-surface volume integration |
 | `riverarchitect.volume_assessment` | Earthworks quantities from a pair of DEMs |
 | `riverarchitect.mapping` | QGIS print layouts and multi-page PDF map series |

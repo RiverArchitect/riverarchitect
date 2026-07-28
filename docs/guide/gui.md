@@ -138,15 +138,75 @@ and then point the Mapping tab at them from the QGIS interpreter.
 
 ## Tabs
 
+The top-level tabs group the modules the way the ArcGIS version did, and three of them open
+onto sub-tabs:
+
+```text
+Get Started
+Lifespan        -> Lifespan Design | Max Lifespan
+Morphology      -> Volume Assessment
+Ecohydraulics   -> Habitat Area (SHArC) | Stranding Risk | Riparian Seedling Recruitment
+Maps
+```
+
+**Get Started** prepares a condition. Nothing here is an analysis in its own right; it
+produces the derived rasters the others read - a detrended DEM, an interpolated water
+surface and the depth and depth-to-water-table rasters that follow from it, a morphological
+unit classification, the `input_definitions.inp`, and a one-off alignment of every raster
+onto a single grid. Start here with a condition that only has a DEM and 2D model output.
+
+**Lifespan Design** predicts how many years each restoration feature survives at every
+cell, from the flood return periods in the condition's `input_definitions.inp`, and the
+dimensions it needs to reach a target lifespan. Tick one or more features; the defaults
+reproduce the threshold values of the original `threshold_values.xlsx`. Writes
+`lf_<feature>.tif` and, where the feature supports it, `ds_<feature>.tif`. See
+{doc}`tutorial` for a worked example and {doc}`../wiki/LifespanDesign` for the physics.
+
+**Max lifespan** answers the planner's question rather than the engineer's: given several
+feature lifespan maps, *which* feature belongs here? It reads the lifespan tab's output,
+takes the cell-wise maximum, and writes one best-feature mask and polygon layer per feature
+plus `max_lf.tif`. Ties are kept rather than broken, so a cell where two features both reach
+the maximum appears in both layers - the choice is yours to make on other grounds.
+
 **Morphology (Volumes)** compares a pre-project and a post-project DEM and reports fill,
 excavation and net volumes plus the affected areas. The *level of detection* excludes
 elevation differences smaller than the survey noise. Volumes are integrated under the
 triangulated surface; see {doc}`volumes` for why that matters.
 
+**Habitat Area (SHArC)** applies the habitat suitability curves of a species and lifestage
+to the depth and velocity rasters. Each discharge gets a composite suitability raster, the
+area above a threshold is the usable habitat at that flow, and integrating those over the
+flow duration curve gives the **Seasonal Habitat Area** - the single number a restoration
+project is usually judged on. The curves come from the packaged `Fish.xlsx`; the flow
+duration workbook is looked up by the four-letter species code, so juvenile Chinook salmon
+needs `00_Flows/<condition>/flow_duration_chju.xlsx`.
+
+**Riparian Seedling Recruitment** maps where cottonwood and willow seedlings can establish
+and survive their first season. Four objectives are each scored 1, 0.5 or 0 - was the
+seedbed prepared by a winter flow, did the water table recede slowly enough, was the
+seedling drowned, was it scoured out - and multiplied, so a zero anywhere is a zero overall.
+This is the only tab that needs a **daily flow record**: the other modules care which flows
+are possible, recruitment cares when they happened.
+
+**Stranding Risk** walks a falling hydrograph and finds the wetted areas that
+lose their connection to the main channel, which is where fish strand. Pick a species and
+lifestage to set the minimum swimming depth, or type your own. Writes one
+`disconnected_<Q>.tif` per discharge, a `Q_disconnect.tif` recording the flow at which each
+cell becomes a trap, and a polygon layer of the pools at the worst discharge.
+
 **Mapping** renders a directory of rasters into a PDF map series through QGIS print layouts.
 
-Both run their work on a background thread, so the window stays responsive and shows a
+Every tab runs its work on a background thread, so the window stays responsive and shows a
 progress indicator while an analysis is going.
+
+```{admonition} The minimum swimming depth is the choice that matters
+:class: tip
+
+In the stranding tab, `h_min` moves the result more than anything else, and it is a
+biological choice rather than a numerical one. At `h_min = 0` every wet cell counts and much
+of the pool count is single cells at the wetted edge - real in the raster, meaningless in
+the river. State the value you used alongside any result.
+```
 
 ## Menus
 
@@ -163,6 +223,27 @@ sentinels. The NoData mask is preserved exactly; only the sentinel changes.
 
 ## Not yet in the interface
 
-LifespanDesign, MaxLifespan, SHArC, StrandingRisk, ModifyTerrain and ProjectMaker have no tab
-yet. Lifespan mapping and fish stranding can be run as scripts today - {doc}`tutorial` walks
-through both, and the scripts are in `examples/`.
+ModifyTerrain/RiverBuilder and ProjectMaker have no tab yet. Their analysis logic is
+described in the legacy wiki pages linked from the documentation index, and `raster.py`
+already provides the primitives each of them needs.
+
+## Everything is also a Python API
+
+The tabs are a front end over ordinary modules, so anything the interface does can be
+scripted and put under version control:
+
+```python
+from riverarchitect import preprocessing
+from riverarchitect.lifespan import LifespanDesign
+from riverarchitect.maxlifespan import MaxLifespan
+from riverarchitect.recruitment import RecruitmentPotential
+from riverarchitect.sharc import SHArC
+from riverarchitect.stranding import StrandingRisk
+
+preprocessing.build_product("2100_sample", "detrended", discharge=300)
+LifespanDesign("2100_sample").run(["rocks", "wood", "cot"])
+MaxLifespan("sample-data/Output/LifespanDesign/2100_sample").run()
+SHArC("2100_sample").run("Chinook Salmon", "juvenile")
+StrandingRisk.for_fish("2100_sample", "Chinook salmon", "fry").run()
+RecruitmentPotential("2100_sample", "daily_flows.csv", year=2020).run()
+```

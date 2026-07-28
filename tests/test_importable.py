@@ -19,12 +19,34 @@ import pytest
 
 import riverarchitect
 
+#: Modules that genuinely need the geospatial stack. Importing them without it *should*
+#: raise ImportError, so the "must import" test skips them in an environment that lacks it -
+#: a QGIS interpreter, for instance, has no rasterio.
+NEEDS_GEOSPATIAL = {
+    "riverarchitect.raster",
+    "riverarchitect.volume_assessment",
+    "riverarchitect.lifespan",
+    "riverarchitect.maxlifespan",
+    "riverarchitect.stranding",
+}
+
+try:
+    import numpy  # noqa: F401
+    import rasterio  # noqa: F401
+    HAS_GEOSPATIAL = True
+except ImportError:
+    HAS_GEOSPATIAL = False
+
 MODULES = [
     "riverarchitect",
     "riverarchitect.config",
     "riverarchitect.raster",
     "riverarchitect.volume",
     "riverarchitect.volume_assessment",
+    "riverarchitect.condition",
+    "riverarchitect.lifespan",
+    "riverarchitect.maxlifespan",
+    "riverarchitect.stranding",
     "riverarchitect.mapping",
     "riverarchitect.tools",
     "riverarchitect.tools.reconcile_nodata",
@@ -35,6 +57,8 @@ MODULES = [
 
 @pytest.mark.parametrize("name", MODULES)
 def test_module_imports(name):
+    if name in NEEDS_GEOSPATIAL and not HAS_GEOSPATIAL:
+        pytest.skip("no geospatial stack in this interpreter")
     assert importlib.import_module(name) is not None
 
 
@@ -86,4 +110,5 @@ def test_reconcile_nodata_reports_missing_dependencies_from_main():
     from riverarchitect.tools import reconcile_nodata
 
     assert hasattr(reconcile_nodata, "dependencies_available")
-    assert reconcile_nodata.dependencies_available() is True   # ra-env has them
+    # The module imports either way; the check simply reports what is actually installed.
+    assert reconcile_nodata.dependencies_available() is HAS_GEOSPATIAL
