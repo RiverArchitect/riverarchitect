@@ -21,8 +21,6 @@ class MappingGui(RaModuleGui):
     """Produce PDF map series from a folder of rasters using QGIS print layouts."""
 
     title = "Mapping"
-    window_width = 720
-    window_height = 470
 
     def __init__(self, master=None):
         super().__init__(master)

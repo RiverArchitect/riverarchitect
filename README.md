@@ -23,16 +23,17 @@ The method is documented in an
 ## Installation
 
 ```bash
-mamba create -n ra-env -c conda-forge python=3.12 \
-    gdal rasterio geopandas shapely pyproj numpy scipy pandas \
-    openpyxl matplotlib pykrige rasterstats whitebox
+git clone https://github.com/RiverArchitect/riverarchitect.git
+cd riverarchitect
+mamba env create -f environment.yml
 mamba activate ra-env
-pip install riverarchitect
+pip install -e ".[all]"
 ```
 
 The geospatial stack installs far more reliably through conda-forge than through pip, because
-GDAL and its bindings come as prebuilt binaries. Plain `pip install "riverarchitect[all]"`
-works too where wheels are available.
+GDAL and its bindings come as prebuilt binaries. `mamba` comes with
+[Miniforge](https://conda-forge.org/download/). River Architect is not on PyPI yet, so
+install from a clone as above.
 
 Map production additionally needs QGIS with its Python bindings, which cannot come from PyPI:
 
@@ -41,26 +42,39 @@ sudo apt install qgis python3-qgis          # Debian / Ubuntu
 python -c "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
 ```
 
-Everything except the mapping module works without QGIS. Full instructions, including the
-project directory layout, are in the
-[installation guide](https://riverarchitect.readthedocs.io/en/latest/guide/installation.html).
+Everything except the mapping module works without QGIS. Per-platform instructions are in the
+[quick installation guide](https://riverarchitect.readthedocs.io/en/latest/guide/installation.html);
+the dependency background, project directory layout and troubleshooting are in the
+[detailed one](https://riverarchitect.readthedocs.io/en/latest/guide/installation_detailed.html).
 
 ## Usage
 
 Launch the graphical interface:
 
 ```bash
+./runRiverArchitectLinux.sh       # Linux and macOS
+runRiverArchitectWin.bat          # Windows
+```
+
+The launchers find the environment themselves and, with no argument, open the sample data
+bundled in `sample-data/`. From an activated environment:
+
+```bash
 riverarchitect                    # or: python -m riverarchitect
 riverarchitect /path/to/project   # start with a project directory
 ```
+
+The interface renders with Qt (PySide6, or the PyQt5 that comes with QGIS) and falls back to
+tkinter when no Qt binding is installed, so it always opens. See the
+[interface guide](https://riverarchitect.readthedocs.io/en/latest/guide/gui.html).
 
 Or use the modules directly:
 
 ```python
 from riverarchitect import raster
 
-dem, dem_profile = raster.read("01_Conditions/2100_sample/dem.tif")
-depth, depth_profile = raster.read("01_Conditions/2100_sample/h001000.tif")
+dem, dem_profile = raster.read("sample-data/01_Conditions/2100_sample/dem.tif")
+depth, depth_profile = raster.read("sample-data/01_Conditions/2100_sample/h001000.tif")
 
 # Rasters of differing extent must be aligned explicitly - the silent
 # alternative is a spatially meaningless result.
@@ -86,13 +100,27 @@ Fish stranding risk from disconnected wetted areas:
 import numpy as np
 from riverarchitect import raster
 
-depth, profile = raster.read("01_Conditions/2100_sample/h000300.tif")
+depth, profile = raster.read("sample-data/01_Conditions/2100_sample/h000300.tif")
 mask, n_pools = raster.disconnected_mask(np.nan_to_num(depth) > 0)
 dx, dy = raster.cell_size(profile)
 print(f"{n_pools} pools, {mask.sum() * dx * dy:.0f} sqft stranded")
 ```
 
-More in the [quickstart](https://riverarchitect.readthedocs.io/en/latest/guide/quickstart.html).
+### Try it on real data
+
+A real gravel-cobble reach ships in [`sample-data/`](sample-data) - 60 discharges of depth
+and velocity, a DEM, grain sizes and a DEM of difference - so there is nothing to download.
+The [tutorial](https://riverarchitect.readthedocs.io/en/latest/guide/tutorial.html) runs a
+lifespan and design map for angular boulders and a fish stranding assessment over a receding
+hydrograph on it. Both scripts are in `examples/` and need no arguments:
+
+```bash
+mamba run -n ra-env python examples/lifespan_rocks.py
+mamba run -n ra-env python examples/stranding_risk.py
+```
+
+More building blocks in the
+[quickstart](https://riverarchitect.readthedocs.io/en/latest/guide/quickstart.html).
 
 ## What's in the box
 
@@ -103,7 +131,7 @@ More in the [quickstart](https://riverarchitect.readthedocs.io/en/latest/guide/q
 | `riverarchitect.volume_assessment` | Earthworks quantities from a pair of DEMs |
 | `riverarchitect.mapping` | QGIS print layouts and multi-page PDF map series |
 | `riverarchitect.config` | Paths, units, canonical NoData value |
-| `riverarchitect.gui` | Tkinter interface |
+| `riverarchitect.gui` | Desktop interface: Qt front end with a tkinter fallback |
 | `riverarchitect.tools` | `reconcile_nodata`, `lyrx2qml` command-line tools |
 
 ## Migrating from the ArcGIS version
@@ -120,7 +148,7 @@ Two migration tools ship with the package:
 
 ```bash
 # normalise inconsistent NoData sentinels in a condition (the mask is preserved exactly)
-python -m riverarchitect.tools.reconcile_nodata 01_Conditions/my_condition --dry-run
+python -m riverarchitect.tools.reconcile_nodata sample-data/01_Conditions/2100_sample --dry-run
 
 # convert ArcGIS layer symbology (.lyrx, which is CIM JSON) to a QGIS style (.qml)
 python -m riverarchitect.tools.lyrx2qml LifespanRasterSymbology.lyrx
@@ -147,7 +175,7 @@ pytest                                          # test suite
 python -m sphinx -b html docs docs/_build/html  # documentation
 ```
 
-Sample data for a gravel-cobble river is in the
+Sample data lives in [`sample-data/`](sample-data); it is vendored from the
 [SampleData repository](https://github.com/RiverArchitect/SampleData).
 
 Contributions are welcome. Please open an issue before starting on a major change.

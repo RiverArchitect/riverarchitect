@@ -90,7 +90,7 @@ The Mapping tab of the graphical interface drives the same API.
 
 ## Verification
 
-Exercised end to end against `RiverArchitect-SampleData/01_Conditions/2100_sample` on Linux
+Exercised end to end against `sample-data/01_Conditions/2100_sample` on Linux
 with no Esri software present:
 
 - single-raster map: 1-page PDF, 3168 x 2448 pt (ANSI E landscape), 192 dpi

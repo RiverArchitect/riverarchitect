@@ -133,3 +133,7 @@ dist/
 CLAUDE.md
 CLAUDE.local.md
 .claude/
+
+# Analysis output written into the vendored sample project
+sample-data/Output/
+sample-data/02_Maps/

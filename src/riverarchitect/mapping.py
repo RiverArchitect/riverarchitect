@@ -43,11 +43,14 @@ try:
                            QgsCoordinateReferenceSystem)
     from qgis.PyQt.QtGui import QFont
     QGIS_AVAILABLE = True
-except:
+except ImportError:
     QGIS_AVAILABLE = False
-    print("ExceptionERROR: QGIS (qgis.core) is not available - mapping is disabled.\n"
-          "                Install QGIS and run River Architect with a Python that has the\n"
-          "                QGIS bindings on its path (see the QGIS mapping guide).")
+    # A library must not print on import: importing riverarchitect.mapping to *check*
+    # QGIS_AVAILABLE is a normal thing to do, and the GUI does exactly that before it
+    # decides what to show. Log it instead, so callers choose whether it is visible.
+    logging.getLogger("riverarchitect").info(
+        "QGIS (qgis.core) is not available - mapping is disabled. Install QGIS and run "
+        "River Architect with a Python that has the QGIS bindings on its path.")
 
 # Page geometry defaults, in millimetres. ANSI E landscape reproduces the former arcpy layout.
 ANSI_E_LANDSCAPE = (1117.6, 863.6)
@@ -114,22 +117,22 @@ class Mapper:
             self.error = True
             self.logger.info("ERROR: QGIS is not available - cannot produce maps.")
 
+        # args[0]: raster directory, args[1]: output directory. Both optional; the original
+        # expressed that with `try: args[0] / except:`, which also swallowed KeyboardInterrupt
+        # and hid genuine errors from makedirs.
+        requested = str(args[0]) if len(args) > 0 and str(args[0]).strip() else ""
         try:
-            if not (args[0].__len__() < 2):
-                self.dir_map_ras = args[0]
-            else:
-                self.dir_map_ras = str(self.get_input_ras_dir(map_type))
+            self.dir_map_ras = requested or str(self.get_input_ras_dir(map_type))
             os.makedirs(self.dir_map_ras, exist_ok=True)
-        except:
-            try:
-                self.dir_map_ras = str(self.get_input_ras_dir(map_type))
-            except:
-                self.logger.info("WARNING: The provided path to rasters for mapping is invalid. Using templates instead.")
-                self.dir_map_ras = _p(config.templates_dir(), "rasters")
+        except OSError:
+            self.logger.info("WARNING: The provided path to rasters for mapping is invalid. "
+                             "Using templates instead.")
+            self.dir_map_ras = _p(config.templates_dir(), "rasters")
+            os.makedirs(self.dir_map_ras, exist_ok=True)
 
-        try:
-            self.output_dir = args[1]
-        except:
+        if len(args) > 1 and str(args[1]).strip():
+            self.output_dir = str(args[1])
+        else:
             self.output_dir = _p(config.dir_maps(), self.condition) + os.sep
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(_p(self.output_dir, "layers"), exist_ok=True)
@@ -404,7 +407,7 @@ class Mapper:
         font.setBold(True)
         try:
             title.setFont(font)
-        except:
+        except (AttributeError, TypeError):
             pass
         title.adjustSizeToText()
         layout.addLayoutItem(title)
@@ -503,7 +506,7 @@ class Mapper:
         for i, xy in enumerate(centers):
             try:
                 x, y = float(xy[0]), float(xy[1])
-            except:
+            except (TypeError, ValueError, IndexError):
                 self.logger.info("ERROR: Invalid x-y coordinates in extent source "
                                  "[mapping.inp / reaches] - skipping page %d." % (i + 1))
                 continue
@@ -536,13 +539,11 @@ class Mapper:
             self.error = True
             return
 
-        try:
-            if args[0].__len__() > 3:
-                self.output_dir = args[0]
-                os.makedirs(self.output_dir, exist_ok=True)
-                self.logger.info(" >> Alternative output directory provided: " + str(self.output_dir))
-        except:
-            pass
+        if args and len(str(args[0])) > 3:
+            self.output_dir = str(args[0])
+            os.makedirs(self.output_dir, exist_ok=True)
+            self.logger.info(" >> Alternative output directory provided: "
+                             + str(self.output_dir))
 
         try:
             for k in kwargs.items():
@@ -562,8 +563,8 @@ class Mapper:
                 if "map_layout" in k[0]:
                     self.logger.info(" >> External map layout provided - using: " + str(k[1]))
                     self.layout = k[1]
-        except:
-            pass
+        except (AttributeError, TypeError, ValueError) as exc:
+            self.logger.info("WARNING: Could not apply a keyword argument (%s)." % exc)
 
         if self.layout is None:
             self.logger.info("ERROR: No map layout prepared - call prepare_layout() first.")
@@ -617,7 +618,7 @@ class Mapper:
         finally:
             try:
                 self.project.removeMapLayer(coverage.id())
-            except:
+            except (AttributeError, RuntimeError):
                 pass
 
         self.save_project()
@@ -631,10 +632,7 @@ class Mapper:
             self.error = True
             return
 
-        try:
-            direct_mapping = args[0]
-        except:
-            direct_mapping = True
+        direct_mapping = args[0] if args else True
 
         self.ras4map_list = [os.path.basename(f) for f in
                              sorted(glob.glob(os.path.join(self.dir_map_ras, "*.tif")))]
@@ -642,9 +640,9 @@ class Mapper:
         try:
             for k in kwargs.items():
                 if "map_items" in str(k[0]).lower():
-                    self.map_list = k[1]
-        except:
-            pass
+                    self.map_list = list(k[1])
+        except TypeError as exc:
+            self.logger.info("WARNING: map_items is not a sequence (%s) - ignoring." % exc)
         if self.map_list.__len__() < 1:
             self.map_list = self.ras4map_list
 
@@ -713,7 +711,7 @@ class Mapper:
         """Kept for API compatibility. Page extents are now driven by the atlas coverage layer."""
         try:
             x, y = float(xy[0]), float(xy[1])
-        except:
+        except (TypeError, ValueError, IndexError):
             self.logger.info("ERROR: Mapping could not assign xy-values. Undefined zoom.")
             return
         if self.map_item is None or self.dx is None or self.dy is None:

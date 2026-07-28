@@ -29,6 +29,9 @@ dependencies:
   - scikit-image
   - openpyxl
   - matplotlib
+  # graphical interface. The Qt front end is the default one; without it the interface
+  # falls back to tkinter, which the conda-forge python already bundles.
+  - pyside6
   # optional analysis extras
   - pykrige        # kriging interpolation
   - rasterstats    # zonal statistics

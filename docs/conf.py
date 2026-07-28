@@ -32,6 +32,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.mathjax",
     "sphinx.ext.todo",
     "sphinx_copybutton",
     "sphinx_design",
@@ -54,7 +55,7 @@ autodoc_mock_imports = [
     "numpy", "scipy", "pandas",
     "rasterio", "geopandas", "shapely", "fiona", "pyproj", "osgeo",
     "pykrige", "rasterstats", "whitebox", "matplotlib",
-    "qgis", "PyQt5",
+    "qgis", "PyQt5", "PySide6",
 ]
 
 autodoc_default_options = {
@@ -80,15 +81,21 @@ intersphinx_mapping = {
 myst_enable_extensions = [
     "colon_fence",
     "deflist",
+    "dollarmath",
     "substitution",
     "tasklist",
 ]
 myst_heading_anchors = 3
 myst_url_schemes = ("http", "https", "mailto")
 # The legacy wiki pages carry many cross-references written for GitHub's wiki renderer.
-# They are kept verbatim for provenance; do not fail a build over them.
-suppress_warnings = ["myst.header", "myst.xref_missing", "image.nonlocal_uri",
-                     "toc.not_included"]
+# They are kept verbatim for provenance; do not fail a build over them. `xref_ambiguous`
+# covers their in-page anchors, such as `[Run](#run)`, which MyST tries to resolve against
+# the Python domain and finds more than one match for.
+suppress_warnings = ["myst.header", "myst.xref_missing", "myst.xref_ambiguous",
+                     "image.nonlocal_uri", "toc.not_included",
+                     # The epub builder inspects the output tree and reports every doctree
+                     # cache file it finds there. Noise, not a problem with the content.
+                     "epub.unknown_project_files"]
 
 # -- HTML -------------------------------------------------------------------
 
@@ -122,5 +129,13 @@ html_context = {
 
 # -- LaTeX / man ------------------------------------------------------------
 
+# pdflatex, the Sphinx default, aborts on the Unicode this documentation contains: Greek
+# letters in the hydraulics formulae, box-drawing characters in the directory trees, and
+# mathematical italics in the legacy wiki pages. xelatex handles all of them.
+#
+# A PDF build also needs `xindy` for the index, which is why `pdf` is not in the Read the
+# Docs `formats` list: a PDF failure fails the whole build and would take the HTML down
+# with it. Locally: `make -C docs/_build/latex`.
+latex_engine = "xelatex"
 latex_documents = [(master_doc, "riverarchitect.tex", project, author, "manual")]
 man_pages = [(master_doc, "riverarchitect", project, [author], 1)]

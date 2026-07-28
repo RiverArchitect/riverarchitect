@@ -1,43 +1,70 @@
-# Installation
+# Quick installation
 
-River Architect is a Python package. It runs on Linux, macOS and Windows, and needs **no Esri
-software**: the geoprocessing runs on GDAL/rasterio/numpy/scipy and map production runs on
-QGIS.
+This page gets River Architect running in a few minutes. If something does not work, or you
+want to know *why* the steps look like this, read {doc}`installation_detailed`.
+
+```{admonition} In short
+:class: tip
+
+1. Install [Miniforge](https://conda-forge.org/download/) (gives you `conda` and `mamba`).
+2. Create the `ra-env` environment from `environment.yml`.
+3. `pip install -e .` from a clone of the repository.
+4. Optional: install QGIS if you want printed maps.
+```
+
+## Requirements at a glance
+
+| | Minimum | Notes |
+|---|---|---|
+| Operating system | Linux, macOS or Windows | no Esri software, no Windows-only dependency |
+| Python | 3.9 (3.12 recommended) | 3.12 is what `environment.yml` pins |
+| Disk | ~3 GB | almost all of it is the GDAL stack |
+| RAM | 4 GB | 8 GB for reach-scale rasters |
+| PySide6 | 6.5 or newer | the Qt interface; falls back to tkinter without it |
+| QGIS | 3.28 or newer, with Python bindings | **only** for the mapping module |
+
+Everything except mapping works without QGIS, and the interface opens without PySide6. The
+full dependency list is in {ref}`the detailed page <detailed-requirements>`.
 
 ```{note}
-If you are looking for the original ArcGIS-based River Architect, its installation
-instructions live in the [legacy wiki](../wiki/Installation.md). That version required
-ArcGIS Pro with a Spatial Analyst licence and only ran on Windows.
+River Architect is not on PyPI yet, so `pip install riverarchitect` does not work. Install
+from a clone of the repository as shown below.
 ```
 
-## Requirements
+## Install
 
-| Component | Needed for | Notes |
-|---|---|---|
-| Python >= 3.9 | everything | |
-| numpy, scipy, rasterio, geopandas, shapely, pyproj, pandas | analysis | installed automatically |
-| QGIS >= 3.28 with Python bindings | the mapping module | not installable from PyPI, see below |
-| pykrige | kriging interpolation | optional extra |
-| rasterstats | zonal statistics | optional extra |
-| whitebox | terrain/hydrology tools | optional extra |
+::::{tab-set}
 
-## Conda / mamba (recommended)
-
-The geospatial stack is far easier to install through conda-forge than through pip, because
-GDAL and its bindings come as prebuilt binaries.
+:::{tab-item} Linux
+:sync: linux
 
 ```bash
-mamba create -n ra-env -c conda-forge python=3.12 \
-    gdal rasterio geopandas shapely pyproj \
-    numpy scipy pandas openpyxl matplotlib \
-    pykrige rasterstats whitebox
+# 1. Miniforge, if you do not already have conda or mamba
+curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+bash Miniforge3-$(uname)-$(uname -m).sh
+
+# 2. River Architect
+git clone https://github.com/RiverArchitect/riverarchitect.git
+cd riverarchitect
+mamba env create -f environment.yml
 mamba activate ra-env
-pip install riverarchitect
+pip install -e ".[all]"
+
+# 3. Optional: QGIS for map production (system packages, not conda)
+sudo apt install qgis python3-qgis        # Debian / Ubuntu
 ```
 
-Or, from a clone of the repository:
+On Fedora use `sudo dnf install qgis qgis-python`, on Arch
+`sudo pacman -S qgis python-qgis`.
+:::
 
-```bash
+:::{tab-item} Windows
+:sync: windows
+
+Run these in the **Miniforge Prompt** (installed with
+[Miniforge](https://conda-forge.org/download/)), not in `cmd.exe`.
+
+```powershell
 git clone https://github.com/RiverArchitect/riverarchitect.git
 cd riverarchitect
 mamba env create -f environment.yml
@@ -45,51 +72,91 @@ mamba activate ra-env
 pip install -e ".[all]"
 ```
 
-## pip
+For map production, install QGIS with the
+[OSGeo4W installer](https://qgis.org/download/) (choose the *Express Desktop Install*).
+QGIS ships its own Python, so run the mapping module from the **OSGeo4W Shell**:
 
-```bash
-pip install "riverarchitect[all]"
+```powershell
+python-qgis -c "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
 ```
 
-On Windows and macOS this pulls prebuilt wheels for rasterio and geopandas. On Linux you may
-need GDAL development headers first; the conda route avoids that entirely.
+```{warning}
+Do not install QGIS into `ra-env`. The conda-forge `qgis` package and the OSGeo4W one
+compete for the same DLLs, and the usual result is an environment where neither works.
+```
+:::
 
-## QGIS for the mapping module
-
-Map production uses QGIS print layouts. QGIS cannot be installed from PyPI, so install it
-through your system package manager and check that its Python bindings are importable:
+:::{tab-item} macOS
+:sync: macos
 
 ```bash
-python -c "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
+# 1. Miniforge, if you do not already have conda or mamba
+curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+bash Miniforge3-$(uname)-$(uname -m).sh
+
+# 2. River Architect
+git clone https://github.com/RiverArchitect/riverarchitect.git
+cd riverarchitect
+mamba env create -f environment.yml
+mamba activate ra-env
+pip install -e ".[all]"
+
+# 3. Optional: QGIS for map production
+brew install --cask qgis
 ```
 
-Debian/Ubuntu:
+The Homebrew cask puts the bindings in QGIS's own interpreter:
 
 ```bash
-sudo apt install qgis python3-qgis
+/Applications/QGIS.app/Contents/MacOS/bin/python3 -c \
+    "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
 ```
 
-The QGIS bindings are built against the **system** Python, not against a conda environment.
-Run the mapping module with the interpreter that owns the bindings. Everything else in River
-Architect works in any environment.
+On Apple silicon, use the arm64 Miniforge build. Rosetta is not needed.
+:::
 
-If QGIS lives outside `/usr`, point `QGIS_PREFIX_PATH` at it:
+::::
 
-```bash
-export QGIS_PREFIX_PATH=/opt/qgis
-```
-
-Without QGIS, the rest of the package works normally and the Mapping tab explains what is
-missing instead of failing.
-
-## Verifying the installation
+## Check that it worked
 
 ```bash
+mamba activate ra-env
 python -c "import riverarchitect; print(riverarchitect.__version__)"
-pytest --pyargs riverarchitect   # if installed with the [test] extra
+pytest                       # 54 tests, about a second
 ```
 
-## Launching the graphical interface
+`pytest` needs the test extra: `pip install -e ".[all,test]"`.
+
+If the mapping module is going to be used, check the QGIS bindings separately with the
+interpreter that owns them (see the tabs above). River Architect reports
+`QGIS_AVAILABLE = False` and disables the Mapping tab rather than crashing when they are
+missing.
+
+## Start the interface
+
+::::{tab-set}
+
+:::{tab-item} Linux / macOS
+:sync: linux
+
+```bash
+./runRiverArchitectLinux.sh
+```
+:::
+
+:::{tab-item} Windows
+:sync: windows
+
+```powershell
+runRiverArchitectWin.bat
+```
+:::
+
+::::
+
+The launchers find the environment themselves, so there is nothing to activate first. With
+no argument they open the sample data bundled with the repository. From an activated
+environment, equivalently:
 
 ```bash
 riverarchitect                    # console script
@@ -97,24 +164,22 @@ python -m riverarchitect          # equivalent
 riverarchitect /path/to/project   # start with a project directory
 ```
 
-## Project directory layout
+{doc}`gui` covers the two front ends, the launcher options and what each tab does.
 
-River Architect resolves data paths against a *project directory*. Set it with the
-`RIVERARCHITECT_HOME` environment variable, by passing it to the console script, from the
-GUI's **Tools > Set project directory**, or in code with
-{func}`riverarchitect.config.set_project_home`.
+## The sample data
 
-```text
-my_project/
-├── 00_Flows/          flow series and duration workbooks
-├── 01_Conditions/     one sub-folder per condition, holding input rasters
-│   └── 2100_sample/
-│       ├── dem.tif
-│       ├── h001000.tif        flow depth at 1000 cfs
-│       └── u001000.tif        flow velocity at 1000 cfs
-├── 02_Maps/           QGIS projects and PDF map output
-└── Output/            analysis results
+A real gravel-cobble reach ships with the repository in `sample-data/`, so there is nothing
+extra to download. It is a complete project directory:
+
+```bash
+riverarchitect sample-data
+export RIVERARCHITECT_HOME="$PWD/sample-data"     # Windows: setx RIVERARCHITECT_HOME ...
 ```
 
-Sample data for a gravel-cobble river is available from the
-[SampleData repository](https://github.com/RiverArchitect/SampleData).
+## Next
+
+* {doc}`gui` covers the graphical interface and the launchers.
+* {doc}`tutorial` runs lifespan mapping and fish stranding on the sample data.
+* {doc}`quickstart` is a tour of the individual building blocks.
+* {doc}`installation_detailed` explains the dependency choices, the project directory
+  layout and what to do when an install goes wrong.

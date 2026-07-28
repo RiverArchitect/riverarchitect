@@ -39,11 +39,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The Qt front end. Without it the interface falls back to tkinter, which is in the standard
+# library, so the GUI opens either way. PySide6 is skipped where no wheel exists (notably
+# linux-aarch64); there, tkinter or the PyQt5 that comes with QGIS takes over.
+gui = ["pyside6>=6.5; platform_machine != 'aarch64' or sys_platform == 'darwin'"]
 interpolation = ["pykrige>=1.7"]
 zonal = ["rasterstats>=0.18"]
 terrain = ["whitebox>=2.3"]
 plotting = ["matplotlib>=3.6"]
-all = ["pykrige>=1.7", "rasterstats>=0.18", "whitebox>=2.3", "matplotlib>=3.6"]
+all = [
+    "pyside6>=6.5; platform_machine != 'aarch64' or sys_platform == 'darwin'",
+    "pykrige>=1.7", "rasterstats>=0.18", "whitebox>=2.3", "matplotlib>=3.6",
+]
 docs = [
     "sphinx>=6",
     "myst-parser>=1.0",

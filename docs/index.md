@@ -30,11 +30,18 @@ alignment, and what a two-argument `Con()` does on its false branch.
 :caption: User guide
 
 guide/installation
+guide/installation_detailed
+guide/gui
+guide/tutorial
 guide/quickstart
 guide/volumes
 guide/qgis_mapping
 guide/arcpy_migration
 ```
+
+New here? {doc}`guide/installation` takes a few minutes, then {doc}`guide/tutorial` runs a
+lifespan map and a fish stranding assessment end to end on the sample data that ships with
+the repository. {doc}`guide/gui` covers the graphical interface.
 
 ## What it does
 

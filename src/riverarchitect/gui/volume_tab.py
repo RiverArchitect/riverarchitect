@@ -18,8 +18,6 @@ class VolumeGui(RaModuleGui):
     """Compare an original and a modified DEM and report fill/excavation volumes."""
 
     title = "Volume Assessment"
-    window_width = 720
-    window_height = 470
 
     def __init__(self, master=None):
         super().__init__(master)
@@ -79,6 +77,19 @@ class VolumeGui(RaModuleGui):
                                    bg="gray95", relief=tk.FLAT)
         self.result_text.grid(row=row, column=0, columnspan=3, sticky=tk.W,
                               padx=self.pad_x, pady=self.pad_y)
+        self._check_rasterio()
+
+    def _check_rasterio(self):
+        """Disable the tab when the geospatial stack is missing, rather than fail on click."""
+        try:
+            import rasterio  # noqa: F401
+        except ImportError as exc:
+            self.b_run.config(state=tk.DISABLED)
+            self._write_result(
+                "The geospatial stack is not available in this Python environment, so the\n"
+                "volume assessment is disabled (%s).\n\n"
+                "This tab needs numpy, scipy and rasterio. Use the `ra-env` environment for\n"
+                "analysis, and the QGIS interpreter for mapping." % exc)
 
     # ----------------------------------------------------------------- callbacks
 

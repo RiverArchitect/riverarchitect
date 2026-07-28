@@ -10,11 +10,19 @@ build:
 sphinx:
   builder: html
   configuration: docs/conf.py
+  # The build is expected to be warning-free; verify locally with
+  #   python -m sphinx -W -b html docs docs/_build/html
+  # It is not enforced here because a transient failure to fetch an intersphinx inventory
+  # is a warning, and that would take the published documentation down for a network blip.
   fail_on_warning: false
 
 formats:
-  - pdf
+  - htmlzip
   - epub
+  # `pdf` is deliberately absent. The LaTeX build needs xelatex (for the Greek letters and
+  # box-drawing characters in these pages) plus xindy for the index, and a failed PDF build
+  # fails the whole Read the Docs build - taking the HTML documentation down with it. See
+  # the latex_engine comment in docs/conf.py for how to build a PDF locally.
 
 python:
   install:

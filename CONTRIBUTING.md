@@ -3,6 +3,8 @@ We'd love for you to contribute to our source code and to make River Architect e
 today. Here are the guidelines we'd like you to follow:
 
 * [Coding Conventions](#conv)
+* [Documentation](#docsbuild)
+  * [Publishing on Read the Docs](#rtdsetup)
 * [Code of Conduct](#coc)
 * [Questions and Problems](#question)
 * [Issues and Bugs](#issue)
@@ -30,6 +32,72 @@ today. Here are the guidelines we'd like you to follow:
  - If the implementation is hard to explain, it is a bad idea.
  - If the implementation is easy to explain, it may be a good idea.
  - Use namespaces.
+
+## <a name="docsbuild"></a> Documentation
+
+The documentation is Sphinx with MyST Markdown, published on Read the Docs at
+<https://riverarchitect.readthedocs.io/>.
+
+```bash
+mamba activate ra-env
+pip install -e ".[docs]"
+python -m sphinx -W -b html docs docs/_build/html      # -W: warnings are errors
+```
+
+**Keep the build at zero warnings.** `-W` is not enabled in `.readthedocs.yaml`, because a
+transient intersphinx fetch failure is a warning and would take the published site down for
+a network blip - so the check is yours to run before pushing.
+
+Read the Docs installs only `docs/requirements.txt` and mocks the geospatial imports
+(`autodoc_mock_imports` in `docs/conf.py`). Do not add a heavy dependency to the docs build;
+add it to the mock list instead. To reproduce the Read the Docs environment exactly:
+
+```bash
+python -m venv /tmp/rtdenv && /tmp/rtdenv/bin/pip install -r docs/requirements.txt
+/tmp/rtdenv/bin/python -m sphinx -W -b html docs /tmp/rtd_html
+```
+
+`docs/wiki/` holds the original GitHub wiki, preserved verbatim apart from link rewriting.
+Match the existing style there rather than reformatting the originals.
+
+### <a name="rtdsetup"></a> Publishing on Read the Docs
+
+The repository lives in the **RiverArchitect** GitHub organization, but a Read the Docs
+project can be owned by a personal Read the Docs account: project ownership on Read the Docs
+is independent of repository ownership on GitHub. What the organization has to supply is
+*access*, once.
+
+1. **Sign in to <https://readthedocs.org/> with your personal GitHub account** and connect it
+   under *Settings -> Connected Services*.
+
+2. **Install the Read the Docs GitHub App on the RiverArchitect organization.** This is the
+   step that needs an organization owner; if you are one, you can approve it yourself. Grant
+   it access to the `riverarchitect` repository (all repositories is not necessary). The App
+   asks for: contents (read), metadata (read), commit statuses (read/write), pull requests
+   (read/write) and checks (read/write). It installs the webhook itself, so there is nothing
+   to configure on the GitHub side afterwards.
+
+3. **Add the project.** Dashboard -> *Add project* -> pick `RiverArchitect/riverarchitect`.
+   Set the **slug to `riverarchitect`**: the badge in `README.md` and every documentation
+   link in the codebase points at `riverarchitect.readthedocs.io`. Set the default branch to
+   `main`. Read the Docs will find `.readthedocs.yaml` in the repository root; confirm "this
+   file exists" and it builds.
+
+4. **Check the first build** under *Builds*. It should install only `docs/requirements.txt`
+   and finish clean. `formats` produces the HTML site plus an htmlzip and an epub download.
+
+5. **Optional but worthwhile:**
+   - *Admin -> Settings*: enable **Build pull requests for this project** for preview builds
+     on every PR.
+   - *Admin -> Maintainers*: add the other maintainers so the project is not tied to one
+     personal account.
+   - *Admin -> Versions*: activate a version per release tag if you want a versioned site,
+     and set the default version.
+
+If the organization cannot install the GitHub App, fall back to *Add project -> Configure
+manually* with the public clone URL `https://github.com/RiverArchitect/riverarchitect.git`.
+That works for public repositories but leaves the webhook for you to add by hand under
+*Admin -> Integrations*, and pull request previews are not available.
 
 ## <a name="coc"></a> Code of Conduct
 

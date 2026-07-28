@@ -10,8 +10,8 @@ differing extent must be **explicitly aligned** before they are combined.
 ```python
 from riverarchitect import raster
 
-dem, dem_profile = raster.read("01_Conditions/2100_sample/dem.tif")
-depth, depth_profile = raster.read("01_Conditions/2100_sample/h001000.tif")
+dem, dem_profile = raster.read("sample-data/01_Conditions/2100_sample/dem.tif")
+depth, depth_profile = raster.read("sample-data/01_Conditions/2100_sample/h001000.tif")
 
 # The DEM and the depth raster rarely share a grid. arcpy hid this behind env.extent;
 # here it is explicit, because the silent alternative is a spatially meaningless result.
@@ -32,7 +32,7 @@ risk. That is a connected-component problem:
 import numpy as np
 from riverarchitect import raster
 
-depth, profile = raster.read("01_Conditions/2100_sample/h000300.tif")
+depth, profile = raster.read("sample-data/01_Conditions/2100_sample/h000300.tif")
 wet = np.nan_to_num(depth) > 0
 
 mask, n_pools = raster.disconnected_mask(wet, connectivity=4)
@@ -54,8 +54,8 @@ print(pools.sort_values("area", ascending=False).head())
 ```python
 from riverarchitect import raster
 
-wse, wse_profile = raster.read("01_Conditions/2100_sample/wse001000.tif")
-dem, dem_profile = raster.read("01_Conditions/2100_sample/dem.tif")
+wse, wse_profile = raster.read("sample-data/01_Conditions/2100_sample/wle.tif")
+dem, dem_profile = raster.read("sample-data/01_Conditions/2100_sample/dem.tif")
 
 points, values = raster.raster_to_points(wse, wse_profile, step=5)
 
@@ -80,7 +80,7 @@ surface, variance = raster.kriging(points, values, dem_profile, return_variance=
 from riverarchitect.volume_assessment import VolumeAssessment
 
 va = VolumeAssessment("dem.tif", "dem_modified.tif", unit="us")
-result = va.run(output_dir="Output/volumes")
+result = va.run(output_dir="sample-data/Output/volumes")
 
 print(f"fill       {result['fill_volume']:.1f} {result['volume_unit']}")
 print(f"excavation {result['excavation_volume']:.1f} {result['volume_unit']}")
@@ -95,7 +95,7 @@ as vertical prisms. See {doc}`volumes` for why that distinction is not cosmetic.
 ```python
 from riverarchitect.mapping import Mapper
 
-mapper = Mapper("2100_sample", "lf", "Output/LifespanDesign/Rasters/2100_sample",
+mapper = Mapper("2100_sample", "lf", "sample-data/Output/LifespanDesign/2100_sample",
                 "02_Maps/2100_sample")
 mapper.prepare_layout(True)
 ```
@@ -123,8 +123,8 @@ Conditions assembled from different preprocessing chains carry inconsistent NoDa
 Reconcile a condition folder before analysis:
 
 ```bash
-python -m riverarchitect.tools.reconcile_nodata 01_Conditions/2100_sample --dry-run
-python -m riverarchitect.tools.reconcile_nodata 01_Conditions/2100_sample
+python -m riverarchitect.tools.reconcile_nodata sample-data/01_Conditions/2100_sample --dry-run
+python -m riverarchitect.tools.reconcile_nodata sample-data/01_Conditions/2100_sample
 ```
 
 The NoData *mask* is preserved exactly; only the sentinel changes.

@@ -1,15 +1,28 @@
-"""Main River Architect window: a notebook of module tabs.
+"""Main tkinter window: a notebook of module tabs.
 
-Carries over the structure of the original ``parent_gui.RaGui``, with one deliberate
-difference: selecting a tab no longer calls :func:`os.chdir`. The original changed the
-process working directory per tab, which coupled unrelated modules together through global
-state and made behaviour depend on click order. Paths are now explicit.
+The fallback interface, used when no Qt binding is installed. See :mod:`riverarchitect.gui`
+for the backend choice and :mod:`riverarchitect.gui.qt` for the default front end.
+
+Carries over the structure of the original ``parent_gui.RaGui``, with three deliberate
+differences:
+
+* selecting a tab no longer calls :func:`os.chdir`. The original changed the process working
+  directory per tab, which coupled unrelated modules through global state and made behaviour
+  depend on click order. Paths are now explicit;
+* the *window* owns the menu bar and builds it once. The original rebuilt every menu on each
+  tab change, which leaked a ``tk.Menu`` per click;
+* selecting a tab no longer resizes and re-centres the window, which fought whatever size
+  the user had chosen.
 """
 
+import glob
 import logging
+import os
 import sys
 import tkinter as tk
 from tkinter import ttk
+from tkinter.filedialog import askdirectory
+from tkinter.messagebox import askokcancel, showinfo, showwarning
 
 from .. import __version__, config
 from .volume_tab import VolumeGui
@@ -28,24 +41,30 @@ class RiverArchitectGui(tk.Frame):
 
         top = self.winfo_toplevel()
         top.title("River Architect %s" % __version__)
-        top.geometry("760x520")
+        top.geometry("820x600")
 
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(expand=True, fill=tk.BOTH)
 
         self.tabs = {}
+        self.module_tabs = []
         for label, factory in (("Morphology (Volumes)", VolumeGui),
                                ("Mapping", MappingGui)):
             try:
                 tab = factory(self.notebook)
+                self.module_tabs.append(tab)
             except Exception as exc:  # a broken module must not take the whole GUI down
                 self.logger.error("Could not load the %s tab: %s", label, exc)
                 tab = self._placeholder(label, exc)
             self.tabs[label] = tab
             self.notebook.add(tab, text=label)
 
-        self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
-        self.on_tab_changed(None)
+        self.unit = tk.StringVar(value="us")
+        self._build_menus()
+
+        self.status = tk.Label(self, anchor=tk.W, relief=tk.SUNKEN, fg="dim gray")
+        self.status.pack(side=tk.BOTTOM, fill=tk.X)
+        self._update_status()
 
     def _placeholder(self, label, exc):
         frame = tk.Frame(self.notebook)
@@ -55,38 +74,132 @@ class RiverArchitectGui(tk.Frame):
                  justify=tk.LEFT).pack(padx=20)
         return frame
 
-    def on_tab_changed(self, _event):
-        """Give the selected tab the window title and rebuild its menus."""
-        try:
-            current = self.notebook.nametowidget(self.notebook.select())
-        except (tk.TclError, KeyError):
+    # --------------------------------------------------------------------- menus
+
+    def _build_menus(self):
+        """Build the menu bar once. It belongs to the window, not to a tab."""
+        top = self.winfo_toplevel()
+        menu_bar = tk.Menu(self)
+        top.config(menu=menu_bar)
+
+        project_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="Project", menu=project_menu)
+        project_menu.add_command(label="Set project directory ...",
+                                 command=self.choose_project_home)
+        project_menu.add_separator()
+        project_menu.add_command(label="Quit", command=self.quit_program)
+
+        unit_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="Units", menu=unit_menu)
+        unit_menu.add_radiobutton(label="U.S. customary", value="us", variable=self.unit,
+                                  command=lambda: self.set_unit("us"))
+        unit_menu.add_radiobutton(label="SI (metric)", value="si", variable=self.unit,
+                                  command=lambda: self.set_unit("si"))
+
+        tools_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="Tools", menu=tools_menu)
+        tools_menu.add_command(label="Reconcile NoData in a condition ...",
+                               command=self.run_reconcile_nodata)
+
+        help_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="Documentation", command=self.open_documentation)
+        help_menu.add_command(label="About", command=self.show_about)
+
+    # -------------------------------------------------------------------- actions
+
+    def set_unit(self, unit):
+        """Switch the unit system for every tab."""
+        self.unit.set(unit)
+        for tab in self.module_tabs:
+            tab.set_unit(unit)
+
+    def choose_project_home(self):
+        directory = askdirectory(title="Select the River Architect project directory",
+                                 initialdir=config.project_home())
+        if not directory:
             return
-        if hasattr(current, "set_geometry"):
-            current.set_geometry(current.window_width, current.window_height, current.title)
-        if hasattr(current, "make_standard_menus"):
-            current.make_standard_menus()
-            current.complete_menus()
+        config.set_project_home(directory)
+        for tab in self.module_tabs:
+            tab.on_project_home_change()
+        self._update_status()
+        conditions = self.module_tabs[0].condition_list if self.module_tabs else []
+        showinfo("Project directory",
+                 "Project directory set to:\n%s\n\n%d condition(s) found."
+                 % (directory, len(conditions)))
+
+    def run_reconcile_nodata(self):
+        """Run the NoData reconciliation tool on a chosen condition folder."""
+        from ..tools import reconcile_nodata
+
+        directory = askdirectory(title="Select a condition folder to reconcile",
+                                 initialdir=config.dir_conditions())
+        if not directory:
+            return
+        rasters = sorted(glob.glob(os.path.join(directory, "*.tif")))
+        if not rasters:
+            showwarning("Reconcile NoData", "No GeoTIFFs found in\n%s" % directory)
+            return
+        if not askokcancel("Reconcile NoData",
+                           "Rewrite %d raster(s) in\n%s\nto NoData = %s?\n\n"
+                           "The NoData mask is preserved exactly; only the sentinel changes."
+                           % (len(rasters), directory, config.NODATA)):
+            return
+
+        changed = failed = 0
+        for path in rasters:
+            try:
+                if reconcile_nodata.reconcile(path):
+                    changed += 1
+            except Exception as exc:  # pragma: no cover - surfaced to the user
+                failed += 1
+                self.logger.error("Could not reconcile %s: %s", path, exc)
+        message = "%d raster(s) updated." % changed
+        if failed:
+            message += "\n%d could not be read; see the log." % failed
+        showinfo("Reconcile NoData", message)
+
+    @staticmethod
+    def open_documentation():
+        import webbrowser
+        webbrowser.open("https://riverarchitect.readthedocs.io/")
+
+    def show_about(self):
+        showinfo("About River Architect",
+                 "River Architect %s\n\n"
+                 "Open-source analysis and design of fluvial ecosystems.\n"
+                 "https://riverarchitect.readthedocs.io/\n\n"
+                 "Interface: tkinter (install PySide6 for the Qt interface)\n"
+                 "Project directory:\n%s" % (__version__, config.project_home()))
+
+    def quit_program(self):
+        if askokcancel("Close", "Do you really want to quit?"):
+            self.winfo_toplevel().destroy()
+
+    def _update_status(self):
+        self.status.config(text=" Project: %s" % config.project_home())
 
 
 def main(argv=None):
-    """Console-script entry point. Starts the GUI."""
+    """Start the tkinter interface.
+
+    Normally reached through :func:`riverarchitect.gui.main`, which picks a front end.
+    """
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s  %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S")
 
-    argv = sys.argv[1:] if argv is None else argv
-    if argv:
-        # a single positional argument sets the project directory
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and not argv[0].startswith("-"):
         config.set_project_home(argv[0])
-
-    logging.getLogger("riverarchitect").info("Project directory: %s", config.project_home())
 
     try:
         root = tk.Tk()
     except tk.TclError as exc:
         print("ERROR: no display available for the graphical interface (%s).\n"
               "River Architect's modules can be used directly from Python:\n"
-              "    from riverarchitect.volume_assessment import VolumeAssessment" % exc)
+              "    from riverarchitect.volume_assessment import VolumeAssessment" % exc,
+              file=sys.stderr)
         return 1
 
     RiverArchitectGui(root)
