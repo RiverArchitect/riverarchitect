@@ -1,7 +1,6 @@
 Volume Change Assessment
 ========================
 
-***
 
 - [Introduction](#vaintro)
 - [Quick GUIde to terrain assessment](#vaquick)
@@ -31,7 +30,6 @@ Please note that an *ArcGIS Pro* `3D` extension is required for running this mod
 
 # Quick GUIde to Volume Assessment<a name="vaquick"></a>
 
-***
 
 ## Main window set-up and run<a name="vagui"></a>
 
@@ -39,12 +37,12 @@ The GUI start-up takes a couple of seconds because the module updates reach info
 
 ![vagui](https://github.com/RiverArchitect/Media/raw/master/images/gui_start_vol.PNG)
 
-To start with the *VolumeAssessment* module, first, select a [reach](RiverReaches). The subdivision of the subsequently selected Rasters can be omitted by select `IGNORE` from the `Reaches` drop-down menu.
+To start with the *VolumeAssessment* module, first, select a [reach](RiverReaches.md). The subdivision of the subsequently selected Rasters can be omitted by select `IGNORE` from the `Reaches` drop-down menu.
 Second, select an input DEM Raster (*GeoTIFF*).  Third, select a modified DEM Raster (*GeoTIFF*) that is to be compared with the input DEM Raster.
 
 
 ## Input: Set Reaches<a name="vasetreaches"></a>
-For changing [reach definitions](RiverReaches), please refer to the [reach wiki pages](RiverReaches). Keep in mind that changing [reach definitions](RiverReaches) also affects the <a href="LifespanDesign">LifespanDesign</a> and the <a href="ModifyTerrain">Modify Terrain</a> modules.
+For changing [reach definitions](RiverReaches.md), please refer to the [reach wiki pages](RiverReaches.md). Keep in mind that changing [reach definitions](RiverReaches.md) also affects the <a href="LifespanDesign">LifespanDesign</a> and the <a href="ModifyTerrain">Modify Terrain</a> modules.
 A particularity of this module is that it enables running analysis for specific river reaches, which can be renamed and the reach extents can be modified. By default, the module analyzes all reaches which are defined in a spreadsheet stored in
 `/VolumeAssessment/.templates/computation_extents.xlsx`.
 
@@ -70,7 +68,7 @@ The `Run` drop-down menu includes the `Volume Calculator` and the `Map Maker` op
 
 ## Output<a name="vaoutput"></a>
 
-Because the initial state and modified DEM Rasters may be freely selected and not necessarily correspond to a *River Architect* [*Condition*](Signposts#conditions), the *VolumeAssessment* uses **`PSEUDO_CONDITIONS`** that are derived from the directory and name of the modified DEM Raster.
+Because the initial state and modified DEM Rasters may be freely selected and not necessarily correspond to a *River Architect* [*Condition*](Signposts.md#conditions), the *VolumeAssessment* uses **`PSEUDO_CONDITIONS`** that are derived from the directory and name of the modified DEM Raster.
 
 ### Rasters<a name="vaoutras"></a>
 
@@ -114,12 +112,12 @@ The `lod` variable serves for the elimination of virtual terrain differences tha
 ```
 
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/VolumeAssessment
-[6]: https://github.com/RiverArchitect/RA_wiki/SHArC
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: VolumeAssessment.md
+[6]: SHArC.md
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md

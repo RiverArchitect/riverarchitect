@@ -1,0 +1,44 @@
+# Development environment for River Architect.
+#
+#   mamba env create -f environment.yml
+#   mamba activate ra-env
+#   pip install -e ".[all,test,docs]"
+#
+# QGIS is intentionally absent: it is not available on conda-forge in a form that reliably
+# provides the Python bindings, and it is only needed for the mapping module. Install it
+# through the system package manager and run mapping with the interpreter that owns the
+# bindings (see docs/guide/installation.md).
+name: ra-env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  # geospatial stack
+  - gdal
+  - rasterio
+  - geopandas
+  - shapely
+  - fiona
+  - pyproj
+  - rioxarray
+  - xarray
+  # analysis
+  - numpy
+  - scipy
+  - pandas
+  - scikit-image
+  - openpyxl
+  - matplotlib
+  # optional analysis extras
+  - pykrige        # kriging interpolation
+  - rasterstats    # zonal statistics
+  - whitebox       # terrain and hydrology tools
+  - richdem        # depression filling, flow routing
+  # tooling
+  - pytest
+  - pytest-cov
+  - sphinx
+  - myst-parser
+  - sphinx-rtd-theme
+  - sphinx-copybutton
+  - sphinx-design

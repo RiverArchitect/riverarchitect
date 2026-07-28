@@ -6,7 +6,7 @@
 
 # Main Tool scripts
 
-Run the following scripts with Esri's *Python* environment ([read more](Installation#raenv))
+Run the following scripts with Esri's *Python* environment ([read more](Installation.md#raenv))
 
  - `make_annualpeak.py` prepares required input data for statistic flow analyses and with the U.S. Army Corps of Engineers' [`HEC-SPP`][hecspp] software.
 
@@ -14,7 +14,7 @@ Run the following scripts with Esri's *Python* environment ([read more](Installa
 
  - `morphologydesigner.py` creates design tables for self-sustaining pool-riffle channels (uses `cHydraulic.py` and `cPoolRiffle.py`).
  
- - `rename_files.py` facilitates renaming input files for conditions according to [raster file name conventions](Signposts#nameconvention) by adding, removing or replacing a file name prefix and suffix.<a name="renamefiles"></a>
+ - `rename_files.py` facilitates renaming input files for conditions according to [raster file name conventions](Signposts.md#nameconvention) by adding, removing or replacing a file name prefix and suffix.<a name="renamefiles"></a>
 
  - `run_make_….bat` are a batchfiles that run `make_….py` on Windows x64.
 
@@ -38,16 +38,16 @@ The code execution depends on the following folders and scripts:
  - `fTools.py` is a set of functions used by other Python applications within this folder.
 
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/ModifyTerrain
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: ModifyTerrain.md
 [6]: https://github.com/RiverArchitect/RA_wiki/HabitatEvaluation
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
-[10]: https://github.com/RiverArchitect/RA_wiki/Troubleshooting
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md
+[10]: Troubleshooting.md
 
 [wyrick14]: https://www.sciencedirect.com/science/article/pii/S0169555X14000099
 [hecspp]: https://www.hec.usace.army.mil/software/hec-ssp/

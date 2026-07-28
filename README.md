@@ -1,213 +1,171 @@
-## River Architect
+# River Architect
 
-**Important: This repo is auto-imported on readthedocs.org. Please do not make any changes in setup.py nor docs/conf.py without prior local testing. Any changes in those files may cause damage. -- Thanks**
+**Analyse and design fluvial ecosystems.**
 
-## HowTo Sphinx RTD
+[![Documentation](https://readthedocs.org/projects/riverarchitect/badge/?version=latest)](https://riverarchitect.readthedocs.io/en/latest/)
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 
-This workflow builds on the developer's [online guide](https://docs.readthedocs.io/en/stable/intro/getting-started-with-sphinx.html).
+River Architect supports river engineers and ecologists in planning habitat-enhancing river
+design features: their expected lifespans, the dimensions they need to be stable, where they
+belong in the terrain, and what they are worth ecologically.
 
-### Install packages and an IDE
+This is the **open-source release**. The geoprocessing runs on GDAL, rasterio, numpy and
+scipy; map production runs on QGIS print layouts. **No Esri software or licence is
+required**, and the package runs on Linux, macOS and Windows.
 
-On Debian, install:
+The method is documented in an
+[open-access, peer-reviewed paper](https://doi.org/10.1016/j.softx.2020.100438)
+(*SoftwareX*, 2020).
 
-```
-sudo apt install python3-sphinx spyder
-pip install sphinx
-pip install sphinxjp.themes.basicstrap
-pip install sphinx-rtd-theme
-pip install sphinx-book-theme
-pip install sphinx_bootstrap_theme
-```
+---
 
-To install the *ATOM* IDE (**recommended**) tap:
+## Installation
 
-Read more about [ATOM](https://atom.io/) or how to [install *ATOM* on any platform](https://flight-manual.atom.io/getting-started/sections/installing-atom).
-
-```
-wget -qO - https://packagecloud.io/AtomEditor/atom/gpgkey | sudo apt-key add -
-sudo sh -c 'echo "deb [arch=amd64] https://packagecloud.io/AtomEditor/atom/any/ any main" > /etc/apt/sources.list.d/atom.list'
-sudo apt update
-sudo apt install atom
-```
-
-Alternatively to *ATOM*, install Spyder IDE with:
-
-```
-sudo apt install spyder
+```bash
+mamba create -n ra-env -c conda-forge python=3.12 \
+    gdal rasterio geopandas shapely pyproj numpy scipy pandas \
+    openpyxl matplotlib pykrige rasterstats whitebox
+mamba activate ra-env
+pip install riverarchitect
 ```
 
-## Build Docs
+The geospatial stack installs far more reliably through conda-forge than through pip, because
+GDAL and its bindings come as prebuilt binaries. Plain `pip install "riverarchitect[all]"`
+works too where wheels are available.
 
-#### Create Base-case
+Map production additionally needs QGIS with its Python bindings, which cannot come from PyPI:
 
-```
-mkdir docs
-cd docs
-sphinx-quickstart
-```
-
-Sphinx quickstart will guide through the process of building the documentation framework in the docs folder.
-
-Verify settings in new folder `docs/source/conf.py`.
-
-### Include *markdown* files
-
-To enable markdown with *Sphinx*, install *recommonmark* and *pandoc*:
-
-```
-pip install recommonmark
-pip install sphinx-markdown-tables
-pip install --upgrade recommonmark
-sudo apt install pandoc
+```bash
+sudo apt install qgis python3-qgis          # Debian / Ubuntu
+python -c "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
 ```
 
-Then, add *recommonmark* to the `extensions` list in *conf.py*:
+Everything except the mapping module works without QGIS. Full instructions, including the
+project directory layout, are in the
+[installation guide](https://riverarchitect.readthedocs.io/en/latest/guide/installation.html).
 
-```
-extensions = [
-    "recommonmark",
-]
-```
+## Usage
 
-<!-- with earlier than Sphinx 1.4:
+Launch the graphical interface:
 
-Open *conf.py* and add the following lines at the beginning of the file:
-
-```
-# this is conf.py
-import recommonmark
-from recommonmark.transform import AutoStructify
-from recommonmark.parser import CommonMarkParser
-source_parsers - {
-   ".md": CommonMarkParser
-}
+```bash
+riverarchitect                    # or: python -m riverarchitect
+riverarchitect /path/to/project   # start with a project directory
 ```
 
-Still in *conf.py*, go to the bottom of the file and implement the following in the `setup()` function:
+Or use the modules directly:
 
-```
-# [...] bottom of conf.py
-def setup(app):
-    app.add_config_value("recommonmark_config", {
-            "enable_math": True,
-            "enable_eval_rst": True,
-            "enable_auto_doc_ref": True,
-            "auto_code_block": True,
-            }, True)
-    app.add_transform(AutoStructify)
-```
--->
+```python
+from riverarchitect import raster
 
-To also enable markdown tables, further extend the `extensions` list in *conf.py*:
+dem, dem_profile = raster.read("01_Conditions/2100_sample/dem.tif")
+depth, depth_profile = raster.read("01_Conditions/2100_sample/h001000.tif")
 
-```
-# conf.py
-extensions = [
-    "sphinx.ext.autodoc",
-    "sphinx.ext.doctest",
-    "sphinx.ext.coverage",
-    "sphinx.ext.mathjax",
-    "sphinx.ext.ifconfig",
-    "sphinx.ext.githubpages",
-    "sphinx_markdown_tables",
-]
+# Rasters of differing extent must be aligned explicitly - the silent
+# alternative is a spatially meaningless result.
+depth = raster.align(depth, depth_profile, dem_profile)
+
+# Water surface elevation where the bed is wet; the false branch is NoData, not zero.
+wse = raster.con(depth > 0, dem + depth)
+raster.write("wse.tif", wse, dem_profile)
 ```
 
-If markdown is hidden in other file types than `.md` (e.g., in `.txt` files), those can be defined as being understood as markdown files through editing the `source_suffix` variable:
+Earthworks quantities between a pre- and post-project DEM:
 
-```
-source_suffix = {
-    ".rst": "restructuredtext",
-    ".txt": "markdown",
-    ".md": "markdown",
-}
-```
+```python
+from riverarchitect.volume_assessment import VolumeAssessment
 
-Read more about *Sphinx* and markdown implementation in the [*Sphinx* docs](https://www.sphinx-doc.org/en/master/usage/markdown.html).
-
-Another guide was written by [johncrossland](https://gist.github.com/johncrossland/9f6f54d559e9136773172aa0a429b46f) (*GitHub* *gist*) for *Sphinx 1.3* (do not use with *Sphinx 1.4 and younger).
-
-## Generate docs
-
-### HTML Website
-
-In `docs/` directory tap:
-
-```
-make html
+result = VolumeAssessment("dem.tif", "dem_modified.tif", unit="us").run()
+print(result["fill_volume"], result["excavation_volume"], result["volume_unit"])
 ```
 
-After building, the website lives in `build/html`. On Debian systems open the generated website depending on the installed desktop type:
+Fish stranding risk from disconnected wetted areas:
 
-* Lubuntu: `xdg-open`
-* Gnome: `gnome-open`
-* Xfce (Xubuntu): `exo-open`
-* KDE: `kde-open`
+```python
+import numpy as np
+from riverarchitect import raster
 
-### PDF with LaTex
-
-For PDF output, install *Tex Live*:
-
-```
- sudo apt install texlive-full -y
+depth, profile = raster.read("01_Conditions/2100_sample/h000300.tif")
+mask, n_pools = raster.disconnected_mask(np.nan_to_num(depth) > 0)
+dx, dy = raster.cell_size(profile)
+print(f"{n_pools} pools, {mask.sum() * dx * dy:.0f} sqft stranded")
 ```
 
-## Modify documentation
+More in the [quickstart](https://riverarchitect.readthedocs.io/en/latest/guide/quickstart.html).
 
-The source files for the website live in `docs/source/` and the default main document is called *index.rst* (can be modified in *conf.py*). All other *rst*-files containing documentatopm need to be linked here.
+## What's in the box
 
-Add a new section in *index.rst*, define the section depth to use, for example with links to two other files called *license.rst* and *help.rst*, and add some code block:
+| Module | Purpose |
+|---|---|
+| `riverarchitect.raster` | Raster I/O, alignment, map algebra, interpolation (IDW, kriging, nearest neighbour), connectivity, zonal statistics |
+| `riverarchitect.volume` | Triangulated-surface volume integration |
+| `riverarchitect.volume_assessment` | Earthworks quantities from a pair of DEMs |
+| `riverarchitect.mapping` | QGIS print layouts and multi-page PDF map series |
+| `riverarchitect.config` | Paths, units, canonical NoData value |
+| `riverarchitect.gui` | Tkinter interface |
+| `riverarchitect.tools` | `reconcile_nodata`, `lyrx2qml` command-line tools |
 
-```
-Intro
-^^^^^
+## Migrating from the ArcGIS version
 
-.. toctree::
-	:maxdepth: 2
+The original River Architect was built on `arcpy` and required ArcGIS Pro with a Spatial
+Analyst licence. If you are porting scripts, read
+[Migrating from arcpy](https://riverarchitect.readthedocs.io/en/latest/guide/arcpy_migration.html)
+first. Two differences silently produce wrong results if code is ported naively:
 
-	license
-	help
+- **`arcpy.env.extent` did implicit alignment.** numpy does not. Use `raster.align()`.
+- **Two-argument `Con()` yields NoData on the false branch**, not zero.
 
+Two migration tools ship with the package:
 
-This is a code block.::
+```bash
+# normalise inconsistent NoData sentinels in a condition (the mask is preserved exactly)
+python -m riverarchitect.tools.reconcile_nodata 01_Conditions/my_condition --dry-run
 
-    print("Icecream")
-    >> Icecream
-```
-
-Note that every file cited in the `toctree` of *index.rst* needs to have a header with `====` underline (level). Make sure that `license` and `help` are exactly indented four spaces, after one empty line after `:maxdepth:`, and directly under the first `:` of `:maxdepth:`.
-
-## Embedd other files
-
-### Link to Python code
-
-Files to embedd should live in `docs/`.
-.. literalinclude:: ../code.py
-    :lines: 1-
-
-### Image
-
-Images to embedd should live in `docs/img/`. Define reference to image:
-
-```
-.. |imageAliasName| image:: ../img/image-name.png
-   :align: middle
+# convert ArcGIS layer symbology (.lyrx, which is CIM JSON) to a QGIS style (.qml)
+python -m riverarchitect.tools.lyrx2qml LifespanRasterSymbology.lyrx
 ```
 
-Place image in document:
+## Documentation
 
+<https://riverarchitect.readthedocs.io/>
+
+The legacy wiki is preserved under *Concepts and legacy modules*. Its analysis concepts,
+parameters and design-feature definitions remain the best available background on the
+method; its installation instructions and code examples refer to the ArcGIS version.
+
+## Development
+
+```bash
+git clone https://github.com/RiverArchitect/riverarchitect.git
+cd riverarchitect
+mamba env create -f environment.yml
+mamba activate ra-env
+pip install -e ".[all,test,docs]"
+
+pytest                                          # test suite
+python -m sphinx -b html docs docs/_build/html  # documentation
 ```
-  |imageAliasName|
-```
 
+Sample data for a gravel-cobble river is in the
+[SampleData repository](https://github.com/RiverArchitect/SampleData).
 
+Contributions are welcome. Please open an issue before starting on a major change.
 
-## Rendering tools
+## Citing
 
-Render *rst* files instantaneously while typing in a web browser for example with [Socrates](http://socrates.io/) (or [install locally](https://socrates.readthedocs.io/en/latest/installation.html) with `pip install socrates`).
+> Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020).
+> River Architect. *SoftwareX* 11, 100438.
+> <https://doi.org/10.1016/j.softx.2020.100438>
 
-## Deploy website
+## Acknowledgment
 
-Cleanup the docs directory (the `build/` folder is not needed - consider excluding it with a *.gitignore* file). Then push your website to GitHub or GitLab, create an account on [readthedocs.org](https://readthedocs.org/) and import your project from GitHub or GitLab.
+Developed in the [Pasternack Lab](http://pasternack.ucdavis.edu/) at the University of
+California, Davis, Department of Land, Air and Water Resources, with funding from the
+[Yuba Water Agency](https://www.yubawater.org/) (Awards #201016094 and #10446) and the
+[USDA National Institute of Food and Agriculture](https://nifa.usda.gov/)
+(Hatch project CA-D-LAW-7034-H).
 
-*readthedocs.org* will generate the website and publish it on *https://YOUR-REPO-NAME.readthedocs.io*.
+## License
+
+BSD 3-Clause. See [LICENSE](LICENSE).

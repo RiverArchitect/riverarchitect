@@ -2,11 +2,10 @@
 [Feature lifespan and design assessment][3]
 ======================================
 
-***
 
 - [Quick GUIde to lifespan and design mapping][3]
-- [Parameter hypotheses](LifespanDesign-parameters)
-- [River design and restoration features](River-design-features)
+- [Parameter hypotheses](LifespanDesign-parameters.md)
+- [River design and restoration features](River-design-features.md)
 - **Code extension and modification**
   * [Conventions](#conventions)
   * [Order of analysis (hierarchy) and temp (.cache) Raster names](#order)
@@ -59,11 +58,11 @@ The best position of restoration features and their lifespans depend on multiple
     Internal Raster name: `ras_d2w` (relevant, e.g., for plantings and terrain grading)
 
 The dimensional hydraulic maps need to be invoked before any other analysis is performed because the *u* and *h* maps are the only ones that entirely cover the area of interest, without "`noData`" pixels.<br/>
-Every `feature` has a `feature.parameter_list` attribute containing a list of parameters that determine the feature lifespan and applicability space. The parameters are ordered in the `feature.parameter_list` according to the hierarchy. Once the last element of `feature.parameter_list` is processed and stored in the cache folder, the code exits the loop and copies the last `ras_parameter` to the `Output/Rasters/condition/` folder. This copy is renamed `lf_shortname`, where the usage of [shortnames](River-design-features#introduction-and-feature-groups) is necessary because `arcpy` cannot save or copy Raster with names exceeding 13 characters when GRID Rasters are used (even though the primary Raster type if *GeoTIFF*).
+Every `feature` has a `feature.parameter_list` attribute containing a list of parameters that determine the feature lifespan and applicability space. The parameters are ordered in the `feature.parameter_list` according to the hierarchy. Once the last element of `feature.parameter_list` is processed and stored in the cache folder, the code exits the loop and copies the last `ras_parameter` to the `Output/Rasters/condition/` folder. This copy is renamed `lf_shortname`, where the usage of [shortnames](River-design-features.md#introduction-and-feature-groups) is necessary because `arcpy` cannot save or copy Raster with names exceeding 13 characters when GRID Rasters are used (even though the primary Raster type if *GeoTIFF*).
 
 ## Add parameters<a name="addpar"></a>
 
-The currently implemented parameters are listed in the [parameters section](LifespanDesign-parameters). New parameters may require new input Rasters in addition to the [default Rasters](Signposts#inpfile). The Rasters need to be saved in the folder `01_Conditions/CONDITION/` using the *GeoTIFF* (or *Esri GRID*) format. Other Raster formats will result in errors when the code attempts to save the final Rasters. The template for creating a new parameter class is shown in the box. Use the following workflow to implement a new parameter in the code:
+The currently implemented parameters are listed in the [parameters section](LifespanDesign-parameters.md). New parameters may require new input Rasters in addition to the [default Rasters](Signposts.md#inpfile). The Rasters need to be saved in the folder `01_Conditions/CONDITION/` using the *GeoTIFF* (or *Esri GRID*) format. Other Raster formats will result in errors when the code attempts to save the final Rasters. The template for creating a new parameter class is shown in the box. Use the following workflow to implement a new parameter in the code:
 
 1.  Create *GeoTIFF* parameter Rasters in the folder `01_Conditions/CONDITION/`.
 
@@ -100,7 +99,7 @@ The major difference between the `raster_dict_lf` and `raster_dict_ds`-dictionar
 Rasters.<br/>
 Use the following workflow to implement a new parameter in the code:
 
-1.  Ensure that all required parameters are available (see the [parameter list](LifespanDesign-parameters) and [Add parameters section](#addpar)).
+1.  Ensure that all required parameters are available (see the [parameter list](LifespanDesign-parameters.md) and [Add parameters section](#addpar)).
 
 2.  Create an identifier string of 2 to 3 characters; the following explanations refer to a dummy identifier named `NEW` (replace with lowercase letters).
 
@@ -204,9 +203,9 @@ The template for a new -function in the file `cLifespanDesignAnalysis.py` is as 
  
 ## Extend features<a name="addfeat"></a>
 
-The currently implemented features are listed in the [Features](River-design-features) page. New features can be implemented in the `cFeatureLifespan.py` file using the following workflow:
+The currently implemented features are listed in the [Features](River-design-features.md) page. New features can be implemented in the `cFeatureLifespan.py` file using the following workflow:
 
-1.  Ensure that all required parameters are available (see the [parameter list](LifespanDesign-parameters) and [Add parameters section](#addpar)).
+1.  Ensure that all required parameters are available (see the [parameter list](LifespanDesign-parameters.md) and [Add parameters section](#addpar)).
 
 2.  Ensure that all required analysis and / or design functions are available (see [Add analyses](#addana)).
 
@@ -267,7 +266,7 @@ class Newfeature():
       pass
 ```  
 
-Valid `ID_i` strings are either string of: `"mu bad", "mu good", "mu method","D", "d2w low", "d2w up", "det low", "det up", "fill", "Fr", "freq", "h", "inverse_tcd ", "scour", "sf", "taux", "u"`. The `get_thresh_value("ID_i")` -function is a routine of the `ThresholdDirector` class which is stored in `LifespanDesign/cThresholdDirector.py`. Modifications of the `ThresholdDirector` class are deprecated and threshold values should be modified in the spreadsheet [`LifespanDesign/.templates/threshold_values.xlsx`](LifespanDesign#modthresh).
+Valid `ID_i` strings are either string of: `"mu bad", "mu good", "mu method","D", "d2w low", "d2w up", "det low", "det up", "fill", "Fr", "freq", "h", "inverse_tcd ", "scour", "sf", "taux", "u"`. The `get_thresh_value("ID_i")` -function is a routine of the `ThresholdDirector` class which is stored in `LifespanDesign/cThresholdDirector.py`. Modifications of the `ThresholdDirector` class are deprecated and threshold values should be modified in the spreadsheet [`LifespanDesign/.templates/threshold_values.xlsx`](LifespanDesign.md#modthresh).
 
  
 If the new feature has subfeatures, the following template applies:
@@ -315,16 +314,16 @@ class NewSubFeature_i():
       pass
 ```  
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/ModifyTerrain
-[6]: https://github.com/RiverArchitect/RA_wiki/SHArC
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
-[10]: https://github.com/RiverArchitect/RA_wiki/Troubleshooting
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: ModifyTerrain.md
+[6]: SHArC.md
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md
+[10]: Troubleshooting.md
 
 [bywater15]: http://dx.doi.org/10.1002/2014WR016641
 [carley12]: https://www.sciencedirect.com/science/article/pii/S0169555X12003819

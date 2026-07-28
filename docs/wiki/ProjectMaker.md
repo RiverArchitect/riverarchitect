@@ -1,7 +1,6 @@
 Project Maker 
 =============
 
-***
 
 - [Introduction to the Project Maker module](#pmintro)
 - [Quick GUIde to a project assessment](#pmquick)
@@ -27,7 +26,7 @@ Project Maker
 
 # Introduction to the Project Maker module<a name="pmintro"></a>
 
-The *ProjectMaker* module guides through the half-automated assessment of cost-relevant quantities and ecological project benefits. A "restoration plan" or project proposal for a restoration plan herein designates an isolated restoration measure that can be delineated with an own `ProjectArea.shp` shapefile. *version*s of a restoration plan may refer to [terraforming](River-design-features#featoverview) options or other planning [*Condition*s](Signposts#new-condition). A project proposal is prepared for (preliminarily) *version*s of a restoration plan including relevant [nature-based engineering features](River-design-features#bioeng) (i.e., [vegetation plantings](River-design-features#plants), stabilizing features such as the placement of [angular boulders](River-design-features#rocks), and [*anchored* streamwood](River-design-features#elj)) and it evaluates cost-relevant quantities. A project cost table uses the cost-relevant quantities for a preliminary cost estimate. The habitat utility in terms of net gain in **S**easonal **H**abitat **Area** ([**SHArea**](SHArC#herunSHArea)) for target fish species determines the project return in *"US\$ per \[acre or m<sup>2</sup>\] of newly created SHArea"*. This Wiki page is organized as follows:
+The *ProjectMaker* module guides through the half-automated assessment of cost-relevant quantities and ecological project benefits. A "restoration plan" or project proposal for a restoration plan herein designates an isolated restoration measure that can be delineated with an own `ProjectArea.shp` shapefile. *version*s of a restoration plan may refer to [terraforming](River-design-features.md#featoverview) options or other planning [*Condition*s](Signposts.md#new-condition). A project proposal is prepared for (preliminarily) *version*s of a restoration plan including relevant [nature-based engineering features](River-design-features.md#bioeng) (i.e., [vegetation plantings](River-design-features.md#plants), stabilizing features such as the placement of [angular boulders](River-design-features.md#rocks), and [*anchored* streamwood](River-design-features.md#elj)) and it evaluates cost-relevant quantities. A project cost table uses the cost-relevant quantities for a preliminary cost estimate. The habitat utility in terms of net gain in **S**easonal **H**abitat **Area** ([**SHArea**](SHArC.md#herunSHArea)) for target fish species determines the project return in *"US\$ per \[acre or m<sup>2</sup>\] of newly created SHArea"*. This Wiki page is organized as follows:
 
  - [ProjectMaker GUI usage](#pmquick)
  - [Generate a project plan and run a cost-quantity assessment](#pmcq)
@@ -37,22 +36,20 @@ The *ProjectMaker* module guides through the half-automated assessment of cost-r
 
 # Quick GUIde to a project assessment<a name="pmquick"></a>
 
-***
 
 ## Prerequisites<a name="pmprereq"></a>
 
 
-***
 > Ensure that the following steps were executed in order to generate the required geodata for creating a project proposal:
 > 
 > -   If terraforming applies:
 >     -   The *SiteName* restoration terraforming plan was verified with 2D hydrodynamic modeling
->     -   The *River Architect*'s [*VolumeAssessment*](VolumeAssessment) module was applied to calculate excavation / fill volumes.
-> -   The [*LifespanDesign*][3] and [*MaxLifespan*][4] modules were executed for [plantings](River-design-features#plants) and [other nature-based engineering features](River-design-features#bioeng). Thus, the following directories should exist and contain plantings and other nature-based engineering feature rasters:
->     -   [Plantings](River-design-features#plants):
+>     -   The *River Architect*'s [*VolumeAssessment*](VolumeAssessment.md) module was applied to calculate excavation / fill volumes.
+> -   The [*LifespanDesign*][3] and [*MaxLifespan*][4] modules were executed for [plantings](River-design-features.md#plants) and [other nature-based engineering features](River-design-features.md#bioeng). Thus, the following directories should exist and contain plantings and other nature-based engineering feature rasters:
+>     -   [Plantings](River-design-features.md#plants):
 >         +  `RiverArchitect/LifespanDesign/Output/Rasters/CONDITION_lyr20/`
 >         +  `RiverArchitect/MaxLifespan/Output/Rasters/CONDITION_lyr20/`
->     -   [Other nature-based engineering features](River-design-features#bioeng):
+>     -   [Other nature-based engineering features](River-design-features.md#bioeng):
 >         + `RiverArchitect/LifespanDesign/Output/Rasters/CONDITION_lyr20/`
 >         + `RiverArchitect/MaxLifespan/Output/Rasters/CONDITION_lyr20/`
 > -   The [*SHArC*][6] module was applied to the pre-project (initial) condition and the "with implementation" ("as-built") condition.
@@ -152,7 +149,7 @@ The prices contained in the cost master workbook are in US\$ and may be adapted 
 
 ## Terraforming<a name="pmterraf"></a>
 
-The [*VolumeAssessment*](VolumeAssessment) module evaluated terrain excavation and fill volumes. [*VolumeAssessment*](VolumeAssessment#workbook-spreadsheets) created workbooks featuring terraforming volumes in cubic meters/yards in the directory `RiverArchitect/VolumeAssessment/Output/PSEUDO_CONDITION_volumes.xlsx`. Optionally, these workbooks can be copied to a `PSEUDO_CONDITION_volumes.xlsx` workbook in the project folder.<br/>
+The [*VolumeAssessment*](VolumeAssessment.md) module evaluated terrain excavation and fill volumes. [*VolumeAssessment*](VolumeAssessment.md#workbook-spreadsheets) created workbooks featuring terraforming volumes in cubic meters/yards in the directory `RiverArchitect/VolumeAssessment/Output/PSEUDO_CONDITION_volumes.xlsx`. Optionally, these workbooks can be copied to a `PSEUDO_CONDITION_volumes.xlsx` workbook in the project folder.<br/>
 Recall: *`PSEUDO_CONDITION_volumes.xlsx`* has to tabs: (1) *excavate\_YYYYMMDDHHhMM* and (2) *fill\_YYYYMMDDHHhMM*. Copy the terraforming volumes from either of these two spreadsheets to the cost master workbook's (`ProjectName_assessment_vii`) *terraforming\_volumes* spreadsheet (cells are highlighted, only values).<br/>
 The template's unit costs of US\$ 23.00 per cubic yard (or EUR 23.00 per m<sup>3</sup>) include short transport distances (\< 1 km) and material storage. It is hypothesized that the smaller value (i.e., either the *excavate* or the *fill* volume) is incorporated in the costs of the higher value because the smaller volume can be reused on-site. The costs for terraforming are evaluated in cell *G8* of the *cost()* tab of *CONDITION*\_volumes.xlsx, based on the excavate and fill volumes that need to be copied to the *terraforming\_volumes* tab of *CONDITION*\_volumes.xlsx. The following formula applies (*vol* refers to the *terraforming\_volumes* spreadsheet):
 
@@ -174,35 +171,35 @@ After a successful run, *Delineate plantings* has written vegetation plantings a
 **Note: *Project Maker* places best plants in alphabetic order.** In the case of the pre-defined plant species, that means, first a pixel is tested for its suitability for *Box Elder*, then for *Cottonwood*, then *White Alder*, and then *Willow*s. If a pixel already got assigned a plant species, it will not be tested again for other plant species. For example, if a pixel got assigned *Box Elder*, it will not be considered for all other plant species.
 
 **Stabilize plantings<a name="pmbio1"></a>**
-Even though the vegetation plantings maximum lifespan maps identify the optimum [plant species](River-design-features#plants) according to the highest lifespans, the projected vegetation plantings may be associated with low lifespans. Therefore, supporting (stabilizing) features such as engineered log jams (here: single anchored logs or root wads) may be required. The GUI's `Stabilize plantings` button launches a python function that adds [stabilizing nature-based engineering features](River-design-features#bioeng) such as anchored wood logs to planting areas associated with the user-defined *minimum plantings lifespan*. The *Stabilize plantings* function uses the following priorities of stabilizing features:
+Even though the vegetation plantings maximum lifespan maps identify the optimum [plant species](River-design-features.md#plants) according to the highest lifespans, the projected vegetation plantings may be associated with low lifespans. Therefore, supporting (stabilizing) features such as engineered log jams (here: single anchored logs or root wads) may be required. The GUI's `Stabilize plantings` button launches a python function that adds [stabilizing nature-based engineering features](River-design-features.md#bioeng) such as anchored wood logs to planting areas associated with the user-defined *minimum plantings lifespan*. The *Stabilize plantings* function uses the following priorities of stabilizing features:
 
-1.  [Large wood logs](River-design-features#elj) (diameters defined in `RiverArchitect/LifespanDesign/.templates/`*threshold\_values.xlsx*) if their lifespan is higher than the *Critical  plantings lifespan*.
+1.  [Large wood logs](River-design-features.md#elj) (diameters defined in `RiverArchitect/LifespanDesign/.templates/`*threshold\_values.xlsx*) if their lifespan is higher than the *Critical  plantings lifespan*.
 
-2.  [Engineered (anchored) wood logs](River-design-features#elj), where maximum lifespan maps indicate convenient applicability.
+2.  [Engineered (anchored) wood logs](River-design-features.md#elj), where maximum lifespan maps indicate convenient applicability.
 
-3.  [Vegetative nature-based engineering features](River-design-features#bioeng) (pre-defined in cost master workbook: brush layers; alternatively, fascines or geotextile can be linked from *costs!F30:F33* to *from\_geodata!C16\*...*, where the depth to the water table does not exceed the threshold values defined in `RiverArchitect/LifespanDesign/.templates/`*threshold\_values.xlsx*.
+3.  [Vegetative nature-based engineering features](River-design-features.md#bioeng) (pre-defined in cost master workbook: brush layers; alternatively, fascines or geotextile can be linked from *costs!F30:F33* to *from\_geodata!C16\*...*, where the depth to the water table does not exceed the threshold values defined in `RiverArchitect/LifespanDesign/.templates/`*threshold\_values.xlsx*.
 
-4.  [Mineralic nature-based engineering features (rock paving)](River-design-features#rocks), where the depth to the water table is insufficient for vegetative stabilization and where the terrain is steeper than the threshold values defined in `RiverArchitect/LifespanDesign/.templates/`*threshold\_values.xlsx*.
+4.  [Mineralic nature-based engineering features (rock paving)](River-design-features.md#rocks), where the depth to the water table is insufficient for vegetative stabilization and where the terrain is steeper than the threshold values defined in `RiverArchitect/LifespanDesign/.templates/`*threshold\_values.xlsx*.
 
-5.  [Angular boulders](River-design-features#rocks) where high dimensionless bed shear stress predictions prohibit the utilization of any above feature.
+5.  [Angular boulders](River-design-features.md#rocks) where high dimensionless bed shear stress predictions prohibit the utilization of any above feature.
 
 *Place best vegetation plantings* writes construction-relevant numbers for vegetation planting stabilization to the cost master workbook's *from\_geodata* spreadsheet. The *costs* spreadsheet automatically evaluates stabilizing feature quantities in the *nature-based engineering (stabilization)* and *nature-based engineering (other)* frames. Nevertheless, check the assigned cell links to the *from\_geodata* spreadsheet and adapt feature types if required. Moreover, *Stabilize plantings* creates a shapefile called (*Plant\_stab.shp*) in `ProjectName/Geodata/Shapefiles/`. **Check the cell links in the automatically opened cost master workbook's *costs* spreadsheet** (cell links to the *from\_geodata* spreadsheet). Finally, save and close the workbook.
 
 ## Stabilize terrain<a name="pmter"></a>
 
 The `Terrain Stabilization` frame enables the identification of areas that require additional support with nature-based engineering features to yield a target lifespan that can be defined in the field *Critical lifespan*. For example, if new terraforms are intended to persist at least 20 years, set *Critical lifespan*=20.
-A click on the `Stabilize terrain` button launches the calculations, where nature-based engineering features are placed in the same hierarchical order as before. Besides, the terrain stabilization calculates a [stable grain size Raster](River-design-features#rocks) for the provided *Critical lifespan*. The control variables of *&tau;<sub>\*,cr</sub>* (default 0.047) and [Manning\'s *n*][manningsn] can be defined by clicking on the `Set stability drivers` button. To learn more about the stable grain size computation, please refer to the [parameter calculation](LifespanDesign#inpras) and [stable grain size Raster creation](River-design-features#rocks).
+A click on the `Stabilize terrain` button launches the calculations, where nature-based engineering features are placed in the same hierarchical order as before. Besides, the terrain stabilization calculates a [stable grain size Raster](River-design-features.md#rocks) for the provided *Critical lifespan*. The control variables of *&tau;<sub>\*,cr</sub>* (default 0.047) and [Manning\'s *n*][manningsn] can be defined by clicking on the `Set stability drivers` button. To learn more about the stable grain size computation, please refer to the [parameter calculation](LifespanDesign.md#inpras) and [stable grain size Raster creation](River-design-features.md#rocks).
 
 The `Terrain Stabilization` produces writes relevant surfaces to the *from\_geodata* spreadsheet in costs master file (`ProjectName_assessment_vii.xlsx`) and produces the following geofiles:
 
  - Raster with stable grain (boulder) sizes `ProjectMaker/ProjectName_vii/Geodata/Rasters/terrain_boulder_stab.tif`
- - Shapefile with relevant [nature-based engineering features](River-design-features#bioeng) (see above definitions) `ProjectMaker/ProjectName_vii/Geodata/Shapefiles/Terrain_stab.shp`
+ - Shapefile with relevant [nature-based engineering features](River-design-features.md#bioeng) (see above definitions) `ProjectMaker/ProjectName_vii/Geodata/Shapefiles/Terrain_stab.shp`
 
 **Check the cell links in the automatically opened cost master workbook's *costs* spreadsheet** (cell links to the *from\_geodata* spreadsheet). Finally, save and close the workbook.
 
 ## Manual placement of nature-based engineering features<a name="pmbio2"></a>
 
-Additional habitat can be created with [cover features](SHArC#hemakecovhsi) (i.e., engineered logs jams or root wads) at locations that result from an expert assessment. To implement cover features, open `ProjectName/Geodata/ProjectName/ProjectMaps.aprx` to do the following:
+Additional habitat can be created with [cover features](SHArC.md#hemakecovhsi) (i.e., engineered logs jams or root wads) at locations that result from an expert assessment. To implement cover features, open `ProjectName/Geodata/ProjectName/ProjectMaps.aprx` to do the following:
 
 1.  Create a new polygon-shapefile in `ProjectName/Geodata/Shapefiles/` and name it `StreamWood`.
 
@@ -212,7 +209,7 @@ Additional habitat can be created with [cover features](SHArC#hemakecovhsi) (i.e
 
 4.  Draw engineered log jams and root wads as 10 ft x 10 ft (3.1 m x 3.1 m) rectangles.<br/>
     ***Design hints**:*<br/>
-    *[Engineered log jams](River-design-features#elj) and root wads must not be placed in side channels or anabranched sections of the rivers. However, these features can add "cover" habitat in backwater zones or reconnected ponds.*<br/>
+    *[Engineered log jams](River-design-features.md#elj) and root wads must not be placed in side channels or anabranched sections of the rivers. However, these features can add "cover" habitat in backwater zones or reconnected ponds.*<br/>
     *A save premise is to keep a distance of at least 100 ft (or approximately 30 m) between individual log jams or root wads. To respect the distances, draw a circle with a diameter of 2·100 ft (or approximately 2·30 m) and place single engineered log jams in the middle of the circles.*
 
 5.  Save the edits and stop editing.
@@ -232,7 +229,7 @@ The final project costs include site mobilization and demobilization as well as 
 ***
 
 **Please note:**
- - **There is no warranty for the calculated costs ([see disclaimer](Disclaimer)).**
+ - **There is no warranty for the calculated costs ([see disclaimer](Disclaimer.md)).**
  - **All workbook-internal cell links must be verified manually, in particular, the `cost(UNITS)` tab.**
 
 ***
@@ -249,13 +246,13 @@ The project costs are vetted against the net gain in annually usable habitat are
 
 ## Additional input and requirements<a name="pmadd"></a>
 
-Every *cHSI* raster refers to a steady discharge within a flow duration curve. The expected flow exceedance duration per discharge bin multiplied with the usable habitat area is summed up to the [SHArea](SHArC#herunSHArea). The comparison of the existing (pre-project) and the "with implementation" (post-project) habitat suitability requires the following:
+Every *cHSI* raster refers to a steady discharge within a flow duration curve. The expected flow exceedance duration per discharge bin multiplied with the usable habitat area is summed up to the [SHArea](SHArC.md#herunSHArea). The comparison of the existing (pre-project) and the "with implementation" (post-project) habitat suitability requires the following:
 
 -   Both situations (pre- and post-project) were simulated in the 2D hydrodynamic model.
 -   Flow duration curves for the project site were established:
     -   A workbook template for flow duration curves is available in `RiverArchitect/SHArC/FlowDurationCurves/flow_duration_templates.xlsx`
-    -   The [`GetStarted`](GetStarted) tab contains the `Analyze Flow` tool for producing the required format for SHArea calculation in `00_Flows/CONDITION/`. 
--   The *River Architect*'s [*SHArC*][6] module was executed for both situations (pre- and post-project) to obtain [*cHSI* rasters](SHArC#herunchsi).
+    -   The [`GetStarted`](Signposts.md#getstarted) tab contains the `Analyze Flow` tool for producing the required format for SHArea calculation in `00_Flows/CONDITION/`. 
+-   The *River Architect*'s [*SHArC*][6] module was executed for both situations (pre- and post-project) to obtain [*cHSI* rasters](SHArC.md#herunchsi).
 -   Example:
     -   The pre-project terrain DEM dates from 2008 and terrain modifications were performed based on the 2008 DEM in a reach called `rea`.
     -   Both DEMs, original and modified correspond to pre- and post-project conditions, respectively.
@@ -270,7 +267,7 @@ Every *cHSI* raster refers to a steady discharge within a flow duration curve. T
 
 When the above requirements are fulfilled, the *Project Proposal* GUI can assess the difference in usable habitat area between both situations (pre- and post-project, i.e., the net gain in SHArea). For starting the calculation, define the above-described input data and confirm the calculation:
 
--   Select a [fish species](SHArC#hefish) corresponding to the one analyzed with the [*SHArC*][6] module (e.g., *Chinook salmon*, *juvenile*). The `Select fish` button turns green after selecting a target *fish species* + *lifestage*.
+-   Select a [fish species](SHArC.md#hefish) corresponding to the one analyzed with the [*SHArC*][6] module (e.g., *Chinook salmon*, *juvenile*). The `Select fish` button turns green after selecting a target *fish species* + *lifestage*.
 -   Select an initial condition (pre-project) and confirm the selection (button turns green after selection).
 -   Select a condition after terraforming (with implementation / post-project) and confirm the selection (button turns green after selection.
 -   Click on the *Calculate Net gain in SHArea* button to start the assessment.
@@ -292,15 +289,15 @@ The discharge-related **shapefiles** with polygons of usable habitat area were s
 The cells *G3* and *I2/3* in `ProjectName_assessment_vii_FILI.xlsx` state the net gain in SHArea and the project return in units of US\$ per acre (or m<sup>2</sup> per EUR or any other currency defined) net gain in SHArea (comparison of pre-and post-project condition), respectively.
 
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/ModifyTerrain
-[6]: https://github.com/RiverArchitect/RA_wiki/SHArC
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
-[10]: https://github.com/RiverArchitect/RA_wiki/Troubleshooting
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: ModifyTerrain.md
+[6]: SHArC.md
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md
+[10]: Troubleshooting.md
 
 [manningsn]: https://en.wikipedia.org/wiki/Manning_formula#Manning_coefficient_of_roughness

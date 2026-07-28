@@ -19,14 +19,14 @@ All reaches can be deselected by clicking on "`CLEAR ALL`" to add particular rea
 The code handlers for reaches are part of `riverpy` (`RiverArchitect/.site_packages/riverpy/`). The `Reaches` class in `cDefinitions.py` flexibly sends reach information to all modules and reads reach information using the `Read` class in `cReachManager.py`. The dictionaries and lists of the `Reaches` class include an additional entry called `"none": "none"` / `"Raster extents"` to enable reach-independent analyses.
 
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/ModifyTerrain
-[51]: https://github.com/RiverArchitect/RA_wiki/VolumeAssessment
-[6]: https://github.com/RiverArchitect/RA_wiki/SHArC
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
-[10]: https://github.com/RiverArchitect/RA_wiki/Troubleshooting
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: ModifyTerrain.md
+[51]: VolumeAssessment.md
+[6]: SHArC.md
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md
+[10]: Troubleshooting.md

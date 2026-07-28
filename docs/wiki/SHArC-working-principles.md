@@ -1,20 +1,19 @@
 SHArC - Working Principles
 ==========================
 
-***
 
-- [Introduction to Habitat Suitability evaluation](SHArC#heintro)
-- [Quick GUIde to habitat suitability evaluation](SHArC#hequick)
-  * [Main window set-up and run](SHArC#main-window-set-up-and-run)
-  * [Input: Physical Habitats for Fish](SHArC#hefish)
-  * [Input: Combine methods (of habitat suitability Rasters)](SHArC#hecombine)
-  * [Input: Define computation boundaries](SHArC#hebound)
-  * [Input: HHSI](SHArC#hemakehsi)
-  * [Input: Cover HSI](SHArC#hemakecovhsi)
-  * [Combine habitat suitability Rasters](SHArC#herunchsi)
-  * [Calculate SHArea](SHArC#herunSHArea)
-  * [Output and application in river restoration projects](SHArC#heoutput)
-  * [Quit module and logfile](SHArC#quit-module-and-logfile)
+- [Introduction to Habitat Suitability evaluation](SHArC.md#heintro)
+- [Quick GUIde to habitat suitability evaluation](SHArC.md#hequick)
+  * [Main window set-up and run](SHArC.md#main-window-set-up-and-run)
+  * [Input: Physical Habitats for Fish](SHArC.md#hefish)
+  * [Input: Combine methods (of habitat suitability Rasters)](SHArC.md#hecombine)
+  * [Input: Define computation boundaries](SHArC.md#hebound)
+  * [Input: HHSI](SHArC.md#hemakehsi)
+  * [Input: Cover HSI](SHArC.md#hemakecovhsi)
+  * [Combine habitat suitability Rasters](SHArC.md#herunchsi)
+  * [Calculate SHArea](SHArC.md#herunSHArea)
+  * [Output and application in river restoration projects](SHArC.md#heoutput)
+  * [Quit module and logfile](SHArC.md#quit-module-and-logfile)
 - **Working principles**
   * [Cover HSI: Substrate](#subshsi)
   * [Cover HSI: Boulder](#bouhsi)
@@ -23,12 +22,11 @@ SHArC - Working Principles
   * [Cover HSI: Vegetation](#veghsi)
   * [Cover HSI combination methods](#hecombinecov)
   * [Usable habitat area calculation](#hewuamethods)
-- [More about Physical Habitats and Modifying `Fish.xlsx`](aqua-modification#hecode)
+- [More about Physical Habitats and Modifying `Fish.xlsx`](aqua-modification.md#hecode)
 
 ***
 
 # Working principles<a name="heprin"></a>
-***
 
 
 ## Cover HSI: Substrate<a name="subshsi"></a>
@@ -38,22 +36,22 @@ a `substrate_hsi` Raster is created in `RiverArchitect/SHArC/HSI/CONDITION/`. Th
 
 ## Cover HSI: Boulder<a name="bouhsi"></a>
 
-A `boulder` shapefile containing polygons with boulder sizes (diameters) needs to be available in `RiverArchitect/SHArC/Cover/CONDITION/`. The polygons need to be manually delineated for the entire region of interest. The module will convert boulder size information into a Raster and retain boulders with a size larger than a threshold value. Areas, where the boulder presence covers more than 30\% of the surface get assigned an HSI value of 0.5. Both the 30\% surface ratio and the associated HSI of 0.5 can be changed for every Physical Habitat for [fish species and lifestages](SHArC#hefish).
+A `boulder` shapefile containing polygons with boulder sizes (diameters) needs to be available in `RiverArchitect/SHArC/Cover/CONDITION/`. The polygons need to be manually delineated for the entire region of interest. The module will convert boulder size information into a Raster and retain boulders with a size larger than a threshold value. Areas, where the boulder presence covers more than 30\% of the surface get assigned an HSI value of 0.5. Both the 30\% surface ratio and the associated HSI of 0.5 can be changed for every Physical Habitat for [fish species and lifestages](SHArC.md#hefish).
 
 ## Cover HSI: Cobble<a name="cobhsi"></a>
 
-A `cobble` Raster containing substrate sizes (cobble diameters) needs to be available in `RiverArchitect/SHArC/HSI/CONDITION/`. The module will evaluate the percentage of area that is covered with cobble larger than a threshold value (grain size). Areas, where the percentage area covers more than 30\% of the surface get assigned an HSI value of 0.3. Both the 30\% surface ratio and the associated HSI of 0.3 can be changed for every Physical Habitat for [fish species and lifestages](SHArC#hefish).
+A `cobble` Raster containing substrate sizes (cobble diameters) needs to be available in `RiverArchitect/SHArC/HSI/CONDITION/`. The module will evaluate the percentage of area that is covered with cobble larger than a threshold value (grain size). Areas, where the percentage area covers more than 30\% of the surface get assigned an HSI value of 0.3. Both the 30\% surface ratio and the associated HSI of 0.3 can be changed for every Physical Habitat for [fish species and lifestages](SHArC.md#hefish).
 
 
 ## Cover HSI: Streamwood<a name="woohsi"></a>
 
 A `streamwood` shapefile containing polygons with single wood elements needs to be available in `RiverArchitect/SHArC/HSI/CONDITION/`. The module draws polygons with a user-defined radius around the streamwood polygons and
-assigns a value of `1` to these polygons. The new polygons are converted into a Raster and an HSI value of 0.3 is assigned to `1`-pixels. The user-defined radius and the associated HSI of 0.3 can be changed for every Physical Habitat for [fish species and lifestages](SHArC#hefish).
+assigns a value of `1` to these polygons. The new polygons are converted into a Raster and an HSI value of 0.3 is assigned to `1`-pixels. The user-defined radius and the associated HSI of 0.3 can be changed for every Physical Habitat for [fish species and lifestages](SHArC.md#hefish).
 
 
 ## Cover HSI: Vegetation<a name="veghsi"></a>
 
-A `plantings` shapefile containing polygons with single plants needs to be available in `RiverArchitect/SHArC/HSI/CONDITION/`. The module draws polygons with a user-defined radius around the plant polygons and assigns a value of `1` to these polygons. The new polygons are converted into a Raster and an HSI value of 0.3 is assigned to `1`/pixels. The user-defined radius and the associated HSI of 0.3 can be changed for every Physical Habitat for [fish species and lifestages](SHArC#hefish).
+A `plantings` shapefile containing polygons with single plants needs to be available in `RiverArchitect/SHArC/HSI/CONDITION/`. The module draws polygons with a user-defined radius around the plant polygons and assigns a value of `1` to these polygons. The new polygons are converted into a Raster and an HSI value of 0.3 is assigned to `1`/pixels. The user-defined radius and the associated HSI of 0.3 can be changed for every Physical Habitat for [fish species and lifestages](SHArC.md#hefish).
 
 
 ## Cover HSI combination methods<a name="hecombinecov"></a>

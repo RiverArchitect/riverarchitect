@@ -1,18 +1,7 @@
-Sphinx
-sphinxcontrib-bibtex<2.0.0
-m2r2
-sphinx-markdown-tables
-sphinx-book-theme
-sphinx-thebe
-matplotlib
-ipython
-jupyter-sphinx
-git+https://github.com/pandas-dev/pydata-sphinx-theme.git@master
-IPython
-jupyter_client
-ipykernel
-pandas
-git+https://github.com/jelmer/googleanalytics.git@master
-git+https://github.com/executablebooks/MyST-NB.git@master
-pandas-bokeh
-imageio
+# Documentation build requirements (used by Read the Docs).
+# Kept minimal and pinned to majors: every dependency here must be one the docs actually use.
+sphinx>=7,<9
+myst-parser>=2,<5
+sphinx-rtd-theme>=2,<4
+sphinx-copybutton>=0.5
+sphinx-design>=0.5

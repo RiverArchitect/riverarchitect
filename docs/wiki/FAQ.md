@@ -8,16 +8,16 @@ For any non-answered question or other issues, explore the [Troubleshooting Wiki
 
 
 -   **What is a *condition*?**<br/>
-    A *condition* refers to a planning state that is typically characterized by a 4-digits year indicator, followed by a layer specifier. *Condition*al Rasters (*GeoTIFF* format) are stored in `RiverArchitect /01_Conditions/`. For more information, refer to [Signposts](Signposts#conditions).
+    A *condition* refers to a planning state that is typically characterized by a 4-digits year indicator, followed by a layer specifier. *Condition*al Rasters (*GeoTIFF* format) are stored in `RiverArchitect /01_Conditions/`. For more information, refer to [Signposts](Signposts.md#conditions).
 
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/ModifyTerrain
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: ModifyTerrain.md
 [6]: https://github.com/RiverArchitect/RA_wiki/HabitatEvaluation
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
-[10]: https://github.com/RiverArchitect/RA_wiki/Troubleshooting
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md
+[10]: Troubleshooting.md

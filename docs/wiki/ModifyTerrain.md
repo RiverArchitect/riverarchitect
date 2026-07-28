@@ -1,7 +1,6 @@
 Modify Terrain (terraforming) 
 ======================================
 
-***
 
 - [Introduction to the ModifyTerrain module](#mtintro)
 - [Quick GUIde to terrain modifications](#mtquick)
@@ -11,18 +10,17 @@ Modify Terrain (terraforming)
   * [Output](#mtoutput)
   * [Working principles](#mtprin)
   * [Code modification](#mtcode)
-- [River Builder](RiverBuilder)
+- [River Builder](RiverBuilder.md)
 
 ***
 
 # Introduction<a name="mtintro"></a>
 
-The *ModifyTerrain* module can (re)model existing terrain DEMs based on threshold values or using the [River Builder](RiverBuilder) [R](https://www.r-project.org/) package.
-Threshold value-based terraforming uses DEMs of existing rivers and applies either  [widening (berm setback)](https://github.com/RiverArchitect/RA_wiki/River-design-features#berms) or [grading](https://github.com/RiverArchitect/RA_wiki/River-design-features#grading), primarily to enable plant survival (for [phreatophytes](https://en.wikipedia.org/wiki/Phreatophyte)). While the input DEMs are not necessarily required to be part of a *River Architect* [*Condition*](Signposts#conditions), the definition of [*Condition*](Signposts#conditions)s is still required because the module uses maximum lifespan maps and depth to groundwater Rasters to identify candidate pixels for terraforming.
+The *ModifyTerrain* module can (re)model existing terrain DEMs based on threshold values or using the [River Builder](RiverBuilder.md) [R](https://www.r-project.org/) package.
+Threshold value-based terraforming uses DEMs of existing rivers and applies either  [widening (berm setback)](River-design-features.md#berms) or [grading](River-design-features.md#grading), primarily to enable plant survival (for [phreatophytes](https://en.wikipedia.org/wiki/Phreatophyte)). While the input DEMs are not necessarily required to be part of a *River Architect* [*Condition*](Signposts.md#conditions), the definition of [*Condition*](Signposts.md#conditions)s is still required because the module uses maximum lifespan maps and depth to groundwater Rasters to identify candidate pixels for terraforming.
 
 # Quick GUIde to terrain modifications<a name="mtquick"></a>
 
-***
 
 ## Main window set-up and run<a name="mtgui"></a>
 
@@ -30,10 +28,10 @@ The GUI start-up takes a couple of seconds because the module updates reach info
 
 ![mtgui](https://github.com/RiverArchitect/Media/raw/master/images/gui_start_mt.PNG)
 
-To start with the *ModifyTerrain* module, first a feature set must be chosen from the drop-down menu, which is currently limited to ["Widen"](River-design-features#berms) and ["Grading"](River-design-features#grading). Second, a [*Condition*](Signposts#conditions) needs to be entered, which requires a click on the `Verify` button to update the GUI. This behavior differs from the [*LifespanDesign*][3] and [*MaxLifespan*][4] modules and an ample revision of the *ModifyTerrain* module will align to the lifespan modules in the future.
+To start with the *ModifyTerrain* module, first a feature set must be chosen from the drop-down menu, which is currently limited to ["Widen"](River-design-features.md#berms) and ["Grading"](River-design-features.md#grading). Second, a [*Condition*](Signposts.md#conditions) needs to be entered, which requires a click on the `Verify` button to update the GUI. This behavior differs from the [*LifespanDesign*][3] and [*MaxLifespan*][4] modules and an ample revision of the *ModifyTerrain* module will align to the lifespan modules in the future.
 
 ## Input: Set Reaches<a name="mtsetreaches"></a>
-This module enables analysis for specific [river reaches](RiverReaches), which can be renamed and the reach extents can be modified. The module analyzes all reaches which are defined in a spreadsheet stored in
+This module enables analysis for specific [river reaches](RiverReaches.md), which can be renamed and the reach extents can be modified. The module analyzes all reaches which are defined in a spreadsheet stored in
 `ModifyTerrain/.templates/computation_extents.xlsx`. For omitting the reach fragmentation, select `IGNORE` from the `Reaches` drop-down menu.
 
 ## Input: Set Condition<a name="mtinp"></a>
@@ -42,7 +40,7 @@ For terrain modifications, the module requires an input topo (DEM), which it loo
 
 # Threshold value-based terraforming: Widening and Grading options<a name="mtdemmod"></a>
 
-The ["Widen"](River-design-features#berms) and ["Grading"](River-design-features#grading) features use the maximum required distance to the groundwater table, which is admissible for plantings. These threshold values are defined in the [*LifespanDesign*][3] module's workbook `RiverArchitect/LifespanDesign/Input/.templates/threshold_values.xlsx`. The prior run of the [*MaxLifespan*][4] module is required to enable *ModifyTerrain* reading Rasters containing the keywords `grade` or `widen` from the folder `RiverArchitect/MaxLifespan/Output/Rasters/CONDITION/`. Moreover, a depth to groundwater table Raster (*GeoTIFF* format) with the name [`d2w.tif`](Signposts#make-depth-to-groundwater-rasters) is required in the directory `RiverArchitect/01_Conditions/CONDITION/` (use the [Get Started](Signposts#getstarted)'s [`Populate Condition`](Signposts#pop-condition) function to create a depth to the groundwater Raster).<br/>
+The ["Widen"](River-design-features.md#berms) and ["Grading"](River-design-features.md#grading) features use the maximum required distance to the groundwater table, which is admissible for plantings. These threshold values are defined in the [*LifespanDesign*][3] module's workbook `RiverArchitect/LifespanDesign/Input/.templates/threshold_values.xlsx` (NOTE 2025: the input folder is no longer present, so the current path is `RiverArchitect/LifespanDesign/.templates/threshold_values.xlsx`; not sure if this breaks the ocde or if it has been adjusted in the code; TBD). The prior run of the [*MaxLifespan*][4] module is required to enable *ModifyTerrain* reading Rasters containing the keywords `grade` or `widen` from the folder `RiverArchitect/MaxLifespan/Output/Rasters/CONDITION/`. Moreover, a depth to groundwater table Raster (*GeoTIFF* format) with the name [`d2w.tif`](Signposts.md#make-depth-to-groundwater-rasters) is required in the directory `RiverArchitect/01_Conditions/CONDITION/` (use the [Get Started](Signposts.md#getstarted)'s [`Populate Condition`](Signposts.md#pop-condition) function to create a depth to the groundwater Raster).<br/>
 The directory of maximum lifespan and depth to groundwater Rasters can be modified by clicking on the `Change feature max. lifespan Raster directory (optional)` button. This directory needs to contain *GeoTIFF*-Rasters, which have the keywords `grade` or `widen` in their filename.
 
 ***
@@ -67,7 +65,7 @@ The *ModifyTerrain* module has no standalone statement and it is recommended to 
 1.  Instantiate a *ModifyTerrain* object:<br/>
 	`mt = cmt.ModifyTerrain(condition , unit_system, feature_ids , topo_in_dir , feat_in_dir , reach_ids)`<br/>
     `unit_system` must be either "us" or "si"<br/>
-    `feature_ids` is a list of [features shortnames](https://github.com/RiverArchitect/RA_wiki/River-design-features#introduction-and-feature-groups)<br/>
+    `feature_ids` is a list of [features shortnames](River-design-features.md#introduction-and-feature-groups)<br/>
     `topo_in_dir` is an input directory for DEM and depth to groundwater table Rasters<br/>
     `feat_in_dir` is an input directory for feature max. lifespan Rasters; for custom DEMs `feat_in_dir` can be a dummy directory<br/>
     `reach_ids` is a list of reach names to limit the analysis
@@ -78,14 +76,14 @@ The *ModifyTerrain* module has no standalone statement and it is recommended to 
 
 ## Raster Output<a name="mtoutput"></a>
 
-The module creates Rasters of modified DEMs and terrain difference Rasters for grading and/or widen features in the directory `ModifyTerrain/Output/Rasters/CONDITION/`). Raster names contain a reach identifier (`r00`, `r01`, \... `r07` corresponding to spreadsheet rows 6--13), part of the [features shortnames](River-design-features#introduction-and-feature-groups). In addition, terrain **d**ifference Raster, `"d"` with either `"neg"` for excavation or `"pos"` for fill.
+The module creates Rasters of modified DEMs and terrain difference Rasters for grading and/or widen features in the directory `ModifyTerrain/Output/Rasters/CONDITION/`). Raster names contain a reach identifier (`r00`, `r01`, \... `r07` corresponding to spreadsheet rows 6--13), part of the [features shortnames](River-design-features.md#introduction-and-feature-groups). In addition, terrain **d**ifference Raster, `"d"` with either `"neg"` for excavation or `"pos"` for fill.
 
 ## Mapping<a name="mtmap"></a>
 
 Please note that automated mapping is currently deactivated for the *ModifyTerrain* module. For mapping graded or widened terrain, use the <a href="VolumeAssessment">VolumeAssessment</a> module and link the *ModifyTerrain* output Rasters to the *ArcGIS Pro* project file `RiverArchitect/02_Maps/CONDITION/map_CONDITION_design.aprx`. The relevant layout names for the *ModifyTerrain* module are:
 
- - `volumes_grade_neg` for mapping the terrain differences of parametrically (threshold-based) floodplain [grading](https://github.com/RiverArchitect/RA_wiki/River-design-features#grading) within the <a href="ModifyTerrain">Modify Terrain</a> module (only excavation `neg` is meaningful)
- - `volumes_widen_neg` for mapping the terrain differences of parametrically (threshold-based) river [widening](https://github.com/RiverArchitect/RA_wiki/River-design-features#berms) within the <a href="ModifyTerrain">Modify Terrain</a> module (only excavation `neg` is meaningful)
+ - `volumes_grade_neg` for mapping the terrain differences of parametrically (threshold-based) floodplain [grading](River-design-features.md#grading) within the <a href="ModifyTerrain">Modify Terrain</a> module (only excavation `neg` is meaningful)
+ - `volumes_widen_neg` for mapping the terrain differences of parametrically (threshold-based) river [widening](River-design-features.md#berms) within the <a href="ModifyTerrain">Modify Terrain</a> module (only excavation `neg` is meaningful)
 
 ## Working principles<a name="mtprin"></a>
 
@@ -157,7 +155,7 @@ Other routines for the automated generation of modified terrains can be added as
 
 Note:
 
-     +  The `self , feat_id , extents` arguments are required for the implementation in the call-routine, where is a [features shortnames](River-design-features#introduction-and-feature-groups) `extent` and is an `arcpy.Extent` variable that limits DEM creation to this extent.
+     +  The `self , feat_id , extents` arguments are required for the implementation in the call-routine, where is a [features shortnames](River-design-features.md#introduction-and-feature-groups) `extent` and is an `arcpy.Extent` variable that limits DEM creation to this extent.
 
      +  `self.logger.info()` sends messages to the logger, which are also printed on the *Python* terminal.
 
@@ -191,14 +189,14 @@ Note:
 ***
 
 # River Builder
-[Continue reading on *River Builder*'s own Wiki page](RiverBuilder).
+[Continue reading on *River Builder*'s own Wiki page](RiverBuilder.md).
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/ModifyTerrain
-[6]: https://github.com/RiverArchitect/RA_wiki/SHArC
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: ModifyTerrain.md
+[6]: SHArC.md
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md

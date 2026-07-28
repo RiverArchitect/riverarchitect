@@ -18,7 +18,7 @@ To download, modify and push changes to *River Architect* download and install [
 1. Type `cd "D:/Target/Directory/"` to change to the target installation directory (recommended: `cd "D:/Python/RiverArchitect/"`). If the directory does not exist, it can be created in the system explorer (right-click in empty space > `New >` > `Folder`).
 1. Clone the repository: `git clone https://github.com/RiverArchitect/program`
 
-**Now is the moment to modify the source code (e.g., [modify or add new modules](DevModule#addmod)).** After finalizing and testing (push **debugged** code only!) new code, go back to *Git Bash* and type:
+**Now is the moment to modify the source code (e.g., [modify or add new modules](DevModule.md#addmod)).** After finalizing and testing (push **debugged** code only!) new code, go back to *Git Bash* and type:
 
 1. `git status` - this shows the modifications made.
 1. If the status seems OK with the consciously made changes, type `git add .`; if only single files were changed, use `git add filename.py` instead. Best solution: use a local [gitignore file](https://help.github.com/en/github/using-git/ignoring-files).

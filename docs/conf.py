@@ -1,213 +1,126 @@
-# -*- coding: utf-8 -*-
+"""Sphinx configuration for the River Architect documentation.
 
-import sys
+Deliberately lean. The previous configuration pulled in myst-nb, jupyter-sphinx, thebe,
+ablog, IPython directives and several packages installed straight from git master branches;
+that combination broke often and for reasons unrelated to the documentation itself. What is
+left is what the docs actually use.
+"""
+
 import os
-import re
-import datetime
+import sys
+from datetime import date
 
-# If we are building locally, or the build on Read the Docs looks like a PR
-# build, prefer to use the version of the theme in this repo, not the installed
-# version of the theme.
+# The package lives under src/; make it importable for autodoc.
+sys.path.insert(0, os.path.abspath("../src"))
 
+# -- Project ----------------------------------------------------------------
 
-def is_development_build():
-    # PR builds have an interger version
-    re_version = re.compile(r"^[\d]+$")
-    if "READTHEDOCS" in os.environ:
-        version = os.environ.get("READTHEDOCS_VERSION", "")
-        if re_version.match(version):
-            return True
-        return False
-    return True
+project = "River Architect"
+author = "River Architect Development Team"
+copyright = "%d, %s" % (date.today().year, author)
 
+try:
+    from riverarchitect import __version__ as version
+except Exception:  # pragma: no cover - autodoc mocks may not be in place yet
+    version = "1.0.0"
+release = version
 
-sys.path.insert(0, os.path.abspath(".."))
-
-# the following modules will be mocked (i.e. bogus imports - required for C-dependent packages)
-autodoc_mock_imports = [
-    "alphashape",
-    "gdal", "ogr", "osr",
-    "matplotlib", "plt", "colors", "patches", "matplotlib.transform",
-    "numpy", "np",
-    "pandas", "pd",
-    "pyshp", "pyproj",
-    "scipy", "scipy.stats", "stats", "interpolate",
-    "tabulate",
-    "tkinter", "tk", "messagebox", "filedialog",
-]
-
-import sphinx_rtd_theme
-from sphinx.locale import _
-
-project = u"River Architect"
-slug = re.sub(r"\W+", "-", project.lower())
-version = "1.0.1"
-release = "latest"
-author = u"River Architect Team"
-copyright = author
-language = "en"
+# -- General ----------------------------------------------------------------
 
 extensions = [
-    "sphinx.ext.intersphinx",
-    "sphinx_copybutton",
-    "sphinx_togglebutton",
-    # "sphinxcontrib.bibtex",
     "sphinx.ext.autodoc",
-    "sphinx.ext.coverage",
-    "sphinx.ext.doctest",
-    "sphinx.ext.ifconfig",
-    "sphinx_markdown_tables",
-    "sphinx.ext.mathjax",
-    "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
-    "sphinx.ext.githubpages",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
-    "sphinx_thebe",
-    # "sphinxcontrib.googleanalytics",
-    "IPython.sphinxext.ipython_console_highlighting",
-    "IPython.sphinxext.ipython_directive",
-    "myst_nb",
-    "jupyter_sphinx",
+    "sphinx_copybutton",
+    "sphinx_design",
+    "myst_parser",
 ]
 
-templates_path = ["_templates"]
-# source_suffix = {
-#     ".rst": "restructuredtext",
-#     ".txt": "markdown",
-#     ".md": "markdown",
-# }
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
-locale_dirs = ["locale/", "docs/"]
-gettext_compact = False
-
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
-suppress_warnings = ["image.nonlocal_uri"]
+language = "en"
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+templates_path = ["_templates"]
 pygments_style = "sphinx"
+numfig = True
+todo_include_todos = False
+
+# Heavy or platform-specific dependencies are mocked so that Read the Docs can import the
+# package for autodoc without installing a full geospatial stack (and without QGIS, which
+# is not installable from PyPI at all).
+autodoc_mock_imports = [
+    "numpy", "scipy", "pandas",
+    "rasterio", "geopandas", "shapely", "fiona", "pyproj", "osgeo",
+    "pykrige", "rasterstats", "whitebox", "matplotlib",
+    "qgis", "PyQt5",
+]
+
+autodoc_default_options = {
+    "member-order": "bysource",
+    "exclude-members": "__weakref__",
+}
+autodoc_typehints = "description"
+
+napoleon_google_docstring = True
+napoleon_numpy_docstring = True
+napoleon_use_param = True
+napoleon_use_rtype = True
+napoleon_use_ivar = True
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3.8", None),
-    "rtd": ("https://docs.readthedocs.io/en/latest/", None),
-    "sphinx": ("http://www.sphinx-doc.org/en/stable/", None),
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "rasterio": ("https://rasterio.readthedocs.io/en/stable/", None),
 }
 
-nitpick_ignore = [
-    ("py:class", "docutils.nodes.document"),
-    ("py:class", "docutils.parsers.rst.directives.body.Sidebar"),
+# -- MyST -------------------------------------------------------------------
+
+myst_enable_extensions = [
+    "colon_fence",
+    "deflist",
+    "substitution",
+    "tasklist",
 ]
-
-numfig = True
-
-myst_admonition_enable = True
-myst_deflist_enable = True
+myst_heading_anchors = 3
 myst_url_schemes = ("http", "https", "mailto")
-panels_add_bootstrap_css = False
+# The legacy wiki pages carry many cross-references written for GitHub's wiki renderer.
+# They are kept verbatim for provenance; do not fail a build over them.
+suppress_warnings = ["myst.header", "myst.xref_missing", "image.nonlocal_uri",
+                     "toc.not_included"]
 
-# html_theme = "master"
+# -- HTML -------------------------------------------------------------------
+
+html_theme = "sphinx_rtd_theme"
 html_theme_options = {
-    "nosidebar": False,
-    "rightsidebar": "false",
-    "relbarbgcolor": "black",
-    "includehidden": False,
-    "navigation_with_keys": True,
-    "navigation_depth" : 2,
-    "globaltoc_collapse": True,
-    "repository_url": "https://github.com/RiverArchitect/riverarchitect/",
-    "repository_branch": "main",
-    "titles_only": True,
-    "use_edit_page_button": False,
-    "use_repository_button": True,
+    "navigation_depth": 3,
+    "collapse_navigation": False,
+    "sticky_navigation": True,
+    "prev_next_buttons_location": "both",
 }
+html_title = "River Architect %s" % version
+html_static_path = ["_static"] if os.path.isdir(
+    os.path.join(os.path.dirname(__file__), "_static")) else []
+html_last_updated_fmt = "%Y-%m-%d"
+html_show_sourcelink = True
+htmlhelp_basename = "RiverArchitect"
+
+_here = os.path.dirname(os.path.abspath(__file__))
+if os.path.isfile(os.path.join(_here, "img", "icon.svg")):
+    html_logo = "img/icon.svg"
+if os.path.isfile(os.path.join(_here, "img", "browser-icon.ico")):
+    html_favicon = "img/browser-icon.ico"
 
 html_context = {
-    "date": datetime.date.today().strftime("%Y-%m-%d"),
     "display_github": True,
     "github_user": "RiverArchitect",
     "github_repo": "riverarchitect",
-    "github_version": "main/",
-    "conf_py_path": "/docs/"
+    "github_version": "main",
+    "conf_py_path": "/docs/",
 }
 
-if not ("READTHEDOCS" in os.environ):
-    html_static_path = ["_static/"]
-    html_js_files = ["debug.js"]
+# -- LaTeX / man ------------------------------------------------------------
 
-    # Add fake versions for local QA of the menu
-    html_context["test_versions"] = list(map(
-        lambda x: str(x / 10),
-        range(1, 100)
-    ))
-
-html_favicon = os.path.abspath("..") + "/docs/img/browser-icon.ico"
-html_last_updated_fmt = ""
-html_logo = os.path.abspath("..") + "/docs/img/icon.svg"
-html_show_sourcelink = True
-html_title = "River Architect " + version
-htmlhelp_basename = "RiverArchitect"
-html_copy_source = True
-# html_sourcelink_suffix = ""
-
-
-thebe_config = {
-    "repository_url": "https://github.com/binder-examples/jupyter-stacks-datascience",
-    "repository_branch": "master",
-}
-
-latex_documents = [
-  (master_doc, "{0}.tex".format(slug), project, author, "manual"),
-]
-
-man_pages = [
-    (master_doc, slug, project, [author], 1)
-]
-# allow errors
-execution_allow_errors = True
-# execute cells only if any of the cells is missing output
-jupyter_execute_notebooks = "auto"
-
-texinfo_documents = [
-  (master_doc, slug, project, author, slug, project, "Miscellaneous"),
-]
-
-
-# Extensions to theme docs
-def setup(app):
-    from sphinx.domains.python import PyField
-    from sphinx.util.docfields import Field
-
-    app.add_object_type(
-        "confval",
-        "confval",
-        objname="configuration value",
-        indextemplate="pair: %s; configuration value",
-        doc_field_types=[
-            PyField(
-                "type",
-                label=_("Type"),
-                has_arg=False,
-                names=("type",),
-                bodyrolename="class"
-            ),
-            Field(
-                "default",
-                label=_("Default"),
-                has_arg=False,
-                names=("default",),
-            ),
-        ]
-    )
-
-
-# Napoleon settings
-napoleon_google_docstring = True
-napoleon_numpy_docstring = True
-napoleon_include_init_with_doc = False
-napoleon_include_private_with_doc = False
-napoleon_include_special_with_doc = False
-napoleon_use_admonition_for_examples = False
-napoleon_use_admonition_for_notes = False
-napoleon_use_admonition_for_references = False
-napoleon_use_ivar = True
-napoleon_use_param = True
-napoleon_use_rtype = True
-napoleon_use_keyword = True
-napoleon_custom_sections = None
+latex_documents = [(master_doc, "riverarchitect.tex", project, author, "manual")]
+man_pages = [(master_doc, "riverarchitect", project, [author], 1)]

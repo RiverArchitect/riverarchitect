@@ -1,7 +1,6 @@
 River Builder
 =============
 
-***
 
 - [Introduction](#rbintro)
 - [Create Input Files](#cinp)
@@ -22,7 +21,7 @@ The geometric parameters constitute synthetic river valleys, which represent nat
 *Synthetic river valley created with [River Builder][rb] (credits: Gregory B. Pasternack).*
 
 The synthetic river valley concept produces geodata that can be imported in GIS software (see above illustration) but without reference to real-world coordinates and hydraulic boundary conditions.
-The boundary conditions for *River Builder* are defined by a user-defined input file and *River Architect* enables the creation of such input files with graphical support. As a result, *River Builder* can be run within *River Architect* (therefore [`rpy2`](Installation#req) is required).
+The boundary conditions for *River Builder* are defined by a user-defined input file and *River Architect* enables the creation of such input files with graphical support. As a result, *River Builder* can be run within *River Architect* (therefore [`rpy2`](Installation.md#req) is required).
 We are working on automating the creation of input files in *River Architect* to the extent that synthetic valleys can be translated into real-world coordinates and reflect hydraulic conditions of real rivers.
 
 Please note that *River Builder* has an own detailed [user manual][rbman]. This wiki primarily describes the usage of *River Builder* within *River Architect*.
@@ -85,7 +84,7 @@ A click on `CREATE INPUT FILE` writes the input file to `RiverArchitect/ModifyTe
 Once an input file is created, it can be selected by clicking on the `Select RB Input.txt File` button. Also, input files can be used when they were not created with the [above described GUI](#cinp), but it is important that these input files are located in `RiverArchitect/ModifyTerrain/RiverBuilder/INPUT_FILE_NAME.txt`. This restriction is necessary because *River Builder* can only read input files that are located in the same directory as the *River Builder* R script (`riverbuilder.r`).
 
 # Run River Builder within River Architect <a name="run"></a>
-*River Architect* uses the [`rpy2`](https://rpy2.readthedocs.io/) package to load [*River Builder*][rb] (also refer to the [*River Architect* installation instructions](Installation#req)).
+*River Architect* uses the [`rpy2`](https://rpy2.readthedocs.io/) package to load [*River Builder*][rb] (also refer to the [*River Architect* installation instructions](Installation.md#req)).
 
 With an input file selected, a click on the `Run River Builder` button launches  *River Builder*. Running *River Builder* may take a couple of minutes. Pay attention to messages on the console, which may indicate if *River Builder* had issues with the provided inputs.
 

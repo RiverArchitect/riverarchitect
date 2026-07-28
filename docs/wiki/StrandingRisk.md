@@ -1,7 +1,6 @@
 Stranding Risk Assessment
 ====================
 
-***
 
 - [Introduction to the Stranding Risk Module](#intro)
 - [Quick GUIde to Stranding Risk Assessment](#guide)
@@ -28,15 +27,14 @@ The *Stranding Risk* module can be used to map areas susceptible to stranding an
 
 # Quick GUIde to Stranding Risk Assessment<a name="guide"></a>
 
-***
 
 ![gui_start_stranding](https://github.com/RiverArchitect/Media/raw/master/images/gui_start_stranding.PNG)
 
-To begin using the Stranding Risk module, first select a hydraulic [Condition](Signposts#conditions). 
+To begin using the Stranding Risk module, first select a hydraulic [Condition](Signposts.md#conditions). 
 
-*Note*: In order to determine where velocity is a barrier to fish passage, the selected condition must include velocity angle rasters. Otherwise, velocity barriers will not be considered. In order to create the `disconnected_habitat` output raster, cHSI rasters must have already been calculated for the applied [Condition](Signposts#conditions) and [Physical Habitat](SHArC#hefish) using the [SHArC](SHArC) module. In order to create the `disc_freq` output raster, flows must have already been analyzed ([Make flow duration curves](Signposts#ana-flows)) for the applied [Condition](Signposts#conditions) and [Physical Habitat](SHArC#hefish).
+*Note*: In order to determine where velocity is a barrier to fish passage, the selected condition must include velocity angle rasters. Otherwise, velocity barriers will not be considered. In order to create the `disconnected_habitat` output raster, cHSI rasters must have already been calculated for the applied [Condition](Signposts.md#conditions) and [Physical Habitat](SHArC.md#hefish) using the [SHArC](SHArC.md) module. In order to create the `disc_freq` output raster, flows must have already been analyzed ([Make flow duration curves](Signposts.md#ana-flows)) for the applied [Condition](Signposts.md#conditions) and [Physical Habitat](SHArC.md#hefish).
 
-Next, select at least one [Physical Habitat](SHArC#hefish) (fish species/lifestage) from the dropdown menu. The Physical Habitat contains data specific to the fish species/lifestage. Physical Habitat data is used by the Stranding Risk module to determine if fish are able to traverse wetted areas by accounting for the organism's minimum swimming depth and maximum swimming speed (Physical Habitat data are also used by [SHArC](SHArC) to determine habitat suitability). These data can be viewed/edited via the drop-down menu: `Select Physical Habitat `  --> `DEFINE FISH SPECIES` (scroll to the "Travel Thresholds" section of the workbook).
+Next, select at least one [Physical Habitat](SHArC.md#hefish) (fish species/lifestage) from the dropdown menu. The Physical Habitat contains data specific to the fish species/lifestage. Physical Habitat data is used by the Stranding Risk module to determine if fish are able to traverse wetted areas by accounting for the organism's minimum swimming depth and maximum swimming speed (Physical Habitat data are also used by [SHArC](SHArC.md) to determine habitat suitability). These data can be viewed/edited via the drop-down menu: `Select Physical Habitat `  --> `DEFINE FISH SPECIES` (scroll to the "Travel Thresholds" section of the workbook).
 
 Once the desired condition and Physical Habitat(s) are selected, choose model discharges Q<sub>high</sub> and Q<sub>low</sub>. This defines the range of discharges over which to apply the stranding risk analysis, simulating the changes in habitat connectivity for a flow reduction from Q<sub>high</sub> to Q<sub>low</sub>.
 
@@ -44,19 +42,19 @@ Next, input a time period for the downramping. This is the amount of time (in mi
 
 Lastly, select an interpolation method. See [Interpolating Hydraulic Rasters](#interpolating-hydraulic-rasters) for more information.
 
-For further explanation of the methodology used in the analysis, see [Methodology](StrandingRisk#Methodology).
+For further explanation of the methodology used in the analysis, see [Methodology](StrandingRisk.md#Methodology).
 
 Outputs are stored in `StrandingRisk\Output\Condition_name\`. These outputs include:
 
-- interpolated rasters (`h_interp`, `u_interp`, `va_interp`): interpolated depth, velocity (magnitude), and velocity angle rasters. See [Interpolating Hydraulic Rasters](StrandingRisk#interpolating-hydraulic-rasters) for more information.'
+- interpolated rasters (`h_interp`, `u_interp`, `va_interp`): interpolated depth, velocity (magnitude), and velocity angle rasters. See [Interpolating Hydraulic Rasters](StrandingRisk.md#interpolating-hydraulic-rasters) for more information.'
 
 Outputs specific to the applied flow reduction are stored in the subdirectory `StrandingRisk\Output\Condition_name\flow_red_Qhigh_Qlow`. These outputs include:
 
-- `shortest_paths\`: directory containing a raster for each model discharge in the range Q<sub>low</sub>-Q<sub>high</sub>, indicating the minimum distance/least cost required to escape to the river mainstem at Q<sub>low</sub>, subject to constraints imposed by the travel thresholds for the selected Physical Habitat. See [Escape Route Calculations](StrandingRisk#escape-route-calculations) for more.
-- `disc_areas\`: directory containing a shapefile for each model discharge indicating wetted areas which are effectively disconnected at that discharge. See [Calculating Disconnected Habitat Area](StrandingRisk#calculating-disconnected-area) for more.
+- `shortest_paths\`: directory containing a raster for each model discharge in the range Q<sub>low</sub>-Q<sub>high</sub>, indicating the minimum distance/least cost required to escape to the river mainstem at Q<sub>low</sub>, subject to constraints imposed by the travel thresholds for the selected Physical Habitat. See [Escape Route Calculations](StrandingRisk.md#escape-route-calculations) for more.
+- `disc_areas\`: directory containing a shapefile for each model discharge indicating wetted areas which are effectively disconnected at that discharge. See [Calculating Disconnected Habitat Area](StrandingRisk.md#calculating-disconnected-area) for more.
 - `disconnected_area.xlsx`: a spreadsheet containing plotted data of discharge vs disconnected area.
-- `disconnected_habitat_specieslifestage.tif`: a raster showing all wetted areas which become disconnected in the applied flow reduction scenario, weighted by the combined habitat suitability index (cHSI) at Q<sub>high</sub> (before the flow reduction occurs). See [Calculating Disconnected Habitat Area](StrandingRisk#calculating-disconnected-area) for more.
-- `Q_disconnect.tif`: a raster showing the highest model discharge for which areas are disconnected from the mainstem at Q<sub>low</sub>. Locations that are not disconnected at any modeled discharge are assigned a value of zero. Thus, this map indicates locations and discharges below which stranding risks may occur. See [Determining Q<sub>disconnect</sub>](StrandingRisk#determining-qdisconnect) for more.
+- `disconnected_habitat_specieslifestage.tif`: a raster showing all wetted areas which become disconnected in the applied flow reduction scenario, weighted by the combined habitat suitability index (cHSI) at Q<sub>high</sub> (before the flow reduction occurs). See [Calculating Disconnected Habitat Area](StrandingRisk.md#calculating-disconnected-area) for more.
+- `Q_disconnect.tif`: a raster showing the highest model discharge for which areas are disconnected from the mainstem at Q<sub>low</sub>. Locations that are not disconnected at any modeled discharge are assigned a value of zero. Thus, this map indicates locations and discharges below which stranding risks may occur. See [Determining Q<sub>disconnect</sub>](StrandingRisk.md#determining-qdisconnect) for more.
 - `disc_freq.tif`: a raster showing the historical frequency for which each area becomes disconnected, in number of times per year, confined to the season of interest for the analyzed species/lifestage. See [Disconnection Frequencies](#disc-freq) for more.
 - `ramping_rate_time.tif`: a raster showing the estimated ramping rate before disconnection occurs. See [Estimating Ramping Rates](#ramping-rates) for more.
 
@@ -64,15 +62,13 @@ Outputs specific to the applied flow reduction are stored in the subdirectory `S
 
 # Defining Travel Thresholds
 
-***
 
-Whether or not areas are considered to be connected/navigable for a given fish species/lifestage is dependent upon travel thresholds that are defined in the `Fish.xlsx` workbook (see [SHArC](SHArC) for more details). These include a minimum swimming depth and maximum swimming speed. To view/modify the species/lifestage specific travel thresholds, use the drop-down menu: "Select Physical Habitat" --> "DEFINE FISH SPECIES".
+Whether or not areas are considered to be connected/navigable for a given fish species/lifestage is dependent upon travel thresholds that are defined in the `Fish.xlsx` workbook (see [SHArC](SHArC.md) for more details). These include a minimum swimming depth and maximum swimming speed. To view/modify the species/lifestage specific travel thresholds, use the drop-down menu: "Select Physical Habitat" --> "DEFINE FISH SPECIES".
 
 ***
 
 # Methodology<a name="methods"></a>
 
-***
 
 ## Interpolating Hydraulic Rasters
 
@@ -146,9 +142,9 @@ Note that the default value of zero indicates pixels wetted at the highest disch
 
 ## Disconnection Frequencies <a name="disc-freq"></a>
 
-For each disconnected area, `Q_disconnect` can be combined with the hydrologic flow record in order to calculate the average number of potential stranding events occurring per year. This is generated by computing the total number of times mean daily flow drops below `Q_disconnect` during the season of interest for the applied species/lifestage ([Physical Habitat](SHArC#hefish)) and dividing by the number of years on record.
+For each disconnected area, `Q_disconnect` can be combined with the hydrologic flow record in order to calculate the average number of potential stranding events occurring per year. This is generated by computing the total number of times mean daily flow drops below `Q_disconnect` during the season of interest for the applied species/lifestage ([Physical Habitat](SHArC.md#hefish)) and dividing by the number of years on record.
 
-A `disc_freq` output map will be produced provided that flows have already been analyzed ([Make flow duration curves](Signposts#ana-flows)) for the applied [Condition](Signposts#conditions) and [Physical Habitat](SHArC#hefish).
+A `disc_freq` output map will be produced provided that flows have already been analyzed ([Make flow duration curves](Signposts.md#ana-flows)) for the applied [Condition](Signposts.md#conditions) and [Physical Habitat](SHArC.md#hefish).
 
 ***
 

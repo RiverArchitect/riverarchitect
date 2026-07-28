@@ -1,18 +1,17 @@
 Feature lifespan and design assessment
 ======================================
 
-***
 
 - [Introduction to lifespan and design mapping][3]
 - [Quick GUIde to lifespan and design maps][3]
 - **Parameter hypotheses**
-- [River design and restoration features](River-design-features)
-- [Code extension and modification](LifespanDesign-code)
+- [River design and restoration features](River-design-features.md)
+- [Code extension and modification](LifespanDesign-code.md)
 
 ***
 
 # Parameter hypotheses<a name="par"></a>
-Combinations of recurring parameters determine the lifespans of features. The code analyses the following parameters, where the application order (hierarchy) differs from the alphabetic order for reasons of map integrity (see coding conventions in the [Signposts][2]). **Calculation details** are provided within the [**descriptions for defining threshold values**](LifespanDesign#inpras).
+Combinations of recurring parameters determine the lifespans of features. The code analyses the following parameters, where the application order (hierarchy) differs from the alphabetic order for reasons of map integrity (see coding conventions in the [Signposts][2]). **Calculation details** are provided within the [**descriptions for defining threshold values**](LifespanDesign.md#inpras).
 
 -   `chsi` composite Habitat Suitability Index (dimensionless value between 0 and 1)
 
@@ -30,7 +29,7 @@ Combinations of recurring parameters determine the lifespans of features. The co
 
 -   `mu` are the morphological units (strings; see also [Wyrick and Pasternack 2014][wyrick14])
 
--   `Se` is the energy slope (dimensionless hydraulic variable; cf. [angular boulders](#rocks) and [side channels](River-design-features) sections)
+-   `Se` is the energy slope (dimensionless hydraulic variable; cf. [angular boulders](#rocks) and [side channels](River-design-features.md) sections)
 
 -   `scour` corresponds to annual erosion rates (length units, see also[Wyrick and Pasternack 2016][wyrick16])
 
@@ -65,16 +64,16 @@ The code uses the `mu` raster to identify feature-adequate morphological units t
 | tributary channel                         | tributary delta   |
 | in-channel bar (all within-bankfull bars) |                   |
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/ModifyTerrain
-[6]: https://github.com/RiverArchitect/RA_wiki/SHArC
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
-[10]: https://github.com/RiverArchitect/RA_wiki/Troubleshooting
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: ModifyTerrain.md
+[6]: SHArC.md
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md
+[10]: Troubleshooting.md
 
 [bywater15]: http://dx.doi.org/10.1002/2014WR016641
 [carley12]: https://www.sciencedirect.com/science/article/pii/S0169555X12003819

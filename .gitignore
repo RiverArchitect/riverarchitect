@@ -118,3 +118,18 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Sphinx build output
+docs/_build/
+
+# packaging
+src/*.egg-info/
+*.egg-info/
+build/
+dist/
+
+# Claude Code: local assistant instructions and settings.
+# Kept out of the repository so they are never pushed, pulled or cloned.
+CLAUDE.md
+CLAUDE.local.md
+.claude/

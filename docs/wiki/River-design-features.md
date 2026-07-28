@@ -1,10 +1,9 @@
 [Feature lifespan and design assessment][3]
 ======================================
 
-***
 
 - [Quick GUIde to lifespan and design maps][3]
-- [Parameter hypotheses](LifespanDesign-parameters)
+- [Parameter hypotheses](LifespanDesign-parameters.md)
 - **River design and restoration features**
   * [Introduction and predefined features](#featoverview)
   * [Feature-wise lifespan and design maps](#lffeats)
@@ -21,7 +20,7 @@
     + [Side cavities](#sidecav)
     + [Side channels / anabranches](#sidechnl)
   * [Instructions for defining new and modifying existing features](#modfeat)
-- [Code extension and modification](LifespanDesign-code)
+- [Code extension and modification](LifespanDesign-code.md)
 
 ***
 # Introduction and Feature Groups<a name="featoverview"></a>
@@ -122,7 +121,7 @@ The [Lifespan & Design][3] tab enables the creation of:
 
 In the context of river engineering, nature-based methods apply living materials (plants) to stabilize terrain and enhance habitat. Please note that *River Architect* internally uses the shortnames `"bioengineering"` or `"bioeng"` when referring to nature-based engineering features. Dry conditions in arid and semi-arid (Mediterranean) climate zones limits the possibilities of application. Therefore, *River Architect* additionally considers the placement of angular boulders (see [angular boulders](#rocks)). Recommended threshold values in the [`threshold_values.xlsx` workbook](#featoverview) are:
 
--   Depth to groundwater `d2w` with minimum and maximum values as a function of vegetation plantings requirements or integration depth of nature-based engineering features. Thus, *River Architect* applies nature-based engineering features such as fascines or geotextile between the **(min)** value in row 7 and the **(max)** value in row 8 of the [threshold value workbook](LifespanDesign#input-modify-threshold-values). Regions with at terrain slope above the threshold defined in row 20 and above the maximum Depth to the groundwater defined in row 8 get mineral nature-based engineering (such as rock paving or riprap) assigned according to the [stable grain size](#rocks). The differentiation is made because nature-based engineering features may dry out when the water table is too far away (vertically).
+-   Depth to groundwater `d2w` with minimum and maximum values as a function of vegetation plantings requirements or integration depth of nature-based engineering features. Thus, *River Architect* applies nature-based engineering features such as fascines or geotextile between the **(min)** value in row 7 and the **(max)** value in row 8 of the [threshold value workbook](LifespanDesign.md#input-modify-threshold-values). Regions with at terrain slope above the threshold defined in row 20 and above the maximum Depth to the groundwater defined in row 8 get mineral nature-based engineering (such as rock paving or riprap) assigned according to the [stable grain size](#rocks). The differentiation is made because nature-based engineering features may dry out when the water table is too far away (vertically).
 -   Terrain slope `S0` of 0.2 (20%).
 
 *River Architect* uses the `.../01_Conditions/CONDITION/dem.tif` to compute the percent-wise terrain slope `S0`, where modified terrain with slopes of more than the `S0` threshold is considered to require reinforcement.
@@ -162,7 +161,7 @@ Lifespan maps and design maps are created for streamwood placement and engineere
 Regarding morphological units, riffle-pool and plane bed morphologies are favorable for streamwood placement, where side channel and tributary systems are not convenient for wood placement. Streamwood inclusive list is defined as<br/>
 `mu_good = ["riffle", "riffle transition", "pool", "floodplain", "island floodplain", "lateral bar", "medial bar", "run"]`<br/>
 and the exclusive list is defined as `mu_bad = ["tributary channel", "tributary delta"]`.<br/>
-For streamwood, the exclusive approach based on `mu_bad` applies (see [parameters](LifespanDesign-parameters)).<br/>
+For streamwood, the exclusive approach based on `mu_bad` applies (see [parameters](LifespanDesign-parameters.md)).<br/>
 The design maps for the minimum required log diameter *D<sub>w</sub>* results from [Ruiz-Villanueva et al. (2016)][ruiz16b]'s interpolation curve as a function of the flow depth. The module applies on the single-thread formula because it returns larger values for the log diameter than the multi-thread formula when the probability of motion is set to zero: `Dw` = 0.32 / 0.18·`h`. The output map limits to regions where `Dw` is smaller than 7.6 m (300 in - lease contact us if that is not sufficient for a particular application).
 
 The [Lifespan & Design][3] tab enables the creation of:
@@ -401,7 +400,7 @@ Then, convert the Polygon shapefile to a `sidech.tif` GeoTIFF raster:
 1. In the `Output Raster Dataset` field select a target location and type `sidech.tif`
 1. Recommended: In the `Cellsize` field type `1.0`.
 
-For getting the `sidech.tif` Raster into *River Architect* either copy the Raster in an existing `.../RiverArchitect/01_Conditions/CONDITION/` folder or select it in the creation of a new [Condition](Signposts#conditions).
+For getting the `sidech.tif` Raster into *River Architect* either copy the Raster in an existing `.../RiverArchitect/01_Conditions/CONDITION/` folder or select it in the creation of a new [Condition](Signposts.md#conditions).
 
 Within `1`-pixels in `sidech.tif` such as a function of the following input parameters that can be defined in the [`threshold_values.xlsx` workbook](#featoverview):
 
@@ -414,7 +413,7 @@ The [Lifespan & Design][3] tab enables the creation of:
 
 The lifespan maps for side channels are considered as **Design Maps** that indicate where side channels may be potentially sustainable. Therefore, design mapping is deactivated by default at the bottom of the [`threshold_values.xlsx` workbook](#featoverview).
 
-Moreover, the final design of side channels can be improved by implementing habitat-enhancing pool-riffle sequences with velocity reversal effects for morphologically effective floods to yield self-maintenance according to [Caamaño et al. (2009)](https://ascelibrary.org/doi/10.1061/%28ASCE%290733-9429%282009%29135%3A1%2866%29). *River Architect* comes with a console script that enables the calculation of such self-maintaining pool-riffle sequences, where a morphologically effective discharge is considered as that discharge, which mobilizes grains. The script is located in `RiverArchitect/Tools/morphology_designer.py` (see [*River Architect* Tools](Tools)).
+Moreover, the final design of side channels can be improved by implementing habitat-enhancing pool-riffle sequences with velocity reversal effects for morphologically effective floods to yield self-maintenance according to [Caamaño et al. (2009)](https://ascelibrary.org/doi/10.1061/%28ASCE%290733-9429%282009%29135%3A1%2866%29). *River Architect* comes with a console script that enables the calculation of such self-maintaining pool-riffle sequences, where a morphologically effective discharge is considered as that discharge, which mobilizes grains. The script is located in `RiverArchitect/Tools/morphology_designer.py` (see [*River Architect* Tools](Tools.md)).
 
 
 ***
@@ -430,19 +429,19 @@ The workbook enables changing vegetation plantings species in columns `J` to `M`
 -   Other nature-based engineering features: Columns `"N"`, `"O"`, `"P"`.
 -   Connectivity features: Columns `"Q"`, `"R"`, `"S"`.
 
-Detailed instructions for the usage of `threshold_values.xlsx` is provided in the [*LifespanDesign*](LifespanDesign#interface-and-choice-of-features) module, where also more information on threshold values is provided.
+Detailed instructions for the usage of `threshold_values.xlsx` is provided in the [*LifespanDesign*](LifespanDesign.md#interface-and-choice-of-features) module, where also more information on threshold values is provided.
 
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/ModifyTerrain
-[6]: https://github.com/RiverArchitect/RA_wiki/SHArC
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
-[10]: https://github.com/RiverArchitect/RA_wiki/Troubleshooting
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: ModifyTerrain.md
+[6]: SHArC.md
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md
+[10]: Troubleshooting.md
 
 [busch95]: https://doi.org/10.2307/2937064
 [bywater15]: http://dx.doi.org/10.1002/2014WR016641

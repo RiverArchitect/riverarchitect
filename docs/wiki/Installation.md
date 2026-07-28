@@ -1,7 +1,17 @@
 Installation
 ============
 
-***
+```{admonition} This page describes the legacy ArcGIS version
+:class: warning
+
+These instructions are for the original River Architect, which required ArcGIS Pro with a
+Spatial Analyst licence and ran only on Windows. For the current open-source package see
+[Installation](../guide/installation.md).
+
+The page is kept for users maintaining the legacy software.
+```
+
+
 
 - [Install *River Architect*](#git_install_ra)
 - [Update *River Architect*](#update_ra)
@@ -78,8 +88,8 @@ To start using *River Architect*:
      - In the `Start_River_Architect.bat`chfile, ensure that the Python path is correctly defined according to the installed version of *ArcGIS*: `call `**EDIT>>`"%PROGRAMFILES%\ArcGIS\Pro\bin\Python\Scripts\propy"`<<**`"%cd%\master_gui.py"`. For more information about running standalone Python scripts in *ArcGIS Pro*'s conda environment, read their [descriptions](https://pro.arcgis.com/en/pro-app/arcpy/get-started/using-conda-with-arcgis-pro.htm).
      - Save and close `Start_River_Architect.bat`.
  1. Double-click on `DRIVE:\path\to\...\RiverArchitect\Start_River_Architect.bat` to start *River Architect*.
- 1. Create a [*Condition*](Signposts#getstarted) on the Welcome (*[Get Started](Signposts#getstarted)*) tab.
- 1. Analyze and create ecohydraulic paradises for [Physical Habitats prefered by target (fish) species](SHArC#hefish) with sustainable [river design features](River-design-features) using [lifespan maps](https://www.sciencedirect.com/science/article/pii/S2215016119300913?via%3Dihub).<br/>
+ 1. Create a [*Condition*](Signposts.md#getstarted) on the Welcome (*[Get Started](Signposts.md#getstarted)*) tab.
+ 1. Analyze and create ecohydraulic paradises for [Physical Habitats prefered by target (fish) species](SHArC.md#hefish) with sustainable [river design features](River-design-features.md) using [lifespan maps](https://www.sciencedirect.com/science/article/pii/S2215016119300913?via%3Dihub).<br/>
     *Hint: The **Quick GUIde** sections in the module Wikis provide straight-forward application guidance.*
 
 *River Architect* starts in a GUI that is stored in `master_gui.py`. Alternatively, the modules can be individually launched by double-clicking on the `LAUNCH_Windows_x64.bat` in the module folders (not recommended and may be abandoned in future versions).
@@ -89,11 +99,10 @@ To start using *River Architect*:
 
 # Package structure, requirements and logfiles
 
-***
 
 ## File structure<a name="structure"></a>
 
-The main directory (`/RiverArchitect/`) contains the program launcher named `Start_River_Architect.bat` and the *Python3* file `master_gui.py`. The *River Architect* modules are located in sub-folders. The master folder (`/RiverArchitect/`) includes the following files and directories (the full list of all files for developers is available [here](DevModule#struc)):
+The main directory (`/RiverArchitect/`) contains the program launcher named `Start_River_Architect.bat` and the *Python3* file `master_gui.py`. The *River Architect* modules are located in sub-folders. The master folder (`/RiverArchitect/`) includes the following files and directories (the full list of all files for developers is available [here](DevModule.md#struc)):
 
 -   **.sitepackages**
 		Contains adapted third-party Python packages and own packages
@@ -120,7 +129,7 @@ The main directory (`/RiverArchitect/`) contains the program launcher named `Sta
     -   `templates`
 			contains global template files (content will be enriched in future versions)
 
--   **00\_Flows** contains templates for [flow (discharge) analyses](Signposts#ana-flows).
+-   **00\_Flows** contains templates for [flow (discharge) analyses](Signposts.md#ana-flows).
     
 -   **01\_Conditions** contains `Condition` folders with parameter Rasters. The condition name begins with a 4-digit year number (e.g., `2018`), optionally followed by a 3-characters reach ID (e.g., `xyz`) and a feature layer indicator (e.g., `lyr10` for terraforming [features][2]). The syllables are separated by an underscore. The process of defining of reaches is explained in the [Signposts][2] and the [*ModifyTerrain* Wiki][5].
     
@@ -128,13 +137,13 @@ The main directory (`/RiverArchitect/`) contains the program launcher named `Sta
     -   `symbology`\ contains a standard symbology layer file (`.lyrx`) for partially logarithmic lifespan classification
     -   `river_template.aprx` is the standard *ArcGIS Pro* project file, where developers recommend to adapt background image (layer) connections.
 
--   **Module (folder): [`RiverArchitect/StrandingRisk`](StrandingRisk)** for [stranding risk analyses of restoration efforts](StrandingRisk).
+-   **Module (folder): [`RiverArchitect/StrandingRisk`](StrandingRisk.md)** for [stranding risk analyses of restoration efforts](StrandingRisk.md).
     - `Output` directory where Stranding Risk module outputs are saved.
-    - `connect_gui.py` is a standalone script that creates the graphical user interface (GUI) for running the [Stranding Risk](StrandingRisk) module.
+    - `connect_gui.py` is a standalone script that creates the graphical user interface (GUI) for running the [Stranding Risk](StrandingRisk.md) module.
     - `cConnectivityAnalysis.py` provides methods for calculating stranding risk metrics.
     - `cGraph.py` contains graphic representation routines for habitat connectivity analyses.
 
--   **Module (folder): [`RiverArchitect/GetStarted`](Signposts#getstarted)** prepare input *Conditions* from scratch or existing conditions.
+-   **Module (folder): [`RiverArchitect/GetStarted`](Signposts.md#getstarted)** prepare input *Conditions* from scratch or existing conditions.
     -   `.cache` folder occurs temporarily when the module is executed.
     -   `.templates` folder should not be modified and contains the welcome screen imagery.
     -   `cConditionCreator.py` contains a managing class for creating and populating *Conditions*.
@@ -163,20 +172,20 @@ The main directory (`/RiverArchitect/`) contains the program launcher named `Sta
     -   `action_gui.py` is a standalone script that creates the graphical user interface (GUI) for running the *MaxLifespan* module.
     -   `action_planner.py` coordinates class instantiations and function calls.
     -   `cActionAssessment.py` contains the GIS-based functional core that identifies optimum lifespans and associated features by processing lifespan/design `Raster` and `shape` files.
-    -   `cFeatureActions.py` contains pointers to [river restoration feature](River-design-features) data in the [*LifespanDesign*][3] module.
+    -   `cFeatureActions.py` contains pointers to [river restoration feature](River-design-features.md) data in the [*LifespanDesign*][3] module.
     -   `cReadActionInput.py` contains functions for reading `*.inp` files from the `.templates` folder.
 
 -   **Module (folder): [`RiverArchitect/ModifyTerrain`][5]** [performs half-automated terrain modifications][5]
     -   `Input` folder containing optional modified DEMs for volume difference assessment.
     -   `Output` folder with sub-folders `Rasters` from individual module runs.
-    -   `RiverBuilder` folder contains original [River Builder](RiverBuilder) code (`riverbuilder.r`) and input files, as well as help messages.
+    -   `RiverBuilder` folder contains original [River Builder](RiverBuilder.md) code (`riverbuilder.r`) and input files, as well as help messages.
     -   `.cache` folder occurs when the module is executed.
-    -   `.templates` folder contains the [reach](RiverReaches)-defining workbook `computation_extents.xlsx`.
-    -   `cModifyTerrain.py` contains GIS-based functional core for modifying DEM `Raster`s with threshold values ([grading](River-design-features#grade) and [widening](River-design-features#berms)).
-    -   `cRiverBuilder.py` contains routines for launching [River Builder](RiverBuilder).
-    -   `cRiverBuilderConstruct.py` contains routines for creating input files for [River Builder](RiverBuilder).
+    -   `.templates` folder contains the [reach](RiverReaches.md)-defining workbook `computation_extents.xlsx`.
+    -   `cModifyTerrain.py` contains GIS-based functional core for modifying DEM `Raster`s with threshold values ([grading](River-design-features.md#grade) and [widening](River-design-features.md#berms)).
+    -   `cRiverBuilder.py` contains routines for launching [River Builder](RiverBuilder.md).
+    -   `cRiverBuilderConstruct.py` contains routines for creating input files for [River Builder](RiverBuilder.md).
     -   `modify_terrain_gui.py` is a standalone script that creates the graphical user interface (GUI) for running the [*ModifyTerrain*][5] module.
-    -   `sub_gui_rb.py` contains the GUI for creating [River Builder](RiverBuilder) input files.
+    -   `sub_gui_rb.py` contains the GUI for creating [River Builder](RiverBuilder.md) input files.
 
 
 -   **Module (folder): [`RiverArchitect/SHArC`][6]** [creates Habitat Suitability Index Rasters/maps and quantifies annually usable habitat area for target fish species and user-defined ranges of discharges][6].
@@ -193,7 +202,7 @@ The main directory (`/RiverArchitect/`) contains the program launcher named `Sta
 -   **Module (folder): [`RiverArchitect/ProjectMaker`][7]** applies on results from *MaxLifespan* and *SHArC*, as well as manual inputs to [calculate project cost-benefit metrics][7].
     -   `.cache` folder occurs temporarily when the module is executed.
     -   `.templates` folder contains a template folder tree and template workbooks with unit cost tables, as well as sample application data that illustrate potential results of the module.
-    -   `cSHArC.py` applies *SHArC* results, in particular *cHSI* Rasters for calculating [SHArea](SHArC#herunSHArea) in the project area.
+    -   `cSHArC.py` applies *SHArC* results, in particular *cHSI* Rasters for calculating [SHArea](SHArC.md#herunSHArea) in the project area.
     -   `project_maker_gui.py` contains the class of this module.
     -   `s20_plantings_delineation.py` applies [*LifespanDesign*][3] and [*MaxLifespan*][4] for assessing the most suitable vegetation plantings within the project area.
     -   `s21_plantings_stabilization.py` applies [*LifespanDesign*][3] and [*MaxLifespan*][4] outputs as well as user-defined input parameters for mapping nature-based engineering features required to stabilize vulnerable vegetation plantings.
@@ -201,12 +210,12 @@ The main directory (`/RiverArchitect/`) contains the program launcher named `Sta
     -   `s40_compare_wua.py` applies on [*SHArC*][6] *cHSI* Rasters used in `cSHArC.py` for assessing the annually usable habitat area for a target fish species and lifestage within the project area.
     -   `LAUNCH_Windows_x64.bat` is a batchfile that runs `project_maker_gui.py` on Windows x64.
 
--   **Module (folder): [`RiverArchitect/VolumeAssessment`](VolumeAssessment)** [calculates excavation / fill volumes of terraforming features.](VolumeAssessment)
+-   **Module (folder): [`RiverArchitect/VolumeAssessment`](VolumeAssessment.md)** [calculates excavation / fill volumes of terraforming features.](VolumeAssessment.md)
     -   `Output` folder for calculation results.
     -   `.cache` folder occurs when the module is executed.
     -   `.templates` folder contains `volume_template.xlsx`.
     -   `cVolumeAssessment.py` contains GIS-based functional core for calculating volumes using an ArcGIS "3D" extension.
-    -   `volume_gui.py` is a standalone script that creates the graphical user interface (GUI) for running the [*VolumeAssessment*](VolumeAssessment) module
+    -   `volume_gui.py` is a standalone script that creates the graphical user interface (GUI) for running the [*VolumeAssessment*](VolumeAssessment.md) module
 
 
 -   **Folder: [`Tools`][8]** applies on results from [*MaxLifespan*][4] and [*SHArC*][6], as well as manual inputs to calculate project cost-benefit metrics.
@@ -225,7 +234,6 @@ The main directory (`/RiverArchitect/`) contains the program launcher named `Sta
 
 
 ## Program environment setup and batchfile modification<a name="raenv"></a>
-***
 The package is designed for an *ArcGIS Pro*'s Python3 conda environment. Before launching the *River Architect* package for the first time, the batchfiles may require adaptions for the system environment. On **Windows** only (Linux is not yet available because of `arcpy` issues - we are working on it), set the batch file environment as follows:
 
 1.  Right-click on `Start_River_Architect.bat` and choose *Edit* (*with Texteditor*) or *Open with \...* and choose a *Texteditor* software.
@@ -250,7 +258,6 @@ There is no standard easy way to import ArcGIS' `arcpy` package in *Python* runn
 After editing the batch files, launch *River Architect* by double-clicking on `Start_River_Architect.bat`.
 
 ## Requirements and dependencies<a name="req"></a>
-***
 
 ### Python packages
 The execution of *River Architect* requires the following packages, which are part of the standard *ArcGIS Pro* - *Python3* distribution: 
@@ -268,32 +275,30 @@ Additional packages:
 - `rpy2` and the R language: The *[Morphology\ModifyTerrain][5]* module requires [an installation of the R language](https://www.r-project.org/) to automate the production of river topographic data via the [*RiverBuilder*](http://pasternack.ucdavis.edu/research/model-codes/river-builder/) R package. Note: environmental variables `%R_HOME%` and `%R_USER%` must also be properly defined for Python to access the user installation of R.
 
 *River Architect* incorporates a modified version of [`openpyxl`](https://openpyxl.readthedocs.io/en/stable/), but a more proper way is installing `openpyxl` with *ArcGIS Pro*'s [package manager](https://pro.arcgis.com/en/pro-app/arcpy/get-started/what-is-conda.htm). Future versions may additionally require the `gdal` and `rasterio` packages (see [above](#raenv) instructions).\
-Furthermore, *River Architect* requires *ArcGIS Pro*'s "Spatial Analyst" and "3D" ([Volume Assessment](VolumeAssessment) only) extensions. Another version of *River Architect* based on open-source geodata processing packages is planned for the future.
+Furthermore, *River Architect* requires *ArcGIS Pro*'s "Spatial Analyst" and "3D" ([Volume Assessment](VolumeAssessment.md) only) extensions. Another version of *River Architect* based on open-source geodata processing packages is planned for the future.
 
 Any folder beginning with a "." for example `.cache` or `.idea` must not be modified or assessed by any other program, in particular during the execution of package methods. Files stored in `.templates` folders are directly called by the GUIs if user definitions are admitted. At the end of execution, the applied modules have created their output folders, which are indicated in the command prompt.
 
 ### Other software and dependencies
-***
 A workbook editing software such as *Excel* or [*LibreOffice*][libreoffice] is required for modifications of user-defined databases (`.xlsx` files).
 
 For the visualization of geodata (`.shp` and `.tif` files), and mapping with project files (`.aprx`), an installation of *ArcGIS Pro* is required. Open-source alternatives are [*QGIS* ](https://www.qgis.org/en/site/forusers/download.html) or [SAGA](http://www.saga-gis.org/en/index.html) (*Please note: There are more GIS alternatives out there.*).
 
 ## Logfiles<a name="logs"></a>
-***
 Logfiles `logfile.log` are created in the module directories during every run task. These files contain time-stamped terminal messages of program activities, warnings and error messages. Thus, logfiles enable the user to review process duration and to trace back problems. The handling of potential errors and warning messages are listed in the [Troubleshooting Wiki][10]  with descriptions of problem sources (cause) and solutions (remedy).
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/ModifyTerrain
-[6]: https://github.com/RiverArchitect/RA_wiki/SHArC
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
-[10]: https://github.com/RiverArchitect/RA_wiki/Troubleshooting
-[11]: https://github.com/RiverArchitect/RA_wiki/VolumeAssessment
-[12]: https://github.com/RiverArchitect/RA_wiki/RiverBuilder
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: ModifyTerrain.md
+[6]: SHArC.md
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md
+[10]: Troubleshooting.md
+[11]: VolumeAssessment.md
+[12]: RiverBuilder.md
 
 [wyrick14]: https://www.sciencedirect.com/science/article/pii/S0169555X14000099
 [hecspp]: https://www.hec.usace.army.mil/software/hec-ssp/

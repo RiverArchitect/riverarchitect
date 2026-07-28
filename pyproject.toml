@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "riverarchitect"
+version = "1.0.0"
+description = "Analyse and design fluvial ecosystems"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "River Architect Development Team", email = "river.architect.program@gmail.com" }]
+keywords = ["rivers", "geospatial", "hydraulics", "ecohydraulics", "restoration", "gis"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Hydrology",
+]
+
+# Core analysis stack. QGIS is deliberately absent: it is not installable from PyPI and is
+# only needed for the mapping module, which degrades gracefully without it.
+dependencies = [
+    "numpy>=1.22",
+    "scipy>=1.8",
+    "rasterio>=1.3",
+    "geopandas>=0.12",
+    "shapely>=2.0",
+    "pyproj>=3.4",
+    "pandas>=1.5",
+    "openpyxl>=3.0",
+]
+
+[project.optional-dependencies]
+interpolation = ["pykrige>=1.7"]
+zonal = ["rasterstats>=0.18"]
+terrain = ["whitebox>=2.3"]
+plotting = ["matplotlib>=3.6"]
+all = ["pykrige>=1.7", "rasterstats>=0.18", "whitebox>=2.3", "matplotlib>=3.6"]
+docs = [
+    "sphinx>=6",
+    "myst-parser>=1.0",
+    "sphinx-rtd-theme>=1.2",
+    "sphinx-copybutton",
+    "sphinx-design",
+]
+test = ["pytest>=7", "pytest-cov"]
+
+[project.urls]
+Homepage = "https://github.com/RiverArchitect/riverarchitect"
+Documentation = "https://riverarchitect.readthedocs.io/"
+Source = "https://github.com/RiverArchitect/riverarchitect"
+Issues = "https://github.com/RiverArchitect/riverarchitect/issues"
+
+[project.scripts]
+riverarchitect = "riverarchitect.gui:main"
+riverarchitect-reconcile-nodata = "riverarchitect.tools.reconcile_nodata:main"
+riverarchitect-lyrx2qml = "riverarchitect.tools.lyrx2qml:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+riverarchitect = ["templates/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

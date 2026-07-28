@@ -1,14 +1,13 @@
 DEVELOPMENT
 ===========
 
-***
 
 - [**Principles & Requiremments**](#raprin)
 - [**Add a module to River Architect**](#addmod)
   * [Use Python templates](#template)
   * [Bind the new module to the GUI](#bind)
-- [Edit the Wiki](DevWiki)
-- [Use `git`](DevGit)
+- [Edit the Wiki](DevWiki.md)
+- [Use `git`](DevGit.md)
 
 ***
 
@@ -44,7 +43,6 @@ The *River Architect Wiki* for developers assumes a basic understanding of *Pyth
 
 
 # Add a module to *River Architect* <a name="addmod"></a>
-***
 Overview
 -	[Use Python templates](#template)
 -	[Bind the new module to the GUI](#bind)
@@ -52,11 +50,11 @@ Overview
 
 ***
 
-New modules or code modifications should be pushed to the `program` repository [https://github.com/RiverArchitect/program](https://github.com/RiverArchitect/program) ([read more about using `git`](DevGit)).
+New modules or code modifications should be pushed to the `program` repository [https://github.com/RiverArchitect/program](https://github.com/RiverArchitect/program) ([read more about using `git`](DevGit.md)).
 
-*River Architect* has currently five **master** tabs (or modules) and three of them have **slave**-tabs (sub-modules): [Lifespan](LifespanDesign), [Morphology](ModifyTerrain), and [Ecohydraulics](SHArC). The development of a new module or sub-module follows the same standards and varies only in the way how the tab is finally bound in the *River Architect* master GUI. For creating a new (sub) module, do the following:
+*River Architect* has currently five **master** tabs (or modules) and three of them have **slave**-tabs (sub-modules): [Lifespan](LifespanDesign.md), [Morphology](ModifyTerrain.md), and [Ecohydraulics](SHArC.md). The development of a new module or sub-module follows the same standards and varies only in the way how the tab is finally bound in the *River Architect* master GUI. For creating a new (sub) module, do the following:
 
-1. Have a look at *River Architect* ([see folder and file structure](Installation#structure)) and think about the capacities that the new module should have, and how it can be fitted in the existing framework (think twice before adding a new master tab).
+1. Have a look at *River Architect* ([see folder and file structure](Installation.md#structure)) and think about the capacities that the new module should have, and how it can be fitted in the existing framework (think twice before adding a new master tab).
 1. Clone the template repository: `git clone https://github.com/RiverArchitect/development.git`.
 1. Frome the cloned repository, copy the folder `RiverArchitect/development/moduleTEMPLATE/` to `RiverArchitect/moduleTEMPLATE/`.
 1. Rename `RiverArchitect/moduleTEMPLATE/` to  `RiverArchitect/NEW_MODULE_NAME/` (obviously, replace `NEW_MODULE_NAME` with the name of the new module).
@@ -65,7 +63,6 @@ New modules or code modifications should be pushed to the `program` repository [
 
 
 ## Working with the module template <a name="template"></a>
-***
 The *River Architect* [development repository](https://github.com/RiverArchitect/development) provides template file for creating a new module in the `moduleTEMPLATE/` directory:
 
 - 	[`TEMPLATE_gui.py`](#templategui) is a template of the actual GUI that will be shown in the new tab.
@@ -75,7 +72,7 @@ Inline comments guide through the scripts and their dependencies. Both scripts l
 
 ### Using `TEMPLATE_gui.py` <a name="templategui"></a>
 
-The script contains [`tkinter`](https://effbot.org/tkinterbook/) classes to build the tab GUI. The first class is a `PopUpWindow` that may be useful for inquiring complex user input (e.g., calculate a value). A good example of using complex user input within *River Architect* is the [River Builder input file creator](RiverBuilder#cinp). 
+The script contains [`tkinter`](https://effbot.org/tkinterbook/) classes to build the tab GUI. The first class is a `PopUpWindow` that may be useful for inquiring complex user input (e.g., calculate a value). A good example of using complex user input within *River Architect* is the [River Builder input file creator](RiverBuilder.md#cinp). 
 
 ```python
 class PopUpWindow(object):
@@ -86,8 +83,8 @@ class PopUpWindow(object):
 The most relevant template class here is `class MainGui(sg.RaModuleGui)`, which inherits the tab-slave class `RaModuleGui` from `RiverArchitect/slave_gui.py`. **All tabs must inherit `RiverArchitect/slave_gui.RaModuleGui`**, no matter if this will be a master or a slave tab. As such, all tabs inherit the following class variables (relevant variables only are listed here):
 
 -	`self.condition` is a `STR` of a condition contained in `RiverArchitect/01_Conditions/`
--	`self.features` is a `cDef.FeatureDefinitions()` object resulting from `RiverArchitect/LifespanDesign/.templates/threshold_values.xlsx` ([read more about features](River-design-features))
--	`self.reaches` is a `cDef.ReachDefinitions()` object resulting from `RiverArchitect/ModifyTerrain/.templates/computation_extents.xlsx` ([read more about river reaches](RiverReaches))
+-	`self.features` is a `cDef.FeatureDefinitions()` object resulting from `RiverArchitect/LifespanDesign/.templates/threshold_values.xlsx` ([read more about features](River-design-features.md))
+-	`self.reaches` is a `cDef.ReachDefinitions()` object resulting from `RiverArchitect/ModifyTerrain/.templates/computation_extents.xlsx` ([read more about river reaches](RiverReaches.md))
 -	`self.units` is a `STR` variable, which is either `us` (US customary) or `si` (SI Metric)
 -	`self.ww` is an `INT` variable defining the tab window width
 -	`self.wh` is an `INT` variable defining the tab window height
@@ -141,7 +138,7 @@ The `MainGui.run_calculation()` function illustrates the implementation of a geo
 
 `geo_calc_object` is a `cTEMPLATE.TEMPLATE()` object that is locally created in the `run_calculation()` function. It has a `use_spatial_analyst_function` that requires an input raster path to apply a (random) *ArcGIS Spatial Analyst* map algebra expression to that input raster. For this purpose, the `MainGui.run_calculation()` function asks the user to define an input raster using `tkinters`'s `askopenfilename()` function (imported from `tkinter.filedialog`). The line `result = geo_calc_object.use_spatial_analyst_function(dir2raster)` passes the selected raster file path (`dir2raster`) to the geospatial calculation function, which returns a string of the output raster if the calculation was successful (otherwise, it returns -1). After the calculation, an info window pops up (`showinfo(WINDOW_NAME, MESSAGE)` imported from `tkinter.messagebox`) and informs about the calculation success.
 
-The `MainGui.set_value()` function illustrates the usage of the above mentioned `PopUpWindow` class (in the same file `TEMPLATE_gui.py`) to modify a value. The usage in the template is somewhat meaningless; a more reasonable value modification can be found in the *Lifespan Design* module where the user can modify the *Manning's n* roughness value ([see applicaton](LifespanDesign#lfinpopt)).
+The `MainGui.set_value()` function illustrates the usage of the above mentioned `PopUpWindow` class (in the same file `TEMPLATE_gui.py`) to modify a value. The usage in the template is somewhat meaningless; a more reasonable value modification can be found in the *Lifespan Design* module where the user can modify the *Manning's n* roughness value ([see applicaton](LifespanDesign.md#lfinpopt)).
 
 ```python
     def set_value(self):
@@ -189,7 +186,7 @@ The `cTEMPLATE.TEMPLATE()` class initiates a `self.logger` variable to write cal
 		return -1	
 ```
 
-In this exemplary code snippet, the command `self.logger.info("  >> loading raster %s ..." % str(input_raster_path))` writes the raster input path to the console window and to the logfile using `self.logger.info()`. If the next step fails (i.e., `arcpy.Raster()` cannot load the provided `input_raster_path` as raster), the user should be informed. This information is passed recorded in the `except:` statement with `self.logger.info("ERROR: Game over ... add this error message to RA_wiki/Troubleshooting")`, which ends with returning `-1` (exits the function because the raster is necessary for all other steps). It would be better to use more precise exception rules such as `except ValueError:`, but we kept the broad "shotgun" approach with `except:` only because we encountered unexpected exception types using `arcpy`. A better and future way of error message logging in *River Architect* will be to use `self.logger.error()` in the exception statement rather than `self.logger.info()`, which should exclusively be used to log calculation progress. **Important is to add error messages, as well as warning messages, to the [Troubleshooting Wiki](Troubleshooting)** ([read more about extending the Wiki](DevWiki)). Use warning messages when a function can still work even though a variable assignment error occurred such as when an optional, additional raster is missing.
+In this exemplary code snippet, the command `self.logger.info("  >> loading raster %s ..." % str(input_raster_path))` writes the raster input path to the console window and to the logfile using `self.logger.info()`. If the next step fails (i.e., `arcpy.Raster()` cannot load the provided `input_raster_path` as raster), the user should be informed. This information is passed recorded in the `except:` statement with `self.logger.info("ERROR: Game over ... add this error message to RA_wiki/Troubleshooting")`, which ends with returning `-1` (exits the function because the raster is necessary for all other steps). It would be better to use more precise exception rules such as `except ValueError:`, but we kept the broad "shotgun" approach with `except:` only because we encountered unexpected exception types using `arcpy`. A better and future way of error message logging in *River Architect* will be to use `self.logger.error()` in the exception statement rather than `self.logger.info()`, which should exclusively be used to log calculation progress. **Important is to add error messages, as well as warning messages, to the [Troubleshooting Wiki](Troubleshooting.md)** ([read more about extending the Wiki](DevWiki.md)). Use warning messages when a function can still work even though a variable assignment error occurred such as when an optional, additional raster is missing.
 
 Finally, every class should close with a call function, where only the `TEMPLATE` string should be adapted to the new class name:
 
@@ -203,7 +200,6 @@ Finally, every class should close with a call function, where only the `TEMPLATE
 More features of the template are provided with the inline comments in `cTEMPLATE.py`.
 
 ## Binding a new tab (module) to the *River Architect* master GUI <a name="bind"></a>
-***
 
 New modules need to be bound to the master GUI, either as master-tab or as slave-tab. Both need to added to the `RiverArchitect/master_gui.py` script in the `RA_gui` class's `__init__()` function.
 
@@ -233,12 +229,11 @@ The following list indicates variables to be modified when a new sub-module (sla
 - 	Withe the asumption that the new *River Creator* GUI is located in `RiverArchitect/RiverCreator/rc_gui.py`, modify `self.sub_tab_list = [[LifespanDesign.lifespan_design_gui.FaGui(self.tabs['Lifespan']), MaxLifespan.action_gui.ActionGui(self.tabs['Lifespan'])], [ModifyTerrain.modify_terrain_gui.MainGui(self.tabs['Morphology']), VolumeAssessment.volume_gui.MainGui(self.tabs['Morphology']),  RiverCreator.rc_gui.MainGui(self.tabs['River Creator'])], [SHArC.sharc_gui.MainGui(self.tabs['Ecohydraulics']), StrandingRisk.connect_gui.MainGui(self.tabs['Ecohydraulics'])]]`
 
 
-**Please do not forget to [update the wiki](DevWiki) and test new code!**
+**Please do not forget to [update the wiki](DevWiki.md) and test new code!**
 
 
 # Full list of folders and files <a name="struc"></a>
 
-***
 
 This is the full list of files and folders in the `RiverArchitect/program` repository. Please update after adding or deleting files. The file list can be generated (in Windows) with *PowerShell*: Enter `Get-ChildItem -Path D:\path-to-local-copy-of-RiverArchitect\program -Recurse` and copy-paste the comand line output.
 

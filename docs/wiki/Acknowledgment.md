@@ -1,3 +1,5 @@
+# Acknowledgment and funding
+
 *River Architect* was developed in the [Pasternack Lab for Watershed Hydrology, Geomorphology, and Ecohydraulics](http://pasternack.ucdavis.edu/) at University of California at Davis, Department of Land, Air, and Water Resources.
 
 *River Architect* is the result of research projects funded by

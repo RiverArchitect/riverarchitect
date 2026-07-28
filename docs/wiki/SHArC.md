@@ -1,7 +1,6 @@
 Seasonal Habitat Area Calculator (SHArC)
 ========================================
 
-***
 
 - [Introduction to Habitat Suitability evaluation](#heintro)
 - [Quick GUIde to habitat suitability evaluation](#hequick)
@@ -15,15 +14,15 @@ Seasonal Habitat Area Calculator (SHArC)
   * [Calculate SHArea](#herunSHArea)
   * [Output and application in stream restoration projects](#heoutput)
   * [Quit module and logfile](#quit-module-and-logfile)
-- [Working principles](SHArC-working-principles#heprin)
-  * [Cover HSI: Substrate](SHArC-working-principles#subshsi)
-  * [Cover HSI: Boulder](SHArC-working-principles#bouhsi)
-  * [Cover HSI: Cobble](SHArC-working-principles#cobhsi)
-  * [Cover HSI: Streamwood](SHArC-working-principles#woohsi)
-  * [Cover HSI: Vegetation](SHArC-working-principles#veghsi)
-  * [Cover HSI combination methods](SHArC-working-principles#hecombinecov)
-  * [Usable habitat area calculation](SHArC-working-principles#hewuamethods)
-- [More about Physical Habitats and Modifying `Fish.xlsx`](aqua-modification#hecode)
+- [Working principles](SHArC-working-principles.md#heprin)
+  * [Cover HSI: Substrate](SHArC-working-principles.md#subshsi)
+  * [Cover HSI: Boulder](SHArC-working-principles.md#bouhsi)
+  * [Cover HSI: Cobble](SHArC-working-principles.md#cobhsi)
+  * [Cover HSI: Streamwood](SHArC-working-principles.md#woohsi)
+  * [Cover HSI: Vegetation](SHArC-working-principles.md#veghsi)
+  * [Cover HSI combination methods](SHArC-working-principles.md#hecombinecov)
+  * [Usable habitat area calculation](SHArC-working-principles.md#hewuamethods)
+- [More about Physical Habitats and Modifying `Fish.xlsx`](aqua-modification.md#hecode)
 
 ***
 
@@ -37,7 +36,6 @@ A minimum of three normal discharges within a seasonal flow duration curve shoul
 
 # Quick GUIde to habitat suitability evaluation<a name="hequick"></a>
 
-***
 
 ## Main window set-up and run<a name="hegui"></a>
 
@@ -52,7 +50,7 @@ Second, [hydraulic habitat suitability Rasters](#hemakehsi) and related discharg
 
 ## Input: Physical Habitat for Fish<a name="hefish"></a>
 
-The `Select Physical Habitat` menu enables the definition of flow depth and velocity-dependent habitat suitability curves, as well as travel thresholds for use in the [Stranding Risk](StrandingRisk) module. The `DEFINE FISH SPECIES` menu entry opens a workbook called `Fish.xlsx`, which is located in `RiverArchitect/.site_packages/templates/`. The `Fish.xlsx` workbook contains the definition of fish species names (rows 2 to 4) and up to four lifestages per species. For every lifestage, a preference season and piece-wise linear habitat suitability curves can be entered. Moreover, the default workbook contains a global definition of aquatic habitat (`All Aquatic`), where a hydrologic year, season, flow depth, and/or velocity lifestage-like definition can be made. These lifestage-like definitions correspond to wetted area that may be considered for an entire hydrologic year, limited to a season, and/or pixels where a minimum flow depth (default: 0.001 m or ft) or velocity (default: 0.001 m/s or fps) is present. The `All Aquatic` habitat suitability curves assign a theoretic habitat suitability index of 1.0 to all wetted pixels (i.e., where the flow depth or velocity is larger than 0.001).
+The `Select Physical Habitat` menu enables the definition of flow depth and velocity-dependent habitat suitability curves, as well as travel thresholds for use in the [Stranding Risk](StrandingRisk.md) module. The `DEFINE FISH SPECIES` menu entry opens a workbook called `Fish.xlsx`, which is located in `RiverArchitect/.site_packages/templates/`. The `Fish.xlsx` workbook contains the definition of fish species names (rows 2 to 4) and up to four lifestages per species. For every lifestage, a preference season and piece-wise linear habitat suitability curves can be entered. Moreover, the default workbook contains a global definition of aquatic habitat (`All Aquatic`), where a hydrologic year, season, flow depth, and/or velocity lifestage-like definition can be made. These lifestage-like definitions correspond to wetted area that may be considered for an entire hydrologic year, limited to a season, and/or pixels where a minimum flow depth (default: 0.001 m or ft) or velocity (default: 0.001 m/s or fps) is present. The `All Aquatic` habitat suitability curves assign a theoretic habitat suitability index of 1.0 to all wetted pixels (i.e., where the flow depth or velocity is larger than 0.001).
 
 ![hefish](https://github.com/RiverArchitect/Media/raw/master/images/RA_HE_fish_xlsx.png)
 
@@ -74,7 +72,7 @@ All definitions made in this workbook need to respect the default workbook struc
 
 - Habitat Suitability Index curves can be found in the scientific literature with the the following keywords: `Habitat Suitability`, `Index`, `Curve`, *`TARGET SPECIES`* (e.g., [here](https://www.science.gov/topicpages/h/habitat+suitability+curves)).
 
-- Fish lifestages must be named either `spawning, fry, ammocoetes, juvenile, adult, hydrologic year, season, depth > x`, `velocity > x`, or `"rearing": 7`. The lifestage names are currently hard-coded in the `Fish` class (`RiverArchitect/.site_packages/riverpy/cFish.py`) dictionary `self.ls_col_add = {"spawning": 1, "fry": 3, "ammocoetes": 3, "juvenile": 5, "adult": 7, "hydrologic year": 1, "season": 3, "depth > x": 5, "velocity > x": 7, "rearing": 7}` (see [known issues](Troubleshooting#issues)). This dictionary can be changed for using other lifestage names and we are working on an improvement in later versions. Note that this dictionary defines the relative column numbers that are added to the column where the fish species name is defined (e.g., for name=*Chinook Salmon*, the start column is "C" and the *spawning*-column is "C+1"="D", while the "fry"-column is "C+3"="F" and so on). For example, for adding a `"rearing"` lifestage for `Chinook salmon` (one of the default species), `"rearing"` must replace `"adult"`, which is in the relative 7th (col."C"+7 = "J" column) of the Chinook salmon species. In fact, the species names are written to merged cells that cover two columns (see below table), but *River Architect* only reads the numeric value from `self.ls_col_add` to access curve data. **Thus, all lifestages must be defined in `self.ls_col_add`, as relative column number to the 0-column of every Fish species.** The following overview table of merged cells shows where to put what lifestage relative to the 0-column (**REMIND other lifestages than these required modifications of `self.ls_col_add` in `RiverArchitect/.site_packages/riverpy/cFish.py`):
+- Fish lifestages must be named either `spawning, fry, ammocoetes, juvenile, adult, hydrologic year, season, depth > x`, `velocity > x`, or `"rearing": 7`. The lifestage names are currently hard-coded in the `Fish` class (`RiverArchitect/.site_packages/riverpy/cFish.py`) dictionary `self.ls_col_add = {"spawning": 1, "fry": 3, "ammocoetes": 3, "juvenile": 5, "adult": 7, "hydrologic year": 1, "season": 3, "depth > x": 5, "velocity > x": 7, "rearing": 7}` (see [known issues](Troubleshooting.md#issues)). This dictionary can be changed for using other lifestage names and we are working on an improvement in later versions. Note that this dictionary defines the relative column numbers that are added to the column where the fish species name is defined (e.g., for name=*Chinook Salmon*, the start column is "C" and the *spawning*-column is "C+1"="D", while the "fry"-column is "C+3"="F" and so on). For example, for adding a `"rearing"` lifestage for `Chinook salmon` (one of the default species), `"rearing"` must replace `"adult"`, which is in the relative 7th (col."C"+7 = "J" column) of the Chinook salmon species. In fact, the species names are written to merged cells that cover two columns (see below table), but *River Architect* only reads the numeric value from `self.ls_col_add` to access curve data. **Thus, all lifestages must be defined in `self.ls_col_add`, as relative column number to the 0-column of every Fish species.** The following overview table of merged cells shows where to put what lifestage relative to the 0-column (**REMIND other lifestages than these required modifications of `self.ls_col_add` in `RiverArchitect/.site_packages/riverpy/cFish.py`):
 
 |LIFESTAGE | REL. COl. NO. | EXAMPLE FOR CHINOOK SALMON |
 |----------|---------------|----------------------------|
@@ -95,8 +93,8 @@ The `Season start` and `Season end` dates are important in the flow duration gen
 Ensure the application of the correct unit system; the drop-down menu in the `Fish.xlsx` workbook automatically sets the units of flow velocity *u*, flow depth *h*, grain size *D*, and delineation radius *Rad* around polygons. The radius *Rad* describes the *"effect"* perimeter of boulders, plants and/or wood that is drawn around the delineated polygons.
 
 The base scenario provides habitat suitability curves for four sample fish species. More fish species can easily be appended by copy-pasting the template frame (area in thick borders in the `template` sheet) after the last defined fish species. For example, if another fish species is added to the base scenario, cells `C2` to `J85` from the `template` sheet are copied and pasted at cell `AI2` in the `fish` sheet. However, the number of lifestages per fish species and the above-stated rows need
-to be respected when entering piece-wise linear habitat suitability functions. The U.S. Forest Service provides [data](http://www.fsl.orst.edu/geowater/FX3/help/SwimData/swimtable.htm) that may help define additional fish species (especially for [Stranding Risk](StrandingRisk) analysis).<br/>
-The structure of `Fish.xlsx` must not be modified (inserting or deleting rows or columns) unless the module's source code is also changed (not recommended). If the structure is changed anyway, the module needs to be modified as explained in the [code section](aqua-modification#hecode).<br/>
+to be respected when entering piece-wise linear habitat suitability functions. The U.S. Forest Service provides [data](http://www.fsl.orst.edu/geowater/FX3/help/SwimData/swimtable.htm) that may help define additional fish species (especially for [Stranding Risk](StrandingRisk.md) analysis).<br/>
+The structure of `Fish.xlsx` must not be modified (inserting or deleting rows or columns) unless the module's source code is also changed (not recommended). If the structure is changed anyway, the module needs to be modified as explained in the [code section](aqua-modification.md#hecode).<br/>
 Note that any relevant species-lifestage needs to have at least one entry for the velocity habitat suitability curve, as the module uses this first data cell in every column to verify if it contains data or not. For example, if a substrate habitat suitability curve is given, but the velocity habitat suitability curve is left blank, the concerned lifestage will not be considered relevant.<br/>
 *River Architect* uses the piece-wise linear curves of habitat suitability indices to interpolate the HSI value of Raster pixels. For example, if a velocity Raster's pixel has a value of 0.51 (fps or m/s), the module looks up the HSI values related to the next smaller or equal provided value (e.g., 0.5 fps or m/s) and the next higher value (e.g., 0.6 fps or m/s) and linearly interpolates the habitat suitability index for 0.51 (fps or m/s). Thus, the numeric expression to determine the linear function piece in this example is `if 0.5<= 0.51 < 0.6: interpolate()`. The calculation function is called `nested_con_raster_calc(ras, curve_data)`, which is implemented in the `HHSI()` class (`SHArC/cHSI.py`), where `ras` is a depth or velocity *GeoTIFF* Raster and `curve_data` (type: nested `LIST`) are the linear break points defined in `Fish.xlsx`. The Raster calculation expression is (simplified code snippet): 
 
@@ -116,7 +114,7 @@ return Float(CellStatistics(__ras__, "SUM", "DATA"))
 
 ## Input: Define computation boundaries<a name="hebound"></a>
 
-A boundary shapefile (polygon) can be selected to limit the calculation extents and assessment of the Annually Usable habitat Area SHArea. Typically, that shapefile should be stored in `RiverArchitect/01_Conditions/CONDITION/boundary.shp/.tif` (or [`RiverArchitect/ProjectMaker/ProjectName/Geodata/Shapefiles/ProjectArea.shp`](ProjectMaker#pminp2)) and it should contain one valid polygon with an `Id` field value of `1` for that rectangle in the `Attribute table`.
+A boundary shapefile (polygon) can be selected to limit the calculation extents and assessment of the Annually Usable habitat Area SHArea. Typically, that shapefile should be stored in `RiverArchitect/01_Conditions/CONDITION/boundary.shp/.tif` (or [`RiverArchitect/ProjectMaker/ProjectName/Geodata/Shapefiles/ProjectArea.shp`](ProjectMaker.md#pminp2)) and it should contain one valid polygon with an `Id` field value of `1` for that rectangle in the `Attribute table`.
 
 ## Input: HHSI<a name="hemakehsi"></a>
 
@@ -142,11 +140,11 @@ As before, at least one Physical Habitat for fish species/lifestage needs to be 
 Relevant cover types can be selected by checking the according checkboxes, where geofiles are required to be stored in
 `RiverArchitect/01_Conditions/CONDITION/` apply the cover types: 
 
--   Substrate: A `dmean` (S.I. /metric units) or `dmean_ft` (U.S. customary units) Raster is required (see [Signposts](Signposts#input-file-preparation)).
+-   Substrate: A `dmean` (S.I. /metric units) or `dmean_ft` (U.S. customary units) Raster is required (see [Signposts](Signposts.md#input-file-preparation)).
 
 -   Boulders: A `boulders.shp` polygon shapefile is required; the polygons delineating boulders need to have a `Short Integer`-type field called `cover` in the (`Attributes table`) and the `cover` field value of polygons is `1`.
 
--   Cobbles: A `dmean` (S.I. /metric units) or `dmean_ft` (U.S. customary units) Raster is required (see [Signposts](Signposts#input-file-preparation)). Cobble is defined, where the `dmean...` Raster indicates grain sizes between 0.064 m and 0.256 m.
+-   Cobbles: A `dmean` (S.I. /metric units) or `dmean_ft` (U.S. customary units) Raster is required (see [Signposts](Signposts.md#input-file-preparation)). Cobble is defined, where the `dmean...` Raster indicates grain sizes between 0.064 m and 0.256 m.
 
 -   Plants: A `plants.shp` polygon shapefile is required; the polygons delineating plants need to have a `Short Integer`-type field called `cover` in the (`Attributes table`) and the `cover` field value of polygons is `1`.
 
@@ -189,7 +187,7 @@ The `Run Seasonal Habitat Area Caluclator - SHArC` button launches the [calculat
 *SHArea = &Sigma;<sub>Qk</sub> \[ &Sigma;<sub>px</sub>(\{if cHSI(<sub>px</sub>) > &theta;\}· A<sub>px</sub>)· p(Q<sub>k</sub>)\]*
 
 where ***<sub>px</sub>*** denotes "pixel" and ***A<sub>px</sub>*** is the size of a pixel in m² (or ft²). By default, this threshold value ***&theta;*** is 0.5 (i.e., the routine sums up the surface of pixels where the *cHSI* is larger than 0.5). The threshold value can be changed by clicking on the `Set SHArea threshold ...` button. The expression ***\{if cHSI(<sub>px</sub>) > &theta;\}*** is **1** if the *cHSI* value of a pixel is higher than *&theta;* and it is **0** if the *cHSI* value of a pixel is smaller than *&theta;*. ***p<sub>Qk</sub>*** denotes the relative seasonal presence of a discretized discharge ***Q<sub>k</sub>*** that is associated with a set of hydraulic Rasters (flow depth and velocity). *River Architect* converts usable habitat area rasters to polygon shapefiles and adds an `AREA` field  to the shapefiles where Polygon areas are calculated using `arcpy.CalculateGeometryAttributes_management(shp_name, geometry_property=[["F_AREA", "AREA"]], area_unit=user_area_unit)`; where `shp_name`is a temporary shapefile and `user_area_unit`is the user-defined unit system (US customary or metric). The resulting discharge-specific area is written to a spreadsheet located in `SHArC/SHArea/CONDITION_sharea_...xlsx`. 
-*Note: For specific project, intermediate area calculation results are written to workbooks when SHArea is calculated within the [Project Maker](ProjectMaker#pmrunSHArea) module.*
+*Note: For specific project, intermediate area calculation results are written to workbooks when SHArea is calculated within the [Project Maker](ProjectMaker.md#pmrunSHArea) module.*
 
  The below figure illustrates the *SHArea* integration scheme based on the application of four discharges (1000, 2000, 3000, and 4000 m<sup>3</sup>/s or cfs) of an Physical Habitat for a fish-lifestage season.
 
@@ -239,16 +237,16 @@ Another relevant question may be "How much did terraforming increase *SHArea*?".
 The best option to quit the module is the `Close` dropdown menu if no background processes are going on (see terminal messages), where also the processing `logfile.log` can (should) be opened and reviewed for any error messages.
 
 
-[1]: https://github.com/RiverArchitect/RA_wiki/Installation
-[2]: https://github.com/RiverArchitect/RA_wiki/Signposts
-[3]: https://github.com/RiverArchitect/RA_wiki/LifespanDesign
-[4]: https://github.com/RiverArchitect/RA_wiki/MaxLifespan
-[5]: https://github.com/RiverArchitect/RA_wiki/ModifyTerrain
-[6]: https://github.com/RiverArchitect/RA_wiki/SHArC
-[7]: https://github.com/RiverArchitect/RA_wiki/ProjectMaker
-[8]: https://github.com/RiverArchitect/RA_wiki/Tools
-[9]: https://github.com/RiverArchitect/RA_wiki/FAQ
-[10]: https://github.com/RiverArchitect/RA_wiki/Troubleshooting
+[1]: Installation.md
+[2]: Signposts.md
+[3]: LifespanDesign.md
+[4]: MaxLifespan.md
+[5]: ModifyTerrain.md
+[6]: SHArC.md
+[7]: ProjectMaker.md
+[8]: Tools.md
+[9]: FAQ.md
+[10]: Troubleshooting.md
 
 [bovee86]: https://pubs.er.usgs.gov/publication/70121265
 [bovee82]: https://www.arlis.org/docs/vol1/Susitna/1/APA193.pdf
