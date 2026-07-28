@@ -1,0 +1,119 @@
+name: release
+
+# Fires when a version tag is pushed:
+#
+#     git tag -a v2.0.0 -m "River Architect 2.0.0"
+#     git push origin v2.0.0
+#
+# It checks that the tag matches riverarchitect.__version__, builds the sdist and wheel,
+# and opens the GitHub release with the notes for that version taken from CHANGELOG.md.
+#
+# Publishing to PyPI is deliberately left out. Add it when the project is ready to claim the
+# name: create a PyPI trusted publisher for this repository, then append a job with
+# `permissions: id-token: write` and `pypa/gh-action-pypi-publish`.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build, e.g. v2.0.0"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build and verify
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the tag against the package version
+        id: check
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION=$(python -c "import re,pathlib; \
+            print(re.search(r'__version__ = \"([^\"]+)\"', \
+            pathlib.Path('src/riverarchitect/__init__.py').read_text()).group(1))")
+          echo "tag=$TAG  package=$VERSION"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::tag $TAG does not match riverarchitect.__version__ ($VERSION)."
+            echo "::error::Bump src/riverarchitect/__init__.py or retag."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build the sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: Confirm the built wheel reports the tagged version
+        run: |
+          set -euo pipefail
+          pip install dist/*.whl
+          BUILT=$(python -c "import riverarchitect; print(riverarchitect.__version__)")
+          test "$BUILT" = "${{ steps.check.outputs.version }}"
+          echo "wheel reports $BUILT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+  publish:
+    name: create the GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # needed to create the release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+
+      - name: Extract this version's notes from the changelog
+        id: notes
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.build.outputs.version }}"
+          # everything between this version's heading and the next one
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "No changelog entry for $VERSION." > release-notes.md
+          fi
+          echo "wrote $(wc -l < release-notes.md) lines of notes"
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: River Architect ${{ needs.build.outputs.version }}
+          body_path: release-notes.md
+          files: dist/*
+          draft: false
+          prerelease: ${{ contains(needs.build.outputs.version, 'rc')
+                       || contains(needs.build.outputs.version, 'a')
+                       || contains(needs.build.outputs.version, 'b') }}

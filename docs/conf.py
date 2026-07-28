@@ -25,7 +25,7 @@ copyright = "%d, %s" % (date.today().year, author)
 try:
     from riverarchitect import __version__ as version
 except Exception:  # pragma: no cover - autodoc mocks may not be in place yet
-    version = "1.0.0"
+    version = "2.0.0"
 release = version
 
 # -- General ----------------------------------------------------------------

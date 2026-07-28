@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "riverarchitect"
-version = "1.0.0"
+# Single source of truth: riverarchitect.__version__. Repeating the number here is how the
+# two drift apart, and a wheel that disagrees with the package it contains is a bad day.
+dynamic = ["version"]
 description = "Analyse and design fluvial ecosystems"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -12,7 +14,7 @@ license = { text = "BSD-3-Clause" }
 authors = [{ name = "River Architect Development Team", email = "river.architect.program@gmail.com" }]
 keywords = ["rivers", "geospatial", "hydraulics", "ecohydraulics", "restoration", "gis"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
@@ -21,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: GIS",
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
@@ -70,6 +73,9 @@ Issues = "https://github.com/RiverArchitect/riverarchitect/issues"
 riverarchitect = "riverarchitect.gui:main"
 riverarchitect-reconcile-nodata = "riverarchitect.tools.reconcile_nodata:main"
 riverarchitect-lyrx2qml = "riverarchitect.tools.lyrx2qml:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "riverarchitect.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
