@@ -1,19 +1,19 @@
 # River Architect
 
-**Analyse and design fluvial ecosystems.**
+**Analyze and design fluvial ecosystems.**
 
-River Architect supports river engineers and ecologists in planning habitat-enhancing river
-design features: their expected lifespans, their required dimensions, where they belong in
-the terrain, and what they are worth ecologically.
+River Architect supports river engineers and ecologists in planning habitat-enhancing river design features: their expected lifespans, their required dimensions, where they belong in the terrain, and what they are worth ecologically.
 
-This is the open-source release. The geoprocessing runs on **GDAL** (through rasterio, numpy
-and scipy) and map production runs on **QGIS** print layouts, so **no Esri software or
-licence is required** and the package runs on Linux, macOS and Windows. Everywhere the
-original documentation says *arcpy*, this one says GDAL.
+Geoprocessing runs on **GDAL** (through rasterio, numpy and scipy) and map production runs on **QGIS** print layouts; River Architect runs on Linux, macOS, and Windows.
 
-The method is documented in an
-[open-access, peer-reviewed paper](https://doi.org/10.1016/j.softx.2020.100438)
-(*SoftwareX*, 2020).
+The methods are documented in:
+* [Schwindt, Larrieu, Pasternack, Rabone,  2020. River Architect. SoftwareX 11, 100438. doi: 10.1016/j.softx.2020.100438
+](https://doi.org/10.1016/j.softx.2020.100438)
+* [Larrieu, Pasternack, Schwindt, 2021. Automated analysis of lateral river connectivity and fish stranding risks-Part 1: Review, theory and algorithm. Ecohydrology 14, e2268. doi: 10.1002/eco.2268](https://doi.org/10.1002/eco.2268)
+* [Phillips, Pasternack, Larrieu, 2025. Development and testing of a mechanistic potential niche model of riparian tree seedling recruitment. Ecological Modelling 501, 110986. doi: 10.1016/j.ecolmodel.2024.110986](https://doi.org/10.1016/j.ecolmodel.2024.110986)
+
+
+
 
 ## Where to start
 
@@ -35,10 +35,7 @@ it talks about to the front. The same content is at {doc}`guide/example_walkthro
 ```{admonition} Migrating from the ArcGIS version?
 :class: note
 
-{doc}`guide/arcpy_migration` maps every arcpy operation the original used onto its
-open-source equivalent, and documents the semantic differences that silently produce wrong
-results if you port code naively: implicit extent alignment, what a two-argument `Con()`
-does on its false branch, and the fidelity gaps found by running the whole chain.
+{doc}`guide/arcpy_migration` maps every arcpy operation in v1 used onto its open-source equivalent, and documents the semantic differences that silently produce wrong results if you port code naively: implicit extent alignment, what a two-argument `Con()` does on its false branch, and the fidelity gaps found by running the whole chain.
 ```
 
 ## Contents

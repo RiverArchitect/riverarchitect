@@ -1,18 +1,13 @@
 # Development
 
-How River Architect is put together, and what adding to it involves.
+
 
 ## Principles
 
-Development follows the *Zen of Python*
-([PEP 20](https://www.python.org/dev/peps/pep-0020/)) - in particular *explicit is better
-than implicit*, *flat is better than nested*, and *errors should never pass silently*. The
-third one is not decoration here: the ArcGIS original wrapped most of its analysis in bare
-`except` blocks, and the criteria that quietly disappeared inside them are exactly the
-defects this rewrite had to find.
+Development follows the *Zen of Python* ([PEP 20](https://www.python.org/dev/peps/pep-0020/)) - in particular *explicit is better
+than implicit*, *flat is better than nested*, and *errors should never pass silently*. The third one is not decoration here: the ArcGIS original wrapped most of its analysis in bare `except` blocks, and the criteria that quietly disappeared inside them are exactly the defects this rewrite had to find.
 
-Two invariants matter more than any style rule, because they are the two ways raster code
-silently produces *wrong results* rather than errors:
+Two invariants matter more than any style rule, because they are the two ways raster code silently produces *wrong results* rather than errors:
 
 **NoData is `numpy.nan` in memory.** Read through {func}`riverarchitect.raster.read`, which
 applies the declared mask. Never compare cell values against a sentinel: real inputs carry

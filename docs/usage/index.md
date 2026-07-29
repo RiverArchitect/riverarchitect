@@ -1,7 +1,6 @@
 # Usage (Quick Start)
 
-How to actually run River Architect, once {doc}`../setup/index` is done. Three ways in,
-depending on what you want:
+How to actually run River Architect, once {doc}`../setup/index` is done. Three ways in, depending on what you want:
 
 | Start here | If you want |
 |---|---|
@@ -12,16 +11,12 @@ depending on what you want:
 ```{admonition} The interface can walk you through it
 :class: tip
 
-**Help ▸ Live Guide: Example** opens the same walkthrough *inside* the program. It sets the
-project directory to the sample data, and each step brings the tab it talks about to the
-front, so you read and click in the same window.
+**Help ▸ Live Guide: Example** opens the same walkthrough *inside* the program. It sets the project directory to the sample data, and each step brings the tab it talks about to the front, so you read and click in the same window.
 ```
 
 ## The order the modules go in
 
-This is the one thing worth knowing before anything else. The modules chain, and the step
-people get stuck on is the first one: a condition that has not been prepared produces either
-an error or - worse - an empty map that looks like an answer.
+This is the one thing worth knowing before anything else. The modules chain, and the step people get stuck on is the first one: a condition that has not been prepared produces either an error or - worse - an empty map that looks like an answer.
 
 ```text
   Get Started      prepare the condition          detrended DEM, water surface,
@@ -44,15 +39,11 @@ an error or - worse - an empty map that looks like an answer.
   Maps             PDF map series through QGIS print layouts
 ```
 
-The three ecohydraulic analyses are independent of one another, but all of them need the
-prepared condition. Habitat area additionally needs a flow duration curve, which *Get
-Started* builds from a daily flow record.
+The three ecohydraulic analyses are independent of one another, but all of them need the prepared condition. Habitat area additionally needs a flow duration curve, which *Get Started* builds from a daily flow record.
 
 ## Units
 
-Set the unit system before anything else, from the **Units** menu or the `unit` argument.
-It does **not** convert your rasters - it states what they already are. A mismatch does not
-raise an error anywhere in the chain; it silently applies metric thresholds to data in feet.
+Set the unit system before anything else, from the **Units** menu or the `unit` argument. It does **not** convert your rasters - it states what they already are. A mismatch does not raise an error anywhere in the chain; it silently applies metric thresholds to data in feet.
 
 ## In this section
 
