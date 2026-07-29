@@ -4,6 +4,18 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-07-29
+
+### Fixed
+
+- **Two tests failed on Windows.** `test_mapping_discovery` checked the QGIS bindings
+  search by comparing prefix templates against literal POSIX paths, but `os.path.normpath`
+  rewrites `/` as a backslash on Windows, so `/Applications/QGIS.app/Contents/MacOS` and
+  `/opt/qgis3.40` never matched there. The shipped code was correct - nothing looks for
+  those paths on Windows - but the sdist carries the test suite, so the released artefact
+  failed `pytest` on that platform. Comparisons are now separator-agnostic, and the
+  behaviour is verified under emulated Windows path semantics as well as POSIX.
+
 ## [2.1.0] - 2026-07-29
 
 The first release to have been **run end to end**. Every module was executed in order on
@@ -238,6 +250,7 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
+[2.1.1]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.1.1
 [2.1.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.1.0
 [2.0.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.0.0
 [1.0.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v1.0.0
