@@ -59,7 +59,7 @@ usage/index
 
 ```{toctree}
 :maxdepth: 2
-:caption: Get started and signposts
+:caption: Get started
 
 getstarted/index
 ```

@@ -137,3 +137,9 @@ CLAUDE.local.md
 # Analysis output written into the vendored sample project
 sample-data/Output/
 sample-data/02_Maps/
+
+# Local reference copies of the ArcGIS-era River Architect. Kept next to a clone for
+# provenance when porting a module; not a dependency, and ~1250 files including a vendored
+# openpyxl, so it must not be tracked.
+program-1.4/
+RiverArchitect-program/
