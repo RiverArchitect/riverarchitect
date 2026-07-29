@@ -47,6 +47,9 @@ if QT_AVAILABLE:
 
     QApplication = QtWidgets.QApplication
     QMainWindow = QtWidgets.QMainWindow
+    QDialog = QtWidgets.QDialog
+    QScrollArea = QtWidgets.QScrollArea
+    QTextBrowser = QtWidgets.QTextBrowser
     QWidget = QtWidgets.QWidget
     QTabWidget = QtWidgets.QTabWidget
     QLabel = QtWidgets.QLabel

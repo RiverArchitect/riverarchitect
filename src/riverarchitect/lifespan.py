@@ -144,7 +144,9 @@ FEATURES = _f(
     Feature("grade", "Grading", "Terraforming", tau_cr=0.047, d2w_min=7, d2w_max=12,
             scour_rate=0.3, inverse_tcd=True, mu_avoid=["bedrock", "hillside"]),
     Feature("sideca", "Side cavities", "Terraforming", fill_rate=1.0, inverse_tcd=True,
-            lifespan_mapping=False, design_mapping=True),
+            mu_relevant=["bank", "cutbank", "in-channel bar", "lateral bar", "spur dike",
+                         "tailings"],
+            mu_method=1, lifespan_mapping=False, design_mapping=True),
     Feature("sidech", "Side channels", "Terraforming", tau_cr=0.047, fill_rate=1.0,
             inverse_tcd=True),
 
@@ -179,9 +181,18 @@ FEATURES = _f(
 
     # --- connectivity and gravel augmentation ---------------------------------------
     Feature("gravin", "Gravel: In", "Connectivity", tau_cr=0.047, design_frequency=10,
-            design_mapping=True),
+            mu_relevant=["chute", "fast glide", "flood runner", "bedrock", "in-channel bar",
+                         "lateral bar", "medial bar", "pool", "riffle", "riffle transition",
+                         "run", "slackwater", "slow glide", "swale", "tailings"],
+            mu_method=1, design_mapping=True),
     Feature("gravou", "Gravel: Out", "Connectivity", tau_cr=0.047, design_frequency=1,
-            scour_rate=3, design_mapping=True),
+            scour_rate=3,
+            mu_relevant=["agriplain", "backswamp", "bank", "cutbank", "flood runner",
+                         "floodplain", "high floodplain", "hillside",
+                         "island high floodplain", "island-floodplain", "in-channel bar",
+                         "lateral bar", "levee", "medial bar", "mining pit", "point bar",
+                         "pond", "spur dike", "tailings", "terrace"],
+            mu_method=1, design_mapping=True),
     Feature("fines", "Incorporation of fine sediment", "Connectivity", tau_cr=0.03,
             d2w_min=1, d2w_max=10, grain_max=0.0066667, fill_rate=3.36, scour_rate=3,
             design_mapping=True),
@@ -449,30 +460,51 @@ class LifespanDesign:
         if mu is None:
             return None
         selected = np.zeros(mu.shape, dtype=bool)
+        unknown = []
         for unit in wanted:
             code = codes.get(str(unit).strip().lower())
-            if code is not None:
-                selected |= (mu == code)
+            if code is None:
+                unknown.append(str(unit))
+                continue
+            selected |= (mu == code)
+        if unknown:
+            # Naming the units that did not resolve matters: the original swallowed this in
+            # a bare except and dropped the whole criterion without saying so.
+            self.logger.info("      * %s: no code for morphological unit(s) %s - not part "
+                             "of the criterion", feature.fid, ", ".join(unknown))
         return selected if feature.mu_method == 1 else ~selected
 
     def _mu_codes(self):
-        """Morphological unit name -> raster code, from a workbook beside the condition."""
+        """Morphological unit name -> raster code.
+
+        A ``morphological_units.xlsx`` beside the condition wins, so a project that has
+        recoded its units is honoured. Otherwise the table packaged with River Architect is
+        used, which is where the original read its codes from as well
+        (``cParameters.MU.read_mus``); falling back to it is what makes the criterion apply
+        at all on a condition that ships no workbook of its own.
+        """
         if hasattr(self, "_mu_code_cache"):
             return self._mu_code_cache
         self._mu_code_cache = {}
+
         for candidate in ("morphological_units.xlsx", "mu.xlsx"):
             path = os.path.join(self.condition.directory, candidate)
             if not os.path.isfile(path):
                 continue
             try:
-                import openpyxl
-                sheet = openpyxl.load_workbook(path, data_only=True).active
-                for row in sheet.iter_rows(values_only=True):
-                    if row and len(row) >= 2 and isinstance(row[1], (int, float)):
-                        self._mu_code_cache[str(row[0]).strip().lower()] = float(row[1])
+                from .preprocessing import MorphologicalUnits
+                self._mu_code_cache = MorphologicalUnits(path, unit=self.unit).codes()
             except Exception as exc:  # a malformed table must not stop the analysis
                 self.logger.info("      * could not read %s (%s)", candidate, exc)
             break
+
+        if not self._mu_code_cache:
+            try:
+                from .preprocessing import MorphologicalUnits
+                self._mu_code_cache = MorphologicalUnits(unit=self.unit).codes()
+            except Exception as exc:
+                self.logger.info("      * could not read the packaged morphological unit "
+                                 "table (%s)", exc)
         return self._mu_code_cache
 
     # ------------------------------------------------------------------------- run

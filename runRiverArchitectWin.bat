@@ -6,16 +6,25 @@ rem    runRiverArchitectWin.bat                  use the sample data shipped wit
 rem    runRiverArchitectWin.bat D:\my_project    use your own project directory
 rem
 rem  Environment variables:
-rem    RA_PYTHON            python.exe to use, overriding the search below
-rem    RA_ENV               conda/mamba environment name (default: ra-env)
-rem    RIVERARCHITECT_GUI   force a front end: qt or tk
-rem    QGIS_PREFIX_PATH     where QGIS is installed
+rem    RA_PYTHON                python.exe to use, overriding the search below
+rem    RA_ENV                   conda/mamba environment name (default: ra-env)
+rem    RIVERARCHITECT_GUI       force a front end: qt or tk
+rem    QGIS_PREFIX_PATH         QGIS installation prefix, if it is somewhere unusual
+rem    RIVERARCHITECT_QGIS_PATH directory containing the 'qgis' Python package
 rem
 rem  This replaces the ArcGIS-era launcher, which called ArcGIS Pro's `propy.bat`. No Esri
 rem  software is involved any more.
 rem
-rem  Mapping needs the QGIS Python bindings, which belong to the interpreter QGIS installed.
-rem  For a working Mapping tab, run this from the OSGeo4W Shell, or set
+rem  Mapping needs the QGIS Python bindings, which cannot be installed from pip. River
+rem  Architect searches for them in the usual places - C:\OSGeo4W\apps\qgis*\python and
+rem  C:\Program Files\QGIS *\apps\qgis*\python - registers the matching bin directories so
+rem  their Qt, GDAL and PROJ DLLs load, and adds them to the end of its module search path.
+rem  The Maps tab reports what it found.
+rem
+rem  If QGIS is somewhere else, point at it:
+rem    set RIVERARCHITECT_QGIS_PATH=D:\QGIS\apps\qgis\python
+rem  If its bindings are built for a different Python than the environment, run from the
+rem  OSGeo4W Shell instead, or set
 rem    set RA_PYTHON=C:\OSGeo4W\bin\python.exe
 rem ---------------------------------------------------------------------------------------
 
@@ -139,6 +148,8 @@ if errorlevel 1 (
 echo River Architect
 echo   interpreter : %PYTHON%
 echo   project     : %PROJECT%
+echo   new here?     open  Help ^> Live Guide: Example  for a walkthrough of the
+echo                 sample reach, from preparing the condition to habitat area.
 echo Loading (please wait) ...
 
 "%PYTHON%" -m riverarchitect "%PROJECT%"

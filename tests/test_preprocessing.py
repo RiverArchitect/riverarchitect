@@ -232,3 +232,54 @@ def test_build_product_rejects_an_unknown_key(tmp_path, monkeypatch):
             pre.build_product("c", "nonsense")
     finally:
         config.set_project_home(None)
+
+
+def test_the_table_keeps_the_floodplain_units_lifespan_needs():
+    """Floodplain units carry a code but no depth or velocity range.
+
+    Requiring all four bounds dropped them, and with them every code the lifespan feature
+    thresholds actually name - ``mu_relevant`` lists are mostly floodplain units.
+    """
+    table = pre.MorphologicalUnits(unit="us")
+    codes = table.codes()
+    assert codes["pool"] == 23                 # instream, hydraulically delineated
+    assert codes["floodplain"] == 12           # floodplain, no hydraulic range
+    assert codes["terrace"] == 32
+    assert np.isnan(table.units["floodplain"]["h_min"])
+    assert not np.isnan(table.units["pool"]["h_min"])
+
+
+def test_only_hydraulically_delineated_units_can_be_classified():
+    table = pre.MorphologicalUnits(unit="us")
+    classifiable = table.classifiable()
+    assert "pool" in classifiable and "floodplain" not in classifiable
+    assert len(classifiable) < len(table.units)
+    assert all(not np.isnan(entry["h_min"]) for entry in classifiable.values())
+
+
+def test_aliases_bridge_the_two_naming_vocabularies():
+    """The threshold workbook and the MU workbook never agreed on unit names."""
+    codes = pre.MorphologicalUnits(unit="us").codes()
+    for alias, canonical in pre.MU_ALIASES.items():
+        if canonical in codes:
+            assert codes[alias] == codes[canonical], alias
+
+
+def test_build_product_writes_the_inp_into_the_output_directory(tmp_path, monkeypatch):
+    """``output_dir`` used to be ignored for the .inp, which overwrote the condition's."""
+    directory = tmp_path / "01_Conditions" / "c"
+    directory.mkdir(parents=True)
+    profile = make_profile(width=2, height=1)
+    raster.write(str(directory / "dem.tif"), np.ones((1, 2)), profile)
+    raster.write(str(directory / "h001000.tif"), np.ones((1, 2)), profile)
+    raster.write(str(directory / "u001000.tif"), np.ones((1, 2)), profile)
+
+    monkeypatch.setenv("RIVERARCHITECT_HOME", str(tmp_path))
+    config.set_project_home(str(tmp_path))
+    try:
+        target = tmp_path / "elsewhere"
+        pre.build_product("c", "inp", output_dir=str(target))
+        assert (target / "input_definitions.inp").is_file()
+        assert not (directory / "input_definitions.inp").exists()
+    finally:
+        config.set_project_home(None)

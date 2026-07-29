@@ -82,19 +82,11 @@ class MappingGui(RaModuleGui):
         self._check_qgis()
 
     def _check_qgis(self):
-        try:
-            from ..mapping import QGIS_AVAILABLE
-        except Exception:
-            QGIS_AVAILABLE = False
-        if not QGIS_AVAILABLE:
-            self.b_run.config(state=tk.DISABLED)
-            self._write("QGIS is not available in this Python environment.\n\n"
-                        "Mapping needs the QGIS Python bindings:\n"
-                        "    python -c \"from qgis.core import Qgis; print(Qgis.QGIS_VERSION)\"\n\n"
-                        "Run River Architect with the interpreter that owns the bindings, or set\n"
-                        "QGIS_PREFIX_PATH if QGIS is installed outside /usr.")
-        else:
-            self._write("QGIS bindings found. Select a raster directory to begin.")
+        from ..mapping import qgis_status
+
+        available, message = qgis_status()
+        self._write(message)
+        self.b_run.config(state=tk.NORMAL if available else tk.DISABLED)
 
     def select_rasters(self):
         path = askdirectory(title="Select the directory holding the rasters to map")

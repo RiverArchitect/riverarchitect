@@ -182,3 +182,32 @@ def test_slope_of_45_degree_ramp():
 def test_list_rasters(tmp_path, grid):
     path, _, _ = grid
     assert raster.list_rasters(str(tmp_path)) == [path]
+
+
+def test_within_radius_spreads_from_every_source_cell():
+    """Replaces the original's raster-to-points, SpatialJoin, points-to-raster round trip."""
+    mask = np.zeros((7, 7), dtype=bool)
+    mask[3, 3] = True
+
+    near = raster.within_radius(mask, radius=2.0, dx=1.0, dy=1.0)
+    assert near[3, 3] and near[3, 1] and near[1, 3]
+    assert not near[3, 0] and not near[0, 0]
+    # exactly on the radius counts, as `search_radius` did
+    assert near[3, 5]
+
+
+def test_within_radius_respects_anisotropic_cells():
+    mask = np.zeros((5, 5), dtype=bool)
+    mask[2, 2] = True
+    # 10 map units per column, 1 per row: a radius of 2 reaches two rows but no column
+    near = raster.within_radius(mask, radius=2.0, dx=10.0, dy=1.0)
+    assert near[0, 2] and near[4, 2]
+    assert not near[2, 1] and not near[2, 3]
+
+
+def test_within_radius_of_nothing_is_nothing():
+    mask = np.zeros((4, 4), dtype=bool)
+    assert not raster.within_radius(mask, radius=5.0).any()
+    # a zero radius keeps only the source cells
+    mask[1, 1] = True
+    assert raster.within_radius(mask, radius=0.0).sum() == 1

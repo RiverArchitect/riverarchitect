@@ -34,6 +34,152 @@ from . import config
 # QGIS must run offscreen when there is no display attached; set before importing qgis.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+#: Where a QGIS installation keeps its Python bindings, per platform, as
+#: ``(bindings glob, prefix template, DLL directory globs)``. A distribution installs the
+#: bindings for the *system* interpreter, so a conda environment does not see them even
+#: though QGIS is installed and working - which is the case this exists to handle. ``{b}``
+#: in a prefix template is replaced by the matched bindings directory.
+#:
+#: Globs matter on Windows, where the standalone installer puts the version in the folder
+#: name (``C:\\Program Files\\QGIS 3.34.5``), and on macOS, where the bundle may be
+#: ``QGIS.app`` or ``QGIS-LTR.app``.
+QGIS_LAYOUTS = {
+    "linux": (
+        # Debian, Ubuntu: python3-qgis. The bindings sit among the distribution's own
+        # numpy/pandas/scipy, which is why the directory is only ever appended.
+        ("/usr/lib/python3/dist-packages", "/usr", ()),
+        ("/usr/lib/python3*/dist-packages", "/usr", ()),
+        ("/usr/lib/python3*/site-packages", "/usr", ()),          # Fedora, Arch
+        ("/usr/share/qgis/python", "/usr", ()),
+        ("/usr/local/share/qgis/python", "/usr/local", ()),
+        # <prefix>/share/qgis/python -> up three to reach <prefix>
+        ("/opt/qgis*/share/qgis/python", "{b}/../../..", ()),
+    ),
+    "darwin": (
+        ("/Applications/QGIS*.app/Contents/Resources/python",
+         "{b}/../../MacOS", ()),
+        (os.path.expanduser("~/Applications/QGIS*.app/Contents/Resources/python"),
+         "{b}/../../MacOS", ()),
+        ("/opt/homebrew/opt/qgis/QGIS.app/Contents/Resources/python",
+         "{b}/../../MacOS", ()),
+    ),
+    # Written with forward slashes on purpose: `glob` accepts them on Windows and
+    # `os.path.normpath` turns them into backslashes there, so the patterns stay readable
+    # and stay testable from any platform.
+    "win32": (
+        # OSGeo4W. The DLL directories are not optional on Windows: without them the
+        # extension modules import but their Qt, GDAL and PROJ libraries fail to load, with
+        # a bare "DLL load failed" that says nothing about QGIS.
+        ("C:/OSGeo4W*/apps/qgis*/python", "{b}/..",
+         ("{b}/../bin", "{b}/../../../bin")),
+        ("C:/Program Files/QGIS */apps/qgis*/python", "{b}/..",
+         ("{b}/../bin", "{b}/../../../bin")),
+        ("C:/Program Files*/QGIS*/apps/qgis*/python", "{b}/..",
+         ("{b}/../bin", "{b}/../../../bin")),
+    ),
+}
+
+#: Directories that held a ``qgis`` package but could not be imported, for the message.
+_qgis_rejected = []
+#: The directory the bindings were found in, when they were not already importable.
+QGIS_BINDINGS_PATH = None
+#: The QGIS prefix that goes to ``QgsApplication.setPrefixPath``. ``None`` means the
+#: environment's :envvar:`QGIS_PREFIX_PATH`, or the platform default, is used.
+QGIS_PREFIX = None
+
+
+def _qgis_platform():
+    """``"win32"``, ``"darwin"`` or ``"linux"`` - the key into :data:`QGIS_LAYOUTS`."""
+    if sys.platform.startswith("win"):
+        return "win32"
+    if sys.platform == "darwin":
+        return "darwin"
+    return "linux"
+
+
+def qgis_candidates():
+    """Yield ``(bindings, prefix, dll_dirs)`` triples to try, most specific first.
+
+    :envvar:`RIVERARCHITECT_QGIS_PATH` (a directory containing the ``qgis`` package) and
+    :envvar:`QGIS_PREFIX_PATH` come first, so a non-standard installation can be pointed at
+    explicitly and nothing needs guessing.
+    """
+    explicit = os.environ.get("RIVERARCHITECT_QGIS_PATH")
+    if explicit:
+        yield explicit, os.environ.get("QGIS_PREFIX_PATH"), ()
+
+    prefix = os.environ.get("QGIS_PREFIX_PATH")
+    if prefix:
+        for relative in ("python", os.path.join("share", "qgis", "python"),
+                         os.path.join("..", "Resources", "python")):
+            yield os.path.join(prefix, relative), prefix, (os.path.join(prefix, "bin"),)
+
+    for pattern, prefix_template, dll_patterns in QGIS_LAYOUTS[_qgis_platform()]:
+        # sorted(reverse=True) puts the highest version first when a glob matches several
+        # installations, which is what a user with 3.34 and 3.40 side by side expects.
+        for bindings in sorted(glob.glob(pattern), reverse=True):
+            resolved_prefix = os.path.normpath(prefix_template.format(b=bindings))
+            dll_dirs = tuple(os.path.normpath(p.format(b=bindings)) for p in dll_patterns)
+            yield bindings, resolved_prefix, dll_dirs
+
+
+def _locate_qgis_bindings():
+    """Make ``qgis`` importable, adding a discovered bindings directory if need be.
+
+    Returns:
+        str or None: the directory added to :data:`sys.path`, or ``None`` when nothing
+        usable was found.
+
+    The discovered directory is **appended** to :data:`sys.path`, never prepended, and
+    :envvar:`PYTHONPATH` is deliberately not used for it. On Debian and Ubuntu the QGIS
+    bindings sit in ``/usr/lib/python3/dist-packages`` beside the distribution's own numpy,
+    pandas and scipy; putting that directory *ahead* of a conda environment silently
+    replaces numpy 2.x with 1.26 and pandas 3.x with 2.1. That is a worse failure than no
+    mapping, because it produces results rather than an error. Appending leaves the
+    environment's own stack in charge and lets only the modules it does not have - chiefly
+    ``qgis`` and ``PyQt5`` - come from the system.
+    """
+    global QGIS_BINDINGS_PATH, QGIS_PREFIX
+
+    for bindings, prefix, dll_dirs in qgis_candidates():
+        bindings = os.path.normpath(bindings)
+        if not os.path.isdir(os.path.join(bindings, "qgis")):
+            continue
+
+        # Windows resolves a extension module's dependent DLLs through an explicit list
+        # since Python 3.8, not through PATH. Without this the import fails with a bare
+        # "DLL load failed" that says nothing about QGIS.
+        opened = []
+        for directory in dll_dirs:
+            if os.path.isdir(directory) and hasattr(os, "add_dll_directory"):
+                try:
+                    opened.append(os.add_dll_directory(directory))
+                except OSError:
+                    pass
+
+        sys.path.append(bindings)
+        try:
+            import qgis.core  # noqa: F401
+        except Exception as exc:  # ImportError, but also DLL and Qt loading failures
+            # Built for a different Python, or its libraries are unreachable. Leaving the
+            # path on would only let its other packages shadow ours for nothing.
+            sys.path.remove(bindings)
+            for handle in opened:
+                handle.close()
+            _qgis_rejected.append((bindings, str(exc)))
+            continue
+
+        QGIS_BINDINGS_PATH = bindings
+        QGIS_PREFIX = prefix
+        return bindings
+    return None
+
+
+try:
+    import qgis.core  # noqa: F401
+except ImportError:
+    _locate_qgis_bindings()
+
 try:
     from qgis.core import (QgsApplication, QgsProject, QgsRasterLayer, QgsVectorLayer,
                            QgsPrintLayout, QgsLayoutItemMap, QgsLayoutItemLegend,
@@ -43,19 +189,123 @@ try:
                            QgsCoordinateReferenceSystem)
     from qgis.PyQt.QtGui import QFont
     QGIS_AVAILABLE = True
+    if QGIS_BINDINGS_PATH:
+        logging.getLogger("riverarchitect").info(
+            "QGIS bindings found in %s and added to sys.path - mapping is enabled.",
+            QGIS_BINDINGS_PATH)
 except ImportError:
     QGIS_AVAILABLE = False
     # A library must not print on import: importing riverarchitect.mapping to *check*
     # QGIS_AVAILABLE is a normal thing to do, and the GUI does exactly that before it
     # decides what to show. Log it instead, so callers choose whether it is visible.
+    if _qgis_rejected:
+        _detail = ("Found QGIS bindings but could not load them, most often because they "
+                   "are built for a different Python than this one (%d.%d): %s"
+                   % (sys.version_info[0], sys.version_info[1],
+                      "; ".join("%s (%s)" % pair for pair in _qgis_rejected)))
+    else:
+        _install = {
+            "linux": "sudo apt install qgis python3-qgis  (Debian, Ubuntu)",
+            "darwin": "install QGIS from qgis.org into /Applications",
+            "win32": "install QGIS with the OSGeo4W installer, or the standalone installer",
+        }[_qgis_platform()]
+        _detail = ("No QGIS bindings were found. %s. If QGIS is installed somewhere "
+                   "unusual, set RIVERARCHITECT_QGIS_PATH to the directory that contains "
+                   "the 'qgis' package, or QGIS_PREFIX_PATH to the installation prefix."
+                   % _install)
     logging.getLogger("riverarchitect").info(
-        "QGIS (qgis.core) is not available - mapping is disabled. Install QGIS and run "
-        "River Architect with a Python that has the QGIS bindings on its path.")
+        "QGIS (qgis.core) is not available - mapping is disabled. %s", _detail)
+
+__all__ = ["QGIS_AVAILABLE", "QGIS_BINDINGS_PATH", "QGIS_PREFIX", "QGIS_LAYOUTS",
+           "qgis_candidates", "qgis_status", "QgisSession", "Mapper"]
 
 # Page geometry defaults, in millimetres. ANSI E landscape reproduces the former arcpy layout.
 ANSI_E_LANDSCAPE = (1117.6, 863.6)
 DEFAULT_DPI = 96
 SINGLE_MAP_DPI = 192
+
+
+def qgis_status():
+    """Whether mapping can run here, and what to do about it if it cannot.
+
+    One implementation for both front ends, so the Qt and the tkinter tab cannot give
+    different advice.
+
+    Returns:
+        tuple: ``(available, message)``.
+    """
+    if QGIS_AVAILABLE:
+        lines = ["QGIS bindings found. Select a raster directory to begin.", ""]
+        try:
+            from qgis.core import Qgis
+            lines.append("QGIS version : %s" % Qgis.QGIS_VERSION)
+        except Exception:
+            pass
+        if QGIS_BINDINGS_PATH:
+            lines.append("bindings     : %s" % QGIS_BINDINGS_PATH)
+            lines.append("prefix       : %s" % (QGIS_PREFIX or "(default)"))
+            lines.append("")
+            lines.append("These were discovered outside this Python environment and added "
+                         "to the end of")
+            lines.append("its module search path, so the environment's own numpy, pandas "
+                         "and rasterio")
+            lines.append("keep priority.")
+        return True, "\n".join(lines)
+
+    lines = [
+        "QGIS is not available in this Python environment, so mapping is disabled.",
+        "Everything else in River Architect works normally.",
+        "",
+    ]
+    if _qgis_rejected:
+        lines.append("QGIS bindings were found but could not be loaded. That almost always")
+        lines.append("means they are built for a different Python than this one (%d.%d):"
+                     % (sys.version_info[0], sys.version_info[1]))
+        lines.append("")
+        for path, error in _qgis_rejected:
+            lines.append("    %s" % path)
+            lines.append("        %s" % error)
+        lines.append("")
+        lines.append("Start River Architect with the interpreter QGIS was installed for:")
+        lines.append("")
+        lines.append("    RA_PYTHON=/usr/bin/python3 ./runRiverArchitectLinux.sh")
+    else:
+        lines.append("No QGIS installation was found in any of the usual places. Install "
+                     "QGIS:")
+        lines.append("")
+        lines.append("    %s" % {
+            "linux": "sudo apt install qgis python3-qgis      (Debian, Ubuntu)",
+            "darwin": "download QGIS from qgis.org and drag it into /Applications",
+            "win32": "install QGIS with the OSGeo4W installer, or the standalone installer",
+        }[_qgis_platform()])
+        lines.append("")
+        lines.append("If it is installed somewhere unusual, point River Architect at it:")
+        lines.append("")
+        lines.append("    RIVERARCHITECT_QGIS_PATH=<directory containing the 'qgis' package>")
+        lines.append("    QGIS_PREFIX_PATH=<installation prefix>")
+    return False, "\n".join(lines)
+
+
+def _default_prefix():
+    """Installation prefix to fall back on when nothing else identified one.
+
+    Only reached when ``qgis`` was importable without any help from
+    :func:`_locate_qgis_bindings` - a QGIS-provided interpreter, or an OSGeo4W shell - where
+    QGIS usually knows its own prefix already and this is a last resort.
+    """
+    if QGIS_BINDINGS_PATH:
+        return os.path.normpath(os.path.join(QGIS_BINDINGS_PATH, os.pardir))
+    try:
+        import qgis
+        # <prefix>/share/qgis/python/qgis or <prefix>/python/qgis, depending on the layout
+        root = os.path.dirname(os.path.dirname(os.path.abspath(qgis.__file__)))
+        for _ in range(3):
+            if os.path.isdir(os.path.join(root, "resources")):
+                return root
+            root = os.path.dirname(root)
+    except Exception:
+        pass
+    return "/usr"
 
 
 def _p(*parts):
@@ -73,7 +323,10 @@ class QgisSession(object):
         if not QGIS_AVAILABLE:
             return None
         if cls._app is None:
-            prefix = os.environ.get("QGIS_PREFIX_PATH", "/usr")
+            # The prefix that goes with the bindings actually loaded wins over the
+            # environment: on macOS and Windows "/usr" is meaningless, and QGIS then fails
+            # to find its providers rather than saying the prefix is wrong.
+            prefix = QGIS_PREFIX or os.environ.get("QGIS_PREFIX_PATH") or _default_prefix()
             QgsApplication.setPrefixPath(prefix, True)
             cls._app = QgsApplication([], False)
             cls._app.initQgis()

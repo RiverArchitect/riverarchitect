@@ -98,14 +98,26 @@ PySide6 is the Qt binding used because it is LGPL, installs from PyPI and conda-
 every supported platform, and is the binding the Qt Company maintains.
 ```
 
-## The QGIS interpreter
+## Finding QGIS
 
-The Mapping tab needs the QGIS Python bindings, which are compiled against the interpreter
-QGIS was installed with - normally the system Python, not a conda environment. Started from
-`ra-env`, the Mapping tab greys itself out and explains what is missing; every other tab
-works normally.
+The Mapping tab needs the QGIS Python bindings, which cannot be installed from PyPI. A
+distribution installs them for the **system** interpreter (`sudo apt install qgis
+python3-qgis`), so a conda environment does not see them even though QGIS is installed.
 
-To get a working Mapping tab, start with the interpreter that owns the bindings:
+River Architect searches for them on startup and, when it finds bindings that load, adds
+that directory to the end of its module search path. The Mapping tab then reports the QGIS
+version, where the bindings came from and which prefix is in use. Nothing needs configuring
+for a normal installation on any of the three platforms; see *Finding QGIS* in
+{doc}`../modules/maps` for the search order and the `RIVERARCHITECT_QGIS_PATH` and
+`QGIS_PREFIX_PATH` overrides.
+
+````{admonition} If the bindings are built for a different Python
+:class: warning
+
+Discovery only works when the bindings are ABI-compatible with the running interpreter - in
+practice the same Python minor version. When they are not, the Mapping tab names the
+directory it rejected and the reason, and the fallback is to start with the interpreter QGIS
+was installed for:
 
 ```bash
 RA_PYTHON=/usr/bin/python3 ./runRiverArchitectLinux.sh
@@ -117,24 +129,17 @@ runRiverArchitectWin.bat
 ```
 
 That interpreter has PyQt5 rather than PySide6, and the interface runs on it unchanged - the
-Qt front end supports both bindings for exactly this reason. See {doc}`qgis_mapping`.
-
-```{admonition} The trade runs both ways
-:class: warning
-
-A QGIS interpreter usually has no rasterio, just as a conda environment has no QGIS. So each
-interpreter gives you one half:
+Qt front end supports both bindings for exactly this reason. It usually has no rasterio,
+though, so the analysis tabs disable themselves instead:
 
 | Started with | Analysis tabs | Mapping tab |
 |---|---|---|
-| `ra-env` | enabled | disabled, explains why |
+| `ra-env`, bindings discovered | enabled | enabled |
+| `ra-env`, bindings incompatible | enabled | disabled, explains why |
 | the QGIS interpreter | disabled, explains why | enabled |
 
-A disabled tab says what is missing rather than failing when you click *Compute*, and the
-launchers warn at startup. To get both at once, install rasterio into the QGIS interpreter -
-but the usual and lower-risk arrangement is to run the analysis in `ra-env`, write GeoTIFFs,
-and then point the Mapping tab at them from the QGIS interpreter.
-```
+A disabled tab says what is missing rather than failing when you click *Compute*.
+````
 
 ## Tabs
 
@@ -144,7 +149,7 @@ onto sub-tabs:
 ```text
 Get Started
 Lifespan        -> Lifespan Design | Max Lifespan
-Morphology      -> Volume Assessment
+Morphology      -> Terraforming | Volume Assessment
 Ecohydraulics   -> Habitat Area (SHArC) | Stranding Risk | Riparian Seedling Recruitment
 Maps
 ```
@@ -168,7 +173,12 @@ takes the cell-wise maximum, and writes one best-feature mask and polygon layer 
 plus `max_lf.tif`. Ties are kept rather than broken, so a cell where two features both reach
 the maximum appears in both layers - the choice is yours to make on other grounds.
 
-**Morphology (Volumes)** compares a pre-project and a post-project DEM and reports fill,
+**Terraforming** lowers the terrain where a feature planned by *Max Lifespan* sits further
+above the water table than its roots can reach, by exactly the excess, and reports the
+excavation that implies. Point it at the Max Lifespan output folder; feed its
+`dem_terraformed.tif` to Volume Assessment as the modified DEM.
+
+**Volume Assessment** compares a pre-project and a post-project DEM and reports fill,
 excavation and net volumes plus the affected areas. The *level of detection* excludes
 elevation differences smaller than the survey noise. Volumes are integrated under the
 triangulated surface; see {doc}`volumes` for why that matters.
@@ -220,6 +230,45 @@ the unit system you select.
 
 **Tools** runs `reconcile_nodata` over a condition folder, normalising inconsistent NoData
 sentinels. The NoData mask is preserved exactly; only the sentinel changes.
+
+**Help** has three entries. *Documentation* opens this documentation in a web browser (`F1`
+in the Qt front end). *About* reports the version, the front end in use and the current
+project directory.
+
+*Live Guide: Example* is the third, and it is the one to open first.
+
+### The Live Guide
+
+The modules chain together, and the step people get stuck on is the first one: a condition
+that has not been prepared produces either an error or - worse - an empty map that looks
+like an answer. The Live Guide walks through the whole chain on the sample reach, in seven
+steps, without leaving the program:
+
+0. what the chain is and why the order matters
+1. preparing the condition in **Get Started**
+2. lifespan and design mapping
+3. best feature per cell in **Max Lifespan**
+4. habitat suitability and usable area in **SHArC**
+5. stranding risk
+6. riparian recruitment
+7. maps, and what to check before trusting any of it on your own data
+
+Each step names the tab it belongs to, the settings to enter, what the result should look
+like so you can tell it worked, and the files it writes. Two buttons make it live rather
+than printed:
+
+**Use the sample data** points the project directory at `sample-data/` and sets the units to
+U.S. customary, which is what those rasters are in.
+
+**Open this tab** brings the tab the current step talks about to the front, so you are
+looking at the right controls while you read about them.
+
+The window is not modal - leave it open beside the main window and work through it. The same
+content is on this site as {doc}`example_walkthrough`, with the numbers each step produces;
+both render {mod}`riverarchitect.guide`, so they cannot disagree.
+
+The sample data ships with a source clone rather than with an installed wheel. Without it the
+guide still describes every step, and says so.
 
 ## Not yet in the interface
 

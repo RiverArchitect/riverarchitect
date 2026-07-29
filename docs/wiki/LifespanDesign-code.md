@@ -1,6 +1,6 @@
 
-[Feature lifespan and design assessment][3]
-======================================
+Lifespan design: code extension and modification
+================================================
 
 
 - [Quick GUIde to lifespan and design mapping][3]

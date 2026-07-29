@@ -27,10 +27,16 @@ Modules
     Preparing a condition: detrended DEM, water levels, morphological units.
 :mod:`riverarchitect.recruitment`
     Riparian seedling recruitment potential.
+:mod:`riverarchitect.terraforming`
+    Threshold-based grading and widening of a DEM for planting.
+:mod:`riverarchitect.flows`
+    Seasonal flow duration curves, annual peaks and flood return periods.
 :mod:`riverarchitect.mapping`
     QGIS print layouts and multi-page PDF map series.
 :mod:`riverarchitect.config`
     Paths, units and the canonical NoData value.
+:mod:`riverarchitect.guide`
+    The Live Guide: the sample-data walkthrough both front ends render.
 :mod:`riverarchitect.tools`
     Command-line maintenance tools.
 
@@ -44,9 +50,9 @@ __license__ = "BSD-3-Clause"
 
 from . import config  # noqa: F401
 
-__all__ = ["config", "condition", "raster", "volume", "volume_assessment",
-           "lifespan", "maxlifespan", "stranding", "sharc", "preprocessing",
-           "recruitment", "mapping", "tools", "__version__"]
+__all__ = ["config", "guide", "condition", "raster", "volume", "volume_assessment",
+           "lifespan", "maxlifespan", "terraforming", "stranding", "sharc",
+           "preprocessing", "recruitment", "flows", "mapping", "tools", "__version__"]
 
 
 def __getattr__(name):
@@ -57,8 +63,8 @@ def __getattr__(name):
     it fails, and only when it is actually used.
     """
     if name in ("raster", "volume", "volume_assessment", "condition", "lifespan",
-                "maxlifespan", "stranding", "sharc", "preprocessing", "recruitment",
-                "mapping", "tools"):
+                "maxlifespan", "terraforming", "stranding", "sharc", "preprocessing",
+                "recruitment", "flows", "mapping", "guide", "tools"):
         import importlib
         module = importlib.import_module("." + name, __name__)
         globals()[name] = module

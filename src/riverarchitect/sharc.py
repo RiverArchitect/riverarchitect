@@ -37,7 +37,8 @@ import numpy as np
 from . import config, raster
 from .condition import Condition
 
-__all__ = ["FishDatabase", "apply_curve", "SHArC", "COMBINE_METHODS"]
+__all__ = ["FishDatabase", "apply_curve", "cover_hsi", "SHArC", "COMBINE_METHODS",
+           "COVER_TYPES", "GRAIN_SIZE_LIMITS"]
 
 logger = logging.getLogger("riverarchitect")
 
@@ -97,6 +98,48 @@ class FishDatabase:
         self._offsets = {}             # species -> {label: column offset}
         self._scan()
 
+    # ------------------------------------------------------------------ lookup
+
+    def resolve_species(self, species):
+        """Match a species name against the workbook, ignoring case and spacing.
+
+        The workbook writes ``"Chinook Salmon"``; papers, file names and the rest of this
+        package write ``"Chinook salmon"``. Matching exactly would make a caller's choice of
+        capitalisation decide whether an analysis runs, so it does not.
+
+        Args:
+            species (str): the name to look up.
+
+        Returns:
+            str: the name as the workbook spells it.
+
+        Raises:
+            KeyError: when no species matches.
+        """
+        wanted = " ".join(str(species).split()).lower()
+        for name in self.species:
+            if " ".join(name.split()).lower() == wanted:
+                return name
+        raise KeyError("no such species in %s: %r (have: %s)"
+                       % (self.path, species, ", ".join(self.species)))
+
+    def resolve_lifestage(self, species, lifestage):
+        """Match a lifestage of a species, ignoring case and spacing.
+
+        Returns:
+            str: the label as the workbook spells it.
+
+        Raises:
+            KeyError: when the species has no such lifestage.
+        """
+        species = self.resolve_species(species)
+        wanted = " ".join(str(lifestage).split()).lower()
+        for label in self._lifestages.get(species, []):
+            if " ".join(label.split()).lower() == wanted:
+                return label
+        raise KeyError("species %r has no lifestage %r (have: %s)"
+                       % (species, lifestage, ", ".join(self._lifestages.get(species, []))))
+
     def _scan(self):
         column = _FIRST_SPECIES_COLUMN
         while column <= self._sheet.max_column:
@@ -126,6 +169,10 @@ class FishDatabase:
 
     def lifestages(self, species):
         """Lifestages available for a species, as the workbook labels them."""
+        try:
+            species = self.resolve_species(species)
+        except KeyError:
+            return []
         return list(self._lifestages.get(species, []))
 
     def pairs(self):
@@ -150,13 +197,11 @@ class FishDatabase:
         Returns:
             tuple: ``(x, y)`` arrays, or ``None`` when the workbook defines no curve.
         """
-        if species not in self._species_column:
-            raise KeyError("no such species in %s: %r" % (self.path, species))
         if parameter not in PARAMETER_ROWS:
             raise KeyError("unknown parameter %r" % parameter)
-        offset = self._offsets.get(species, {}).get(lifestage)
-        if offset is None:
-            raise KeyError("species %r has no lifestage %r" % (species, lifestage))
+        species = self.resolve_species(species)
+        lifestage = self.resolve_lifestage(species, lifestage)
+        offset = self._offsets[species][lifestage]
 
         base = self._species_column[species]
         x_column, y_column = base + offset - 1, base + offset
@@ -181,10 +226,15 @@ class FishDatabase:
 
     def cover_value(self, species, lifestage, cover_type):
         """Radius and suitability of a cover type, or None when it is not defined."""
-        offset = self._offsets.get(species, {}).get(lifestage)
-        base = self._species_column.get(species)
+        try:
+            species = self.resolve_species(species)
+            lifestage = self.resolve_lifestage(species, lifestage)
+        except KeyError:
+            return None
+        offset = self._offsets[species][lifestage]
+        base = self._species_column[species]
         row = PARAMETER_ROWS.get(cover_type)
-        if offset is None or base is None or row is None:
+        if row is None:
             return None
         radius = self._sheet.cell(row, base + offset - 1).value
         suitability = self._sheet.cell(row, base + offset).value
@@ -192,18 +242,169 @@ class FishDatabase:
             return None
         return float(radius), float(suitability)
 
+    def season_dates(self, species, lifestage):
+        """Start and end of the lifestage's season, as ``(month, day)`` pairs.
+
+        Rows 6 and 7 of the lifestage's *suitability* column, which is where
+        ``cFish.get_season_dates`` read them. The year in the cell is a placeholder and is
+        ignored; a season that ends before it starts wraps into the next year.
+
+        Returns:
+            tuple: ``((start_month, start_day), (end_month, end_day))``, or ``None`` when
+            the workbook gives no season for this lifestage.
+        """
+        import datetime as dt
+
+        try:
+            species = self.resolve_species(species)
+            lifestage = self.resolve_lifestage(species, lifestage)
+        except KeyError:
+            return None
+        offset = self._offsets[species][lifestage]
+        base = self._species_column[species]
+
+        dates = []
+        for key in ("start_date", "end_date"):
+            value = self._sheet.cell(PARAMETER_ROWS[key], base + offset).value
+            if isinstance(value, (dt.datetime, dt.date)):
+                dates.append((value.month, value.day))
+            else:
+                return None
+        return tuple(dates)
+
     def travel_thresholds(self, species, lifestage):
         """``{"h_min": ..., "u_max": ...}`` swimming thresholds, where defined."""
-        offset = self._offsets.get(species, {}).get(lifestage)
-        base = self._species_column.get(species)
-        if offset is None or base is None:
+        try:
+            species = self.resolve_species(species)
+            lifestage = self.resolve_lifestage(species, lifestage)
+        except KeyError:
             return {}
+        offset = self._offsets[species][lifestage]
+        base = self._species_column[species]
         thresholds = {}
         for key in ("h_min", "u_max"):
             value = self._sheet.cell(PARAMETER_ROWS[key], base + offset - 1).value
             if value is not None:
                 thresholds[key] = float(value)
         return thresholds
+
+
+#: Cover types the habitat database defines a curve for, in the order the original combined
+#: them. ``substrate`` is a suitability *curve* on grain size; the rest are presence layers
+#: whose influence spreads over a radius.
+COVER_TYPES = ("substrate", "cobbles", "boulders", "plants", "wood")
+
+#: Grain diameter range that defines each grain-based cover type, in **metres**, as
+#: ``cHSI.CovHSI.define_grain_size`` had them. Converted for a condition in U.S. customary
+#: units.
+GRAIN_SIZE_LIMITS = {"cobbles": (0.064, 0.256), "boulders": (0.256, 100.0)}
+
+
+def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=None):
+    """Cover habitat suitability: shelter from substrate, cobbles, boulders, plants and wood.
+
+    Depth and velocity say whether a fish *can* be somewhere. Cover says whether it is safe
+    to be there - a fry in open water at the right depth and velocity is still a meal. The
+    original offered this as the *cover* option of SHArC and it is what separates a hydraulic
+    habitat model from an ecohydraulic one.
+
+    Two kinds of layer, dispatched as ``cHSI.CovHSI.call_analysis`` did:
+
+    ``substrate``
+        a grain size raster, mapped through its suitability curve like depth or velocity.
+    ``cobbles``, ``boulders``, ``plants``, ``wood``
+        presence layers. ``cobbles`` and ``boulders`` are cut out of a grain size raster by
+        the diameter ranges in :data:`GRAIN_SIZE_LIMITS`; ``plants`` and ``wood`` are given
+        directly. Each element then shelters everything within its **radius**, taken from
+        the first x value of its curve, and those cells take the curve's suitability.
+
+    The result is the cell-wise **maximum** across the types present: the best shelter
+    available at a cell is what counts, not the sum of every kind of it.
+
+    Args:
+        species (str): common name; case and spacing are ignored.
+        lifestage (str): lifestage; case and spacing are ignored.
+        layers (dict): ``{cover type: array}``. ``cobbles`` and ``boulders`` may be omitted
+            and derived from a ``substrate`` grain size raster instead.
+        profile (dict): the raster profile the layers are on, for the cell size.
+        unit (str): ``"us"`` or ``"si"``; the grain limits are converted accordingly.
+        fish (FishDatabase): the curve database. Built by default.
+        depth (numpy.ndarray): flow depth. When given, cover is cropped to cells at least as
+            deep as the first point of the depth curve, as the original's
+            ``crop_input_raster`` did - cover a fish cannot reach shelters nothing.
+
+    Returns:
+        tuple: ``(cover, used)`` - the suitability array with NoData where no cover applies,
+        and the list of cover types that contributed. ``(None, [])`` when none did.
+    """
+    from . import raster
+
+    fish = fish or FishDatabase()
+    species = fish.resolve_species(species)
+    lifestage = fish.resolve_lifestage(species, lifestage)
+    dx, dy = raster.cell_size(profile)
+    factor = 1.0 / config.FT2M if str(unit).lower() == "us" else 1.0
+
+    reachable = None
+    if depth is not None:
+        depth_curve = fish.curve(species, lifestage, "h")
+        h_min = float(depth_curve[0][0]) if depth_curve is not None else 0.0
+        with np.errstate(invalid="ignore"):
+            # `Con(h >= h_min, cover)` in the original, and Con excludes NoData: a cell the
+            # 2D model never covered is not shallow, it is unknown.
+            reachable = np.isfinite(depth) & (depth >= h_min)
+
+    grain = layers.get("substrate")
+    contributions, used = [], []
+
+    for cover_type in COVER_TYPES:
+        curve = fish.curve(species, lifestage, cover_type)
+
+        if cover_type == "substrate":
+            if grain is None or curve is None:
+                continue
+            suitability = apply_curve(grain, curve)
+            if reachable is not None:
+                suitability = raster.con(reachable, suitability)
+            contributions.append(suitability)
+            used.append(cover_type)
+            continue
+
+        # Presence layers. The curve gives a radius and the suitability inside it; where the
+        # workbook has only the scalar pair, cover_value supplies it.
+        value = fish.cover_value(species, lifestage, cover_type)
+        if curve is not None:
+            radius, suitability_value = float(curve[0][0]), float(curve[1][0])
+        elif value is not None:
+            radius, suitability_value = value
+        else:
+            continue
+
+        present = layers.get(cover_type)
+        if present is None and cover_type in GRAIN_SIZE_LIMITS and grain is not None:
+            low, high = (limit * factor for limit in GRAIN_SIZE_LIMITS[cover_type])
+            with np.errstate(invalid="ignore"):
+                present = (grain >= low) & (grain < high)
+        if present is None:
+            continue
+
+        mask = np.isfinite(present) & (np.nan_to_num(present) > 0.0) \
+            if present.dtype != bool else present
+        if reachable is not None:
+            mask = mask & reachable
+        if not mask.any():
+            continue
+
+        sheltered = raster.within_radius(mask, radius, dx, dy)
+        contributions.append(raster.con(sheltered, suitability_value))
+        used.append(cover_type)
+        logger.info("      * cover %-10s radius %.2f, HSI %.2f, %d cell(s) sheltered",
+                    cover_type, radius, suitability_value, int(sheltered.sum()))
+
+    if not contributions:
+        return None, []
+    # The best shelter available wins, as CellStatistics(..., "MAXIMUM") did.
+    return raster.cell_statistics(contributions, "MAXIMUM"), used
 
 
 def apply_curve(array, curve):
@@ -281,6 +482,8 @@ class SHArC:
         self.fish = fish or FishDatabase()
         self.logger = logger
         self.error = False
+        #: Cover types that contributed to the last run, for the result summary.
+        self._cover_used = set()
 
         self._depth = {}
         self._velocity = {}
@@ -300,8 +503,18 @@ class SHArC:
 
     # ------------------------------------------------------------------- rasters
 
-    def composite_hsi(self, species, lifestage, discharge, reference=None, cover=None):
+    def composite_hsi(self, species, lifestage, discharge, reference=None, cover=None,
+                      cover_layers=None):
         """Composite habitat suitability at one discharge.
+
+        Args:
+            species (str): common name; case and spacing are ignored.
+            lifestage (str): lifestage; case and spacing are ignored.
+            discharge (float): the discharge to evaluate.
+            reference (dict): profile every raster is aligned onto.
+            cover (numpy.ndarray): a ready-made cover suitability array.
+            cover_layers (dict): cover *inputs*, from which one is built with
+                :func:`cover_hsi`. Ignored when ``cover`` is given.
 
         Returns:
             tuple: ``(chsi, profile)``, or ``(None, None)`` when the curves are missing.
@@ -320,6 +533,11 @@ class SHArC:
 
         dsi = apply_curve(depth, depth_curve)
         vsi = apply_curve(velocity, velocity_curve)
+
+        if cover is None and cover_layers:
+            cover, used = cover_hsi(species, lifestage, cover_layers, reference,
+                                    unit=self.unit, fish=self.fish, depth=depth)
+            self._cover_used.update(used)
 
         with np.errstate(invalid="ignore"):
             if cover is not None:
@@ -347,8 +565,38 @@ class SHArC:
 
     # ----------------------------------------------------------------------- run
 
+    def cover_layers(self, extra=None):
+        """Cover layers available in the condition, on its own grid.
+
+        Looks for the rasters the cover analysis can use: the grain size raster named by
+        ``input_definitions.inp`` for ``substrate`` (and, through it, cobbles and boulders),
+        and ``plants.tif`` / ``wood.tif`` beside the condition.
+
+        Args:
+            extra (dict): ``{cover type: path or array}`` to add or override.
+
+        Returns:
+            dict: ``{cover type: array}``, empty when the condition has no cover data.
+        """
+        found = {}
+        if self.condition.exists(self.condition.grain_raster):
+            found["substrate"] = self.condition.path(self.condition.grain_raster)
+        for cover_type in ("cobbles", "boulders", "plants", "wood"):
+            if self.condition.exists(cover_type):
+                found[cover_type] = self.condition.path(cover_type)
+        found.update(extra or {})
+
+        layers = {}
+        for cover_type, source in found.items():
+            if isinstance(source, str):
+                array, _profile = raster.read(source)
+                layers[cover_type] = array
+            elif source is not None:
+                layers[cover_type] = source
+        return layers
+
     def run(self, species, lifestage, discharges=None, output_dir=None,
-            weighted=False, write_rasters=True, flow_duration=None):
+            weighted=False, write_rasters=True, flow_duration=None, cover=False):
         """Map habitat suitability across discharges and compute SHArea.
 
         Args:
@@ -361,11 +609,16 @@ class SHArC:
             write_rasters (bool): write one ``csi_<code><Q>.tif`` per discharge.
             flow_duration (str or dict): a flow duration workbook, or a
                 ``{discharge: % exceedance}`` mapping. Without it SHArea is not computed.
+            cover (bool or dict): include a cover habitat suitability index. ``True`` uses
+                whatever :meth:`cover_layers` finds in the condition; a dict supplies or
+                overrides layers. See :func:`cover_hsi`.
 
         Returns:
             dict: ``per_discharge`` rows, ``sharea`` when a flow duration was given, and
             the paths written.
         """
+        species = self.fish.resolve_species(species)
+        lifestage = self.fish.resolve_lifestage(species, lifestage)
         code = self.fish.shortname(species, lifestage)
         discharges = sorted(discharges) if discharges else self.discharges
         discharges = [q for q in discharges if q in self._depth and q in self._velocity]
@@ -378,9 +631,21 @@ class SHArC:
             os.makedirs(output_dir, exist_ok=True)
 
         reference = raster.profile_of(self._depth[discharges[0]])
+
+        # Cover does not change with discharge except through the depth crop, so it is
+        # built once and cropped per discharge inside composite_hsi.
+        self._cover_used = set()
+        cover_layers = None
+        if cover is not False and cover is not None:
+            cover_layers = self.cover_layers(cover if isinstance(cover, dict) else None)
+            if not cover_layers:
+                self.logger.info("      * no cover layer found in condition %r - running "
+                                 "without cover", self.condition.name)
+
         rows = []
         for discharge in discharges:
-            chsi, profile = self.composite_hsi(species, lifestage, discharge, reference)
+            chsi, profile = self.composite_hsi(species, lifestage, discharge, reference,
+                                               cover_layers=cover_layers)
             if chsi is None:
                 self.error = True
                 continue
@@ -404,6 +669,7 @@ class SHArC:
             "combine_method": self.combine_method,
             "threshold": self.threshold,
             "weighted": weighted,
+            "cover": sorted(self._cover_used),
             "per_discharge": rows,
             "area_unit": config.area_unit(self.unit),
             "discharge_unit": config.unit_labels(self.unit)["q"],

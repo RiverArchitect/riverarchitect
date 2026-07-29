@@ -4,7 +4,7 @@ import os
 import threading
 import tkinter as tk
 from tkinter import ttk
-from tkinter.filedialog import askdirectory
+from tkinter.filedialog import askdirectory, askopenfilename
 from tkinter.messagebox import showerror, showwarning
 
 from .base import RaModuleGui
@@ -32,6 +32,7 @@ class GetStartedGui(RaModuleGui):
     def __init__(self, master=None):
         super().__init__(master)
         self.output_dir = ""
+        self.flow_series = ""
         self._discharges = []
         self._build()
 
@@ -82,6 +83,13 @@ class GetStartedGui(RaModuleGui):
         ttk.Combobox(self, textvariable=self.method_var, width=14, state="readonly",
                      values=["nearest", "idw", "kriging"]) \
             .grid(row=row, column=1, sticky=tk.W, padx=self.pad_x)
+
+        row += 1
+        tk.Label(self, text="Daily flow record:").grid(
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
+        self.b_series = tk.Button(self, width=38, text="Select flow record ...",
+                                  command=self.select_series)
+        self.b_series.grid(row=row, column=1, sticky=tk.W, padx=self.pad_x)
 
         row += 1
         tk.Label(self, text="Output directory (optional):").grid(
@@ -152,6 +160,14 @@ class GetStartedGui(RaModuleGui):
         if labels:
             self.discharge_box.current(0)
 
+    def select_series(self):
+        path = askopenfilename(title="Select a daily flow record",
+                               filetypes=[("Flow records", "*.csv *.xlsx *.xls"),
+                                          ("All files", "*.*")])
+        if path:
+            self.flow_series = path
+            self.b_series.config(fg="forest green", text=os.path.basename(path))
+
     def select_output(self):
         path = askdirectory(title="Select an output directory")
         if path:
@@ -167,11 +183,17 @@ class GetStartedGui(RaModuleGui):
         if key in ("detrended", "water", "mu") and not self.discharge_var.get():
             showwarning("No discharge", "This product needs a reference discharge.")
             return
+        if key == "flows" and not self.flow_series:
+            showwarning("No flow record",
+                        "Analyzing flows needs a daily flow record: a CSV or workbook of "
+                        "dates and mean daily discharge.")
+            return
 
         discharge = float(self.discharge_var.get()) if self.discharge_var.get() else None
         method = self.method_var.get()
         unit = self.unit
         output_dir = self.output_dir or None
+        flow_series = self.flow_series or None
 
         self.b_run.config(state=tk.DISABLED, text="Building ...")
         self._write("Building %s ..." % self.product_var.get())
@@ -179,7 +201,8 @@ class GetStartedGui(RaModuleGui):
         def work():
             try:
                 from .. import preprocessing as pre
-                lines = pre.build_product(name, key, discharge, method, unit, output_dir)
+                lines = pre.build_product(name, key, discharge, method, unit, output_dir,
+                                          flow_series=flow_series)
                 self.after(0, lambda: self._finish(lines))
             except Exception as exc:
                 self.after(0, lambda: self._fail(exc))

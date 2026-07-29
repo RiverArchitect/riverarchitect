@@ -10,7 +10,7 @@ import glob
 import logging
 import os
 
-from ... import __version__, config
+from ... import __version__, config, guide
 from .qtcompat import (QAction, QApplication, QDesktopServices, QFileDialog, QLabel,
                        QMainWindow, QMessageBox, QTabWidget, QUrl, QVBoxLayout, QWidget,
                        Qt, QT_BINDING, exec_app)
@@ -21,6 +21,7 @@ from .maxlifespan_tab import MaxLifespanTab
 from .recruitment_tab import RecruitmentTab
 from .sharc_tab import SharcTab
 from .stranding_tab import StrandingTab
+from .terraforming_tab import TerraformingTab
 from .volume_tab import VolumeTab
 
 __all__ = ["RiverArchitectWindow", "run", "TAB_GROUPS", "TABS"]
@@ -31,7 +32,7 @@ __all__ = ["RiverArchitectWindow", "run", "TAB_GROUPS", "TABS"]
 TAB_GROUPS = (
     ("Get Started", (GetStartedTab,)),
     ("Lifespan", (LifespanTab, MaxLifespanTab)),
-    ("Morphology", (VolumeTab,)),
+    ("Morphology", (TerraformingTab, VolumeTab)),
     ("Ecohydraulics", (SharcTab, StrandingTab, RecruitmentTab)),
     ("Maps", (MappingTab,)),
 )
@@ -129,14 +130,54 @@ class RiverArchitectWindow(QMainWindow):
 
         help_menu = self.menuBar().addMenu("&Help")
         action = QAction("Documentation", self)
-        action.triggered.connect(
-            lambda: QDesktopServices.openUrl(QUrl("https://riverarchitect.readthedocs.io/")))
+        action.setShortcut("F1")
+        action.triggered.connect(self.open_documentation)
         help_menu.addAction(action)
+        action = QAction(guide.TITLE, self)
+        action.triggered.connect(self.open_live_guide)
+        help_menu.addAction(action)
+        help_menu.addSeparator()
         action = QAction("About", self)
         action.triggered.connect(self.show_about)
         help_menu.addAction(action)
 
+    # -------------------------------------------------------------- navigation
+
+    def select_tab(self, group, tab=None):
+        """Bring a module tab to the front. Used by the Live Guide.
+
+        Args:
+            group (str): the top-level tab, as :data:`TAB_GROUPS` names it.
+            tab (str): the module tab within it. Defaults to the group itself.
+
+        Returns:
+            bool: True when the tab was found and selected.
+        """
+        tab = tab or group
+        for index in range(self.tabs.count()):
+            if self.tabs.tabText(index) != group:
+                continue
+            self.tabs.setCurrentIndex(index)
+            inner = self.groups.get(group)
+            if inner is None:
+                return True
+            for inner_index in range(inner.count()):
+                if inner.tabText(inner_index) == tab:
+                    inner.setCurrentIndex(inner_index)
+                    return True
+            return tab == group
+        return False
+
     # ----------------------------------------------------------------- actions
+
+    @staticmethod
+    def open_documentation():
+        QDesktopServices.openUrl(QUrl(guide.DOCS_URL))
+
+    def open_live_guide(self):
+        """Open the step-by-step walkthrough of the sample-data example."""
+        from .guide_window import open_guide
+        open_guide(self)
 
     def set_unit(self, unit):
         """Switch the unit system for every tab."""

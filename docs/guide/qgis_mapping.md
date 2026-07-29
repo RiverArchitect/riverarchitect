@@ -6,17 +6,26 @@ stitching) has been removed; {mod}`riverarchitect.mapping` no longer imports `ar
 
 ## Requirements
 
-QGIS 3.x with its Python bindings on the interpreter's path. Verified against QGIS 3.44.7.
+QGIS 3.x with its Python bindings. Verified against QGIS 3.44.7.
 
 ```bash
-python3 -c "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
+sudo apt install qgis python3-qgis        # Debian, Ubuntu
 ```
 
-`cMapper` sets `QT_QPA_PLATFORM=offscreen` itself, so it renders headless without a display.
-If QGIS lives somewhere other than `/usr`, point `QGIS_PREFIX_PATH` at it.
+They cannot be installed from PyPI, and a distribution installs them for the **system**
+interpreter rather than for the `ra-env` analysis environment. River Architect looks for them
+itself and adds them to the end of its module search path, so the Maps tab normally works
+from `ra-env` too - see *Finding QGIS* in {doc}`../modules/maps` for the search order, the
+`RIVERARCHITECT_QGIS_PATH` and `QGIS_PREFIX_PATH` overrides, and why `PYTHONPATH` is the
+wrong tool for this.
 
-Note that the QGIS bindings are built against the system Python, not against the `ra-env`
-analysis environment. Run mapping with the interpreter that owns the bindings.
+Check what the running interpreter sees:
+
+```bash
+python -c "from riverarchitect.mapping import qgis_status; print(qgis_status()[1])"
+```
+
+`mapping` sets `QT_QPA_PLATFORM=offscreen` itself, so it renders headless without a display.
 
 ## What replaced what
 

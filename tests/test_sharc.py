@@ -218,3 +218,142 @@ def test_run_rejects_a_condition_without_paired_rasters(tmp_path, monkeypatch):
             SHArC("empty").run("Chinook Salmon", "juvenile")
     finally:
         config.set_project_home(None)
+
+
+# -------------------------------------------------- species and lifestage lookup
+
+def test_species_lookup_ignores_case_and_spacing():
+    """The workbook writes "Chinook Salmon"; the literature writes "Chinook salmon".
+
+    Matching exactly used to make the caller's capitalisation decide whether the analysis
+    ran at all - ``SHArC.run("Chinook salmon", ...)`` raised ``KeyError`` while
+    ``StrandingRisk.for_fish`` accepted the same string.
+    """
+    database = FishDatabase()
+    for spelling in ("Chinook Salmon", "Chinook salmon", "chinook salmon",
+                     "  CHINOOK   SALMON  "):
+        assert database.resolve_species(spelling) == "Chinook Salmon"
+
+
+def test_lifestage_lookup_ignores_case_and_spacing():
+    database = FishDatabase()
+    assert database.resolve_lifestage("Chinook salmon", "SPAWNING") == "spawning"
+    assert database.resolve_lifestage("chinook salmon", " fry ") == "fry"
+
+
+def test_curves_resolve_through_either_spelling():
+    database = FishDatabase()
+    lower = database.curve("Chinook salmon", "spawning", "h")
+    upper = database.curve("Chinook Salmon", "spawning", "h")
+    assert lower is not None
+    assert np.array_equal(lower[0], upper[0])
+    assert np.array_equal(lower[1], upper[1])
+
+
+def test_lookup_failure_names_the_available_options():
+    database = FishDatabase()
+    with pytest.raises(KeyError) as info:
+        database.resolve_species("Nessie")
+    assert "Chinook Salmon" in str(info.value)
+    with pytest.raises(KeyError) as info:
+        database.resolve_lifestage("Chinook Salmon", "larva")
+    assert "spawning" in str(info.value)
+
+
+# ------------------------------------------------------------------ cover HSI
+
+def make_cover_profile(width=9, height=9, cell=1.0):
+    from affine import Affine
+    return {"driver": "GTiff", "height": height, "width": width, "count": 1,
+            "dtype": "float32", "crs": "EPSG:32633",
+            "transform": Affine(cell, 0.0, 0.0, 0.0, -cell, height * cell)}
+
+
+def test_cover_spreads_over_its_radius():
+    """A cover element shelters everything within its radius, not only its own cell."""
+    from riverarchitect.sharc import cover_hsi
+
+    profile = make_cover_profile()
+    plants = np.zeros((9, 9))
+    plants[4, 4] = 1.0
+
+    cover, used = cover_hsi("Chinook salmon", "fry", {"plants": plants}, profile, unit="si")
+    assert used == ["plants"]
+    sheltered = np.isfinite(cover)
+    # radius 3 around the centre cell, and nothing in the far corner
+    assert sheltered[4, 4] and sheltered[4, 1] and sheltered[1, 4]
+    assert not sheltered[0, 0]
+    assert cover[4, 4] == pytest.approx(1.0)
+
+
+def test_cobbles_and_boulders_are_cut_out_of_the_grain_raster():
+    """Their diameter ranges come from the original's define_grain_size, in metres."""
+    from riverarchitect.sharc import GRAIN_SIZE_LIMITS, cover_hsi
+
+    assert GRAIN_SIZE_LIMITS["cobbles"] == (0.064, 0.256)
+    profile = make_cover_profile()
+    # one sand cell, one cobble cell, one boulder cell
+    grain = np.full((9, 9), 0.001)
+    grain[4, 4] = 0.1        # cobble
+    grain[0, 0] = 1.0        # boulder
+
+    cover, used = cover_hsi("Chinook salmon", "fry", {"substrate": grain}, profile,
+                            unit="si")
+    assert "cobbles" in used and "boulders" in used
+    assert np.isfinite(cover[4, 4]) and np.isfinite(cover[0, 0])
+    # the sand in between is out of reach of both radii (0.1 m and 1.0 m)
+    assert not np.isfinite(cover[4, 0])
+
+
+def test_the_best_shelter_available_wins():
+    """Cell-wise maximum across cover types, as CellStatistics(..., MAXIMUM) did."""
+    from riverarchitect.sharc import cover_hsi
+
+    profile = make_cover_profile()
+    grain = np.full((9, 9), 0.1)          # cobbles everywhere: suitability 0.40
+    plants = np.zeros((9, 9))
+    plants[4, 4] = 1.0                    # plants at the centre: suitability 1.00
+
+    cover, used = cover_hsi("Chinook salmon", "fry",
+                            {"substrate": grain, "plants": plants}, profile, unit="si")
+    assert set(used) >= {"cobbles", "plants"}
+    assert cover[4, 4] == pytest.approx(1.0)      # plants beat cobbles here
+    assert cover[0, 0] == pytest.approx(0.4)      # only cobbles reach the corner
+
+
+def test_cover_is_cropped_to_water_the_fish_can_reach():
+    """Cover a fish cannot get to shelters nothing - the original's crop_input_raster."""
+    from riverarchitect.sharc import cover_hsi
+
+    profile = make_cover_profile()
+    plants = np.ones((9, 9))
+    # The right-hand columns are outside the modelled area: NoData, not shallow.
+    depth = np.full((9, 9), 5.0)
+    depth[:, 4:] = np.nan
+
+    cover, _used = cover_hsi("Chinook salmon", "fry", {"plants": plants}, profile,
+                             unit="si", depth=depth)
+    assert np.isfinite(cover[4, 0])
+    assert not np.isfinite(cover[4, 8])
+
+
+def test_no_cover_layer_gives_no_cover():
+    from riverarchitect.sharc import cover_hsi
+
+    cover, used = cover_hsi("Chinook salmon", "fry", {}, make_cover_profile())
+    assert cover is None and used == []
+
+
+def test_cover_lowers_the_composite_where_shelter_is_poor(habitat_condition):
+    """cHSI is a geometric mean, so a cover index below 1 can only pull it down."""
+    from riverarchitect.sharc import SHArC
+
+    analysis = SHArC("habitat", unit="si")
+    discharge = analysis.discharges[0]
+    plain, profile = analysis.composite_hsi("Chinook salmon", "fry", discharge)
+    poor = np.full(plain.shape, 0.2)
+    with_cover, _profile = analysis.composite_hsi("Chinook salmon", "fry", discharge,
+                                                  cover=poor)
+    finite = np.isfinite(plain) & np.isfinite(with_cover)
+    assert finite.any()
+    assert np.all(with_cover[finite] <= plain[finite] + 1e-9)

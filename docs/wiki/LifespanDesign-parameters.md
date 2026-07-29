@@ -1,5 +1,5 @@
-Feature lifespan and design assessment
-======================================
+Lifespan design: parameter hypotheses
+=====================================
 
 
 - [Introduction to lifespan and design mapping][3]

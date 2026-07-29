@@ -35,6 +35,7 @@ class GetStartedTab(RaTab):
         super().__init__(parent)
         self.output_dir = ""
         self._discharges = []
+        self.flow_series = ""
         self._build()
 
     def _build(self):
@@ -68,6 +69,12 @@ class GetStartedTab(RaTab):
         self.method.setToolTip("How the surface is extrapolated beyond the wetted area. "
                                "Nearest neighbour is what the ArcGIS version did.")
         form.addRow("Interpolation:", self.method)
+
+        self.b_series = QPushButton("Select flow record ...")
+        self.b_series.clicked.connect(self.select_series)
+        self.b_series.setToolTip("A CSV or workbook of dates and mean daily discharge. "
+                                 "Only the flow analysis needs it.")
+        form.addRow("Daily flow record:", self.b_series)
 
         self.b_output = QPushButton("Select directory ... (optional)")
         self.b_output.clicked.connect(self.select_output)
@@ -150,7 +157,15 @@ class GetStartedTab(RaTab):
         needs_discharge = key in ("detrended", "water", "mu")
         self.discharge.setEnabled(needs_discharge)
         self.method.setEnabled(key in ("detrended", "water"))
+        self.b_series.setEnabled(key == "flows")
         self.info.setText(self._notes.get(key, ""))
+
+    def select_series(self):
+        path = self.choose_file("Select a daily flow record",
+                                "Flow records (*.csv *.xlsx *.xls);;All files (*)")
+        if path:
+            self.flow_series = path
+            self.b_series.setText(self.elide(path))
 
     def select_output(self):
         path = self.choose_directory("Select an output directory")
@@ -169,12 +184,18 @@ class GetStartedTab(RaTab):
         if key in ("detrended", "water", "mu") and not self.discharge.currentText():
             self.warn("No discharge", "This product needs a reference discharge.")
             return
+        if key == "flows" and not self.flow_series:
+            self.warn("No flow record",
+                      "Analyzing flows needs a daily flow record: a CSV or workbook of "
+                      "dates and mean daily discharge.")
+            return
 
         discharge = float(self.discharge.currentText()) if self.discharge.currentText() \
             else None
         method = self.method.currentData()
         unit = self.unit
         output_dir = self.output_dir or None
+        flow_series = self.flow_series or None
 
         self.b_run.setEnabled(False)
         self.b_run.setText("Building ...")
@@ -185,7 +206,8 @@ class GetStartedTab(RaTab):
 
         def work():
             from ... import preprocessing as pre
-            return pre.build_product(name, key, discharge, method, unit, output_dir)
+            return pre.build_product(name, key, discharge, method, unit, output_dir,
+                                     flow_series=flow_series)
 
         self.run_in_background(work, self._finish, self._error)
 

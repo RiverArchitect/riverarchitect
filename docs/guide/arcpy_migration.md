@@ -503,3 +503,114 @@ order-dependent bugs.
    NoData into a legitimate-looking zero. Now that inputs are reconciled to -999.0 the
    behaviour is at least consistent, but `0` remains a poor sentinel for depth and velocity
    rasters where zero is a valid measurement.
+
+## Fidelity gaps found by running the whole chain
+
+The defects above were found by reading the original. These were found by running the ported
+modules end to end on `sample-data/2100_sample` and comparing the behaviour against
+River Architect 1.4, which is a different exercise: they are places where the port was
+*plausible* but did not do what the original did. All are fixed; each has a regression test.
+
+### Threshold units are a round trip, not a conversion
+
+Worth stating first, because it looks like a bug and is not.
+`cLifespanDesignAnalysis.analyse_d2w` and friends divide every length threshold by
+`config.ft2m`, which reads as though the values in `threshold_values.xlsx` were metric. They
+are not: `cThresholdDirector.get_thresh_value` has already **multiplied** them by the same
+factor when the workbook's "CHOOSE UNIT SYSTEM" cell says `U.S. customary`, which it does.
+The two cancel. `lifespan.FEATURES` holds the workbook's values unconverted, and that is
+correct - Cottonwood really is keyed to a water table 1 to 7 **feet** down.
+
+### Three features lost their morphological-unit lists
+
+`sideca`, `gravin` and `gravou` carry `Morphological Units: relevance` lists and
+`mu_method = 1` in `threshold_values.xlsx`, and those rows were dropped when `FEATURES` was
+transcribed. The features were therefore mapped without their spatial restriction, which
+overstated them substantially: `gravin` fell from 33 273 to 7 515 sqft once the criterion was
+restored, and `backwt` - which did have its list - from 124 074 to 2 295 sqft once the
+criterion could resolve any codes at all, which is the next item.
+
+### The morphological-unit code table was unreachable, and half of it was discarded
+
+Two separate faults compounded:
+
+* `lifespan._mu_codes` looked only for a `morphological_units.xlsx` **beside the condition**.
+  Conditions do not ship one. The original read the packaged table
+  (`cParameters.MU.read_mus` on `config.xlsx_mu`), so the criterion silently did nothing here
+  while it worked in 1.4.
+* `preprocessing.MorphologicalUnits` skipped every row without all four depth and velocity
+  bounds. That is right for *classifying* a cell, but it discarded the twenty floodplain
+  units - floodplain, terrace, levee, pond, agricultural plain - which have a name and a code
+  but no hydraulic range because they are not delineated hydraulically. Those are exactly the
+  units the feature threshold lists name.
+
+  The original had the same restriction (`read_mus` requires columns F to I to parse as
+  floats), which is why its `analyse_mu` hit `KeyError` on the first floodplain name in a
+  list, was swallowed by a bare `except`, and dropped the whole criterion without a word.
+
+`MorphologicalUnits` now keeps every named, coded unit with `nan` bounds and exposes
+`classifiable()` for the subset that can be delineated; `lifespan` falls back to the packaged
+table; and a unit whose name does not resolve is now **named in the log** instead of being
+swallowed.
+
+### The two workbooks never agreed on unit names
+
+`threshold_values.xlsx` writes `agriplain`, `in-channel bar`, `high floodplain`,
+`island-floodplain`, `fast glide`; `morphological_units.xlsx` writes `agricultural plain`,
+`bar (in-channel)`, `floodplain (high)`, `island (flood only)`, `glide (fast)`. In 1.4 every
+one of those was a `KeyError`. `preprocessing.MU_ALIASES` maps them, and `codes()` returns
+both vocabularies.
+
+### `Fish.xlsx` says "Chinook Salmon"; everything else says "Chinook salmon"
+
+`FishDatabase` matched species names exactly, so `SHArC.run("Chinook salmon", ...)` raised
+`KeyError` while `StrandingRisk.for_fish("Chinook salmon", ...)` accepted the same string
+from a hard-coded table. The capitalisation of a caller's argument decided whether an
+analysis ran. `FishDatabase.resolve_species` and `resolve_lifestage` now match
+case-insensitively and ignore extra spacing, and report the available options when they fail.
+
+`stranding.TRAVEL_THRESHOLDS` was also a duplicate of data already in the workbook.
+`stranding.travel_thresholds()` now reads `Fish.xlsx` first - as `cFish.get_travel_threshold`
+did - and falls back to the built-in table only for pairs the workbook does not cover, such
+as Chinook adults.
+
+### Stranding connectivity was seeded per discharge, not from the low-flow mainstem
+
+`cConnectivityAnalysis.get_target_raster` builds the escape-route target **once**, from the
+largest wetted polygon at the *lowest* analysed discharge, and every discharge is judged
+against it. The port instead kept the largest region at each discharge separately. Those
+agree whenever the wetted area only grows with discharge - they do agree on the whole sample
+reach - but they diverge as soon as a detached area outgrows the channel it is detached from,
+and then the port reports the mainstem as the stranded part. `StrandingRisk` now takes
+`target_discharge`, defaulting to the lowest analysed discharge.
+
+The percentage column was also computed against the wetted area at each discharge, where the
+original used the largest wetted extent so the column is comparable down a recession. Both
+are now reported (`percent_stranded`, `percent_of_max_wetted`). The reference extent is taken
+by **measurement** rather than at the highest discharge: on a condition holding one bad
+hydraulic raster - as the sample reach does at 88053 cfs - those are not the same thing.
+
+### Recruitment tracked the wrong quantities in the day-by-day walk
+
+`cRecruitmentPotential.rec_inund_survival` is a single loop over the flow record, and the
+port reproduced its shape but not three of its rules:
+
+* **Inundation is the longest run of consecutive submerged days** (`consec_inund_days_max`),
+  not their total. Summing every submerged day condemns a cell that was briefly wet on twenty
+  separate occasions, and on the sample reach it more than halved the inundation-survival
+  area (30 483 sqft against 71 451).
+* **A recession day only counts where the cell is dry** (`one_if_dry`). A submerged seedling
+  is not desiccating, however fast the surface is dropping.
+* **The denominator is per cell.** When a cell goes dry during seed dispersal, that is when
+  its seed landed, so the original resets its counts and its day count from there
+  (`rr_total_d = max_rr_total_d - i`). The port divided every cell by one scalar.
+
+The classification boundary differed too: the original treats a cell submerged for exactly
+`inundation_lethal` days as stressed (0.5), and only `> lethal` as dead. Together these moved
+full recruitment potential on the sample reach from 5 949 to 17 361 sqft.
+
+### `build_product("inp")` ignored its output directory
+
+Every other product honoured `output_dir`; the `.inp` writer always wrote into the condition
+folder, so building products into a scratch directory overwrote the condition's real
+`input_definitions.inp`.

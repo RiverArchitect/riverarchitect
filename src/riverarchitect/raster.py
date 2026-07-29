@@ -51,7 +51,7 @@ __all__ = [
     "con", "is_null", "set_null", "cell_statistics", "reclassify",
     "polygonize", "rasterize", "extract_by_mask", "raster_to_points",
     "idw", "nearest_neighbour", "kriging",
-    "label_regions", "disconnected_mask",
+    "label_regions", "disconnected_mask", "within_radius",
     "zonal_statistics", "tabulate_area", "slope",
     "list_rasters",
 ]
@@ -445,21 +445,64 @@ def label_regions(binary, connectivity=4):
     return ndimage.label(np.asarray(binary).astype(bool), structure=structure)
 
 
-def disconnected_mask(binary, connectivity=4):
-    """Boolean mask of every region except the largest one.
+def within_radius(mask, radius, dx=1.0, dy=1.0):
+    """Cells lying within ``radius`` of any True cell of ``mask``.
+
+    Replaces the original's *spatial join* round trip: raster to points, then
+    ``SpatialJoin_analysis(..., match_option="CLOSEST", search_radius=r)``, then points back
+    to raster. That produced exactly this - the set of cells with a source cell inside the
+    radius - and SHArC used it to spread a cover element's influence over the area it
+    shelters.
+
+    Args:
+        mask (numpy.ndarray): boolean source cells.
+        radius (float): influence radius in map units.
+        dx, dy (float): cell size, from :func:`cell_size`.
+
+    Returns:
+        numpy.ndarray: boolean mask of the source cells and everything within the radius.
+    """
+    mask = np.asarray(mask).astype(bool)
+    if radius <= 0 or not mask.any():
+        return mask
+    # A Euclidean distance transform of the *complement* gives, per cell, the distance to
+    # the nearest source cell; anisotropic cells are handled by `sampling`.
+    distance = ndimage.distance_transform_edt(~mask, sampling=(abs(dy), abs(dx)))
+    return distance <= radius
+
+
+def disconnected_mask(binary, connectivity=4, target=None):
+    """Boolean mask of every wetted region that does not reach the main channel.
 
     This is the rule StrandingRisk applies to find pools that have become detached from the
     main wetted area as discharge drops, and therefore represent fish stranding risk.
 
+    Args:
+        binary (numpy.ndarray): boolean or 0/1 wetted mask.
+        connectivity (int): 4 (arcpy's ``RegionGroup`` default) or 8.
+        target (numpy.ndarray): boolean mask of the main channel. A region counts as
+            connected when it overlaps it. Without one the **largest** region is taken as
+            the main channel, which is what it is at a single discharge but not necessarily
+            across a recession - see :class:`riverarchitect.stranding.StrandingRisk`. A
+            target that no region overlaps is ignored rather than stranding the whole reach.
+
     Returns:
         tuple: ``(mask, n_pools)``.
     """
+    binary = np.asarray(binary).astype(bool)
     labels, count = label_regions(binary, connectivity)
     if count == 0:
-        return np.zeros(np.shape(binary), dtype=bool), 0
-    sizes = ndimage.sum(np.asarray(binary).astype(bool), labels, range(1, count + 1))
-    largest = int(np.argmax(sizes)) + 1
-    mask = (labels > 0) & (labels != largest)
+        return np.zeros(binary.shape, dtype=bool), 0
+
+    connected = set()
+    if target is not None:
+        connected = set(int(label) for label in np.unique(labels[np.asarray(target).astype(bool)])
+                        if label > 0)
+    if not connected:
+        sizes = ndimage.sum(binary, labels, range(1, count + 1))
+        connected = {int(np.argmax(sizes)) + 1}
+
+    mask = (labels > 0) & ~np.isin(labels, sorted(connected))
     return mask, int(len(np.unique(labels[mask])))
 
 

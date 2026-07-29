@@ -192,3 +192,80 @@ def test_a_season_outside_the_record_is_rejected(floodplain):
     analysis = RecruitmentPotential("bench", season(2020), year=1990)
     with pytest.raises(ValueError, match="seed dispersal"):
         analysis.crop_area()
+
+
+# ----------------------------------------------- recession and inundation details
+
+def build(series, floodplain, **kwargs):
+    parameters = RecruitmentParameters(**kwargs) if kwargs else None
+    return RecruitmentPotential("bench", series, year=2020, parameters=parameters,
+                                unit="si")
+
+
+def test_inundation_counts_the_longest_run_not_the_total(floodplain):
+    """Fourteen days under water in one stretch drowns a seedling; scattered days do not.
+
+    The original tracked ``consec_inund_days_max``. Summing every submerged day instead
+    condemns a cell that was briefly wet on twenty separate occasions.
+    """
+    def record(pattern):
+        series = {}
+        day = dt.date(2019, 10, 1)
+        while day <= dt.date(2020, 9, 30):
+            series[day] = 100.0
+            day += dt.timedelta(days=1)
+        for day, discharge in pattern.items():
+            series[day] = discharge
+        return series
+
+    # 20 submerged days in a single run, and the same 20 spread over 40 days.
+    run = {dt.date(2020, 7, 1) + dt.timedelta(days=n): 5000.0 for n in range(20)}
+    scattered = {dt.date(2020, 7, 1) + dt.timedelta(days=2 * n): 5000.0
+                 for n in range(20)}
+
+    thresholds = {"inundation_stress": 5, "inundation_lethal": 10}
+    continuous = build(record(run), floodplain, **thresholds)
+    crop = np.ones(continuous.dem.shape, dtype=bool)
+    _d, inundation, _m = continuous.recession_and_inundation(crop)
+
+    broken = build(record(scattered), floodplain, **thresholds)
+    _d, spread_out, _m = broken.recession_and_inundation(crop)
+
+    # Cells 1 and 2 are the bench: submerged only at 5000 cfs. Twenty days in a row kills
+    # them; the same twenty days one at a time does not touch them.
+    assert list(inundation[0, 1:3]) == [0.0, 0.0]
+    assert list(spread_out[0, 1:3]) == [1.0, 1.0]
+
+
+def test_recession_days_are_only_counted_where_the_cell_is_dry(floodplain):
+    """A submerged seedling is not desiccating, however fast the surface is dropping."""
+    series = {}
+    day = dt.date(2019, 10, 1)
+    while day <= dt.date(2020, 9, 30):
+        # a steady, fast drawdown through the whole recession period
+        series[day] = 5000.0 if day < dt.date(2020, 6, 21) else 100.0
+        day += dt.timedelta(days=1)
+
+    analysis = build(series, floodplain)
+    crop = np.ones(analysis.dem.shape, dtype=bool)
+    _d, _i, mortality = analysis.recession_and_inundation(crop)
+    # the channel cell (index 0) stays under water at 100 cfs, so it accrues no
+    # desiccation mortality at all
+    assert mortality[0, 0] == pytest.approx(0.0)
+
+
+def test_inundation_at_exactly_the_lethal_count_is_stressed_not_dead(floodplain):
+    """``> lethal`` is fatal, ``>= stress`` is stressful - the original's boundary."""
+    series = {}
+    day = dt.date(2019, 10, 1)
+    while day <= dt.date(2020, 9, 30):
+        series[day] = 100.0
+        day += dt.timedelta(days=1)
+    for n in range(4):
+        series[dt.date(2020, 7, 1) + dt.timedelta(days=n)] = 5000.0
+
+    analysis = build(series, floodplain, inundation_stress=2, inundation_lethal=4)
+    crop = np.ones(analysis.dem.shape, dtype=bool)
+    _d, inundation, _m = analysis.recession_and_inundation(crop)
+    # a bench cell submerged for exactly 4 days scores 0.5, not 0
+    assert 0.0 not in set(inundation[np.isfinite(inundation)][1:])

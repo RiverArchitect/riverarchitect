@@ -24,7 +24,7 @@ from tkinter import ttk
 from tkinter.filedialog import askdirectory
 from tkinter.messagebox import askokcancel, showinfo, showwarning
 
-from .. import __version__, config
+from .. import __version__, config, guide
 from .getstarted_tab import GetStartedGui
 from .lifespan_tab import LifespanGui
 from .mapping_tab import MappingGui
@@ -32,6 +32,7 @@ from .maxlifespan_tab import MaxLifespanGui
 from .recruitment_tab import RecruitmentGui
 from .sharc_tab import SharcGui
 from .stranding_tab import StrandingGui
+from .terraforming_tab import TerraformingGui
 from .volume_tab import VolumeGui
 
 __all__ = ["RiverArchitectGui", "main", "TAB_GROUPS"]
@@ -40,7 +41,7 @@ __all__ = ["RiverArchitectGui", "main", "TAB_GROUPS"]
 TAB_GROUPS = (
     ("Get Started", (GetStartedGui,)),
     ("Lifespan", (LifespanGui, MaxLifespanGui)),
-    ("Morphology", (VolumeGui,)),
+    ("Morphology", (TerraformingGui, VolumeGui)),
     ("Ecohydraulics", (SharcGui, StrandingGui, RecruitmentGui)),
     ("Maps", (MappingGui,)),
 )
@@ -132,7 +133,36 @@ class RiverArchitectGui(tk.Frame):
         help_menu = tk.Menu(menu_bar, tearoff=0)
         menu_bar.add_cascade(label="Help", menu=help_menu)
         help_menu.add_command(label="Documentation", command=self.open_documentation)
+        help_menu.add_command(label=guide.TITLE, command=self.open_live_guide)
+        help_menu.add_separator()
         help_menu.add_command(label="About", command=self.show_about)
+
+    # ----------------------------------------------------------------- navigation
+
+    def select_tab(self, group, tab=None):
+        """Bring a module tab to the front. Used by the Live Guide.
+
+        Args:
+            group (str): the top-level tab, as :data:`TAB_GROUPS` names it.
+            tab (str): the module tab within it. Defaults to the group itself.
+
+        Returns:
+            bool: True when the tab was found and selected.
+        """
+        tab = tab or group
+        for index in range(len(self.notebook.tabs())):
+            if self.notebook.tab(index, "text") != group:
+                continue
+            self.notebook.select(index)
+            inner = self.groups.get(group)
+            if inner is None:
+                return True
+            for inner_index in range(len(inner.tabs())):
+                if inner.tab(inner_index, "text") == tab:
+                    inner.select(inner_index)
+                    return True
+            return tab == group
+        return False
 
     # -------------------------------------------------------------------- actions
 
@@ -190,7 +220,12 @@ class RiverArchitectGui(tk.Frame):
     @staticmethod
     def open_documentation():
         import webbrowser
-        webbrowser.open("https://riverarchitect.readthedocs.io/")
+        webbrowser.open(guide.DOCS_URL)
+
+    def open_live_guide(self):
+        """Open the step-by-step walkthrough of the sample-data example."""
+        from .guide_window import open_guide
+        open_guide(self.winfo_toplevel(), self)
 
     def show_about(self):
         showinfo("About River Architect",

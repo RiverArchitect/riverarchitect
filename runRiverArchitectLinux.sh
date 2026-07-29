@@ -6,14 +6,22 @@
 #   ./runRiverArchitectLinux.sh /data/project   # use your own project directory
 #
 # Environment variables:
-#   RA_PYTHON            interpreter to use, overriding the search below
-#   RA_ENV               conda/mamba environment name (default: ra-env)
-#   RIVERARCHITECT_GUI   force a front end: qt or tk
-#   QGIS_PREFIX_PATH     where QGIS is installed, if not /usr
+#   RA_PYTHON                interpreter to use, overriding the search below
+#   RA_ENV                   conda/mamba environment name (default: ra-env)
+#   RIVERARCHITECT_GUI       force a front end: qt or tk
+#   QGIS_PREFIX_PATH         QGIS installation prefix, if it is somewhere unusual
+#   RIVERARCHITECT_QGIS_PATH directory containing the 'qgis' Python package
 #
-# Mapping needs the QGIS Python bindings, which are built against the interpreter QGIS was
-# installed with - usually the system Python, not a conda environment. To get a working
-# Mapping tab, start with that interpreter:
+# Mapping needs the QGIS Python bindings, which cannot be installed from PyPI: a
+# distribution installs them for the system interpreter ("sudo apt install qgis
+# python3-qgis"). River Architect finds them by itself and adds them to the end of its module
+# search path, so the Maps tab normally works from the conda environment as well - provided
+# the bindings and the environment are the same Python minor version.
+#
+# Do NOT put them on PYTHONPATH: on Debian and Ubuntu they sit beside the distribution's own
+# numpy, pandas and scipy, and PYTHONPATH comes first, which would silently downgrade the
+# whole analysis stack. If the versions do not match, start with the interpreter QGIS was
+# installed for instead - the analysis tabs then disable themselves, since it has no rasterio:
 #
 #   RA_PYTHON=/usr/bin/python3 ./runRiverArchitectLinux.sh
 #
@@ -108,6 +116,8 @@ fi
 printf 'River Architect\n'
 printf '  interpreter : %s\n' "${PYTHON}"
 printf '  project     : %s\n' "${PROJECT}"
+printf '  new here?     open  Help > Live Guide: Example  for a walkthrough of the\n'
+printf '                sample reach, from preparing the condition to habitat area.\n'
 printf 'Loading (please wait) ...\n'
 
 exec "${PYTHON}" -m riverarchitect "${PROJECT}"

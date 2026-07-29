@@ -5,7 +5,7 @@ for angular boulders, and a **fish stranding risk** assessment over a receding h
 Both use the public sample data, and every number printed below was produced by the code on
 this page.
 
-```{admonition} Two ways to run these
+````{admonition} Two ways to run these
 :class: tip
 
 Both analyses are packaged modules with a tab in the interface -
@@ -25,7 +25,7 @@ primitives. That is worth reading once: it shows exactly what the modules do, wh
 assumptions they make, and where you would change them for a river that behaves differently.
 The physical background is in {doc}`../wiki/LifespanDesign`,
 {doc}`../wiki/LifespanDesign-parameters` and {doc}`../wiki/StrandingRisk`.
-```
+````
 
 The scripts on this page are in `examples/`, ready to run:
 
@@ -390,9 +390,9 @@ assessing, and state it alongside the result.
 
 ## What to do with the output
 
-Both parts write GeoTIFFs into `sample-data/Output/`. To turn them into a map series, hand the directory
-to the mapping module - remembering that it runs in the interpreter that owns the QGIS
-bindings, not in `ra-env`:
+Both parts write GeoTIFFs into `sample-data/Output/`. To turn them into a map series, hand
+the directory to the mapping module, which locates the QGIS bindings itself - see
+{doc}`../modules/maps`:
 
 ```python
 from riverarchitect.mapping import Mapper

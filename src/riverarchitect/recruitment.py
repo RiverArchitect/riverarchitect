@@ -39,6 +39,9 @@ import numpy as np
 
 from . import config, raster
 from .condition import Condition
+# Reading a daily flow record lives in `flows`; it is re-exported here because this module
+# was the first to need one and callers import it from here. One implementation, not two.
+from .flows import read_flow_series
 from .preprocessing import water_level_elevation
 
 __all__ = ["RecruitmentParameters", "RecruitmentPotential", "read_flow_series"]
@@ -50,35 +53,6 @@ RHO_RATIO = 2.68
 #: Centimetres per foot and per metre, for the recession-rate thresholds.
 CM_PER_FOOT = 30.48
 CM_PER_METRE = 100.0
-
-
-def read_flow_series(path, date_column=0, discharge_column=1):
-    """Read a daily flow record from a spreadsheet or CSV.
-
-    Args:
-        path (str): ``.xlsx``, ``.xls`` or ``.csv`` with a date column and a mean daily
-            discharge column.
-        date_column (int): zero-based index of the date column.
-        discharge_column (int): zero-based index of the discharge column.
-
-    Returns:
-        dict: ``{datetime.date: discharge}``, ascending by date.
-    """
-    import pandas as pd
-
-    if str(path).lower().endswith((".xlsx", ".xls")):
-        frame = pd.read_excel(path)
-    else:
-        frame = pd.read_csv(path)
-
-    dates = pd.to_datetime(frame.iloc[:, date_column], errors="coerce")
-    values = pd.to_numeric(frame.iloc[:, discharge_column], errors="coerce")
-    series = {}
-    for date, value in zip(dates, values):
-        if pd.isna(date) or pd.isna(value):
-            continue
-        series[date.date()] = float(value)
-    return dict(sorted(series.items()))
 
 
 class RecruitmentParameters:
@@ -372,65 +346,103 @@ class RecruitmentPotential:
         """Objectives 2 and 3, tracked in a single pass over the flow record.
 
         Both need the same day-by-day walk: the recession rate is how fast the water surface
-        drops at a cell, and the inundation count is how many days it stays under water.
+        drops at a cell, and the inundation count is how long it stays under water.
+
+        Three details decide the result, and all three follow the original
+        (``cRecruitmentPotential.rec_inund_survival``):
+
+        * a stressful or lethal recession day is only counted where the cell is **dry** that
+          day. While a cell is still submerged its seedling is not desiccating, however fast
+          the surface is dropping;
+        * a cell that goes dry during seed dispersal starts again from there - that is when
+          its seed actually landed - so both the counts and the denominator are per cell;
+        * the inundation objective uses the longest run of **consecutive** submerged days,
+          not their total. Fourteen days under water in one stretch drowns a seedling;
+          fourteen days spread over a season does not.
+
+        Returns:
+            tuple: ``(desiccation, inundation, mortality)`` rasters, cropped.
         """
+        seed_start = self.parameters.date_in(self.year, self.parameters.seed_start)
         seed_end = self.parameters.date_in(self.year, self.parameters.seed_end)
         baseflow = self.parameters.date_in(self.year, self.parameters.baseflow_start)
-        recession_start = self.parameters.date_in(self.year, self.parameters.seed_start)
 
         days = [date for date in self.flow_series
-                if recession_start - dt.timedelta(days=3) <= date <= baseflow]
+                if seed_start - dt.timedelta(days=3) <= date <= baseflow]
         if len(days) < 5:
             raise ValueError("the flow record has too few days in the %d recession period"
                              % self.year)
 
+        recession_days = sum(1 for date in days if date >= seed_start)
+        if recession_days == 0:
+            raise ValueError("no day falls in the %d recession period" % self.year)
+
         shape = self.dem.shape
         stress_days = np.zeros(shape, dtype="float64")
         lethal_days = np.zeros(shape, dtype="float64")
-        inundated_days = np.zeros(shape, dtype="float64")
-        recession_days = 0
+        # Per-cell denominator, reset when a cell goes dry during seed dispersal.
+        tracked_days = np.full(shape, float(recession_days))
+        consecutive = np.zeros(shape, dtype="float64")
+        longest_inundation = np.zeros(shape, dtype="float64")
 
-        previous = None
         window = []
+        dry = None
+        elapsed = 0
         for date in days:
             surface = self.wle_for(self.flow_series[date])
             window.append(surface)
             if len(window) > 4:
                 window.pop(0)
 
-            # inundation: the cell is under water when the surface is above the ground
             with np.errstate(invalid="ignore"):
-                inundated_days += np.where(surface > self.dem, 1.0, 0.0)
+                submerged = surface > self.dem
+            was_dry = np.ones(shape, dtype=bool) if dry is None else dry
+            dry = ~submerged
 
-            if len(window) == 4 and date > seed_end:
-                # three-day moving average of the daily drop, converted to cm/day
+            if date <= seed_end:
+                # The seed of a cell settles when the water leaves it, so everything before
+                # that is another cell's history, not this one's.
+                just_dried = (~was_dry) & dry
+                if just_dried.any():
+                    tracked_days = np.where(just_dried,
+                                            max(recession_days - elapsed, 1), tracked_days)
+                    stress_days = np.where(just_dried, 0.0, stress_days)
+                    lethal_days = np.where(just_dried, 0.0, lethal_days)
+                    longest_inundation = np.where(just_dried, 0.0, longest_inundation)
+
+            if len(window) == 4 and date >= seed_start:
+                # Three-day moving average of the daily drop, converted to cm/day. Positive
+                # means the water surface is falling.
                 drop = (window[0] - window[-1]) / 3.0 * self.cm_per_length
                 with np.errstate(invalid="ignore"):
                     stress_days += np.where(
-                        (drop >= self.parameters.recession_stress)
+                        dry & (drop >= self.parameters.recession_stress)
                         & (drop < self.parameters.recession_lethal), 1.0, 0.0)
-                    lethal_days += np.where(drop >= self.parameters.recession_lethal,
-                                            1.0, 0.0)
-                recession_days += 1
-            previous = surface
+                    lethal_days += np.where(
+                        dry & (drop >= self.parameters.recession_lethal), 1.0, 0.0)
 
-        if recession_days == 0:
-            raise ValueError("no day falls in the %d recession period" % self.year)
+            consecutive = np.where(dry, 0.0, consecutive + 1.0)
+            longest_inundation = np.maximum(longest_inundation, consecutive)
+            if date >= seed_start:
+                elapsed += 1
 
         # Mortality coefficient of Braatne et al. (2007): lethal days weigh three times as
         # much as stressful ones.
-        stress_percent = stress_days / recession_days * 100.0
-        lethal_percent = lethal_days / recession_days * 100.0
+        stress_percent = stress_days / tracked_days * 100.0
+        lethal_percent = lethal_days / tracked_days * 100.0
         mortality = (lethal_percent * 3.0 + stress_percent) / 3.0
 
         desiccation = np.where(mortality > 30.0, 0.0,
                                np.where(mortality >= 20.0, 0.5, 1.0))
-        inundation = np.where(inundated_days >= self.parameters.inundation_lethal, 0.0,
-                              np.where(inundated_days >= self.parameters.inundation_stress,
+        # Strictly greater than the lethal count, as the original had it: a cell submerged
+        # for exactly the lethal number of days is stressed, not dead.
+        inundation = np.where(longest_inundation > self.parameters.inundation_lethal, 0.0,
+                              np.where(longest_inundation >= self.parameters.inundation_stress,
                                        0.5, 1.0))
 
-        self.logger.info("   >> recession tracked over %d day(s); inundation over %d day(s)",
-                         recession_days, len(days))
+        self.logger.info("   >> recession tracked over %d day(s) of %d; longest inundation "
+                         "%d day(s)", recession_days, len(days),
+                         int(np.nanmax(longest_inundation)) if longest_inundation.size else 0)
         return (raster.con(crop, desiccation), raster.con(crop, inundation),
                 raster.con(crop, mortality))
 

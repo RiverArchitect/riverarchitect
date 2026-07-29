@@ -61,6 +61,33 @@ autodoc_mock_imports = [
     "qgis", "PyQt5", "PySide6",
 ]
 
+
+class _BlockQtBindings:
+    """Keep the *real* Qt bindings out of the documentation build.
+
+    Read the Docs never installs PySide6, so the mock above is all it needs. A developer
+    building the docs locally has it installed, and there ``sphinx.ext.viewcode`` imports
+    ``riverarchitect.gui.qt.qtcompat`` for real to link its source. That pulls in shiboken,
+    which installs an import hook that runs ``inspect.getsource`` on every module imported
+    afterwards - including autodoc's mocked ``numpy``, a self-wrapping object that sends
+    ``inspect.unwrap`` into "wrapper loop when unwrapping numpy". Every later autodoc import
+    then fails.
+
+    Blocking the binding outright makes the local build behave like the Read the Docs one.
+    ``qtcompat`` is written to degrade when no binding is importable, which is exactly the
+    path this takes.
+    """
+
+    _blocked = ("PySide6", "shiboken6", "PyQt5")
+
+    def find_spec(self, name, path=None, target=None):
+        if name.split(".")[0] in self._blocked:
+            raise ImportError("Qt bindings are not imported during the docs build")
+        return None
+
+
+sys.meta_path.insert(0, _BlockQtBindings())
+
 autodoc_default_options = {
     "member-order": "bysource",
     "exclude-members": "__weakref__",
@@ -94,8 +121,11 @@ myst_url_schemes = ("http", "https", "mailto")
 # They are kept verbatim for provenance; do not fail a build over them. `xref_ambiguous`
 # covers their in-page anchors, such as `[Run](#run)`, which MyST tries to resolve against
 # the Python domain and finds more than one match for.
+# `toc.not_included` is deliberately *not* suppressed: a page in no toctree is a page
+# nobody can reach, and that is how stale documentation accumulates. Every page must have a
+# home in the structure, or be deleted.
 suppress_warnings = ["myst.header", "myst.xref_missing", "myst.xref_ambiguous",
-                     "image.nonlocal_uri", "toc.not_included",
+                     "image.nonlocal_uri",
                      # The epub builder inspects the output tree and reports every doctree
                      # cache file it finds there. Noise, not a problem with the content.
                      "epub.unknown_project_files"]

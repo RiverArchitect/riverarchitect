@@ -155,7 +155,7 @@ what is missing instead of raising, and every other module carries on normally.
 The practical arrangement is:
 
 * run analysis in `ra-env`, write results as GeoTIFF and GeoPackage;
-* run mapping with the interpreter that owns the QGIS bindings, pointing it at those files.
+* run mapping, which locates the QGIS bindings itself and falls back to a clear message.
 
 ```bash
 # analysis
@@ -245,7 +245,7 @@ open it when no other project directory is given.
   `libxcb-cursor0`. Falling back with `RIVERARCHITECT_GUI=tk` also works.
 
 **`ModuleNotFoundError: No module named 'qgis'`**
-: Expected inside `ra-env`. Run mapping with the interpreter that owns the bindings; see
+: Expected inside `ra-env`; River Architect locates the system bindings itself. See
   {ref}`qgis-bindings`.
 
 **QGIS crashes on a machine with no display**

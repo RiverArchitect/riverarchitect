@@ -302,3 +302,103 @@ def test_for_fish_uses_the_travel_thresholds(recession):
     assert analysis.h_min == pytest.approx(0.3)
     with pytest.raises(KeyError):
         StrandingRisk.for_fish("recede", "Trout", "fry")
+
+
+def test_stranding_target_is_the_low_flow_mainstem(recession, tmp_path):
+    """A fragment cut off at low flow stays cut off even if it grows large later.
+
+    The original defined its target once, from the largest wetted region at the *lowest*
+    analysed discharge, and judged every higher discharge against it. Taking the largest
+    region at each discharge separately gives a different answer whenever a detached area
+    outgrows the channel it is detached from.
+    """
+    directory = recession
+    profile = make_profile(width=9, height=1)
+    # At the low flow only the 3-cell channel on the left is wet: that is the mainstem.
+    raster.write(str(directory / "h000500.tif"),
+                 np.array([[1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]), profile)
+    # At 3000 a 5-cell backwater on the right is wet as well, but cell 3 stays dry, so no
+    # route joins it to the mainstem. It is larger than the mainstem it is cut off from.
+    raster.write(str(directory / "h003000.tif"),
+                 np.array([[1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0]]), profile)
+
+    seeded = StrandingRisk("recede", discharges=[3000, 500], h_min=0.5, unit="si")
+    assert seeded.target_discharge == 500
+    rows = {row["discharge"]: row for row in
+            seeded.run(output_dir=str(tmp_path / "seeded"))["per_discharge"]}
+    assert rows[3000]["stranded_area"] == pytest.approx(5.0)
+
+    largest = StrandingRisk("recede", discharges=[3000, 500], h_min=0.5, unit="si",
+                            target_discharge=False)
+    rows = {row["discharge"]: row for row in
+            largest.run(output_dir=str(tmp_path / "largest"))["per_discharge"]}
+    # Without a target the 5-cell backwater *is* the largest region, so the mainstem is
+    # reported as the stranded one instead - the outcome the low-flow target prevents.
+    assert rows[3000]["stranded_area"] == pytest.approx(3.0)
+
+
+def test_stranding_reports_both_percentage_bases(recession, tmp_path):
+    analysis = StrandingRisk("recede", discharges=[2000, 1000], h_min=0.5, unit="si")
+    result = analysis.run(output_dir=str(tmp_path / "out"), write_rasters=False)
+    assert result["max_wetted_area"] == pytest.approx(9.0)
+    low = result["per_discharge"][1]
+    # 2 of the 8 cells wetted at 1000, but 2 of the 9 wetted at the highest discharge
+    assert low["percent_stranded"] == pytest.approx(100.0 * 2 / 8)
+    assert low["percent_of_max_wetted"] == pytest.approx(100.0 * 2 / 9)
+
+
+def test_for_fish_reads_the_packaged_fish_database(recession):
+    """Thresholds come from Fish.xlsx, which spells the species "Chinook Salmon"."""
+    pytest.importorskip("openpyxl")
+    from riverarchitect.stranding import travel_thresholds
+
+    thresholds = travel_thresholds("Chinook Salmon", "fry")
+    assert thresholds["h_min"] == pytest.approx(0.2)
+    assert thresholds["u_max"] == pytest.approx(1.9)
+
+    analysis = StrandingRisk.for_fish("recede", "Chinook Salmon", "fry",
+                                      discharges=[2000, 1000])
+    assert analysis.h_min == pytest.approx(0.2)
+    assert analysis.u_max == pytest.approx(1.9)
+    assert analysis.species == "Chinook Salmon"
+
+
+def test_travel_thresholds_fall_back_to_the_built_in_table(recession):
+    """Chinook adults are in the built-in table but not in the packaged workbook."""
+    from riverarchitect.stranding import travel_thresholds
+
+    thresholds = travel_thresholds("Chinook salmon", "adult")
+    assert thresholds["h_min"] == pytest.approx(0.9)
+
+
+def test_morphological_unit_criterion_uses_the_packaged_table(project, tmp_path):
+    """Without a workbook beside the condition the criterion used to be dropped silently.
+
+    The original read its codes from the packaged ``morphological_units.xlsx`` too
+    (``cParameters.MU.read_mus``), so falling back to it is what the criterion needs to
+    apply at all on a condition that ships no table of its own.
+    """
+    pytest.importorskip("openpyxl")
+    analysis = LifespanDesign("synthetic", unit="us")
+    codes = analysis._mu_codes()
+    assert codes, "no morphological unit codes were found"
+    # instream units, delineated by depth and velocity
+    assert codes["pool"] == 23
+    # floodplain units carry a code but no hydraulic range, and used to be dropped
+    assert codes["floodplain"] == 12
+    assert codes["terrace"] == 32
+    # the threshold table's vocabulary resolves through the alias map
+    assert codes["agriplain"] == codes["agricultural plain"]
+    assert codes["in-channel bar"] == codes["bar (in-channel)"]
+    assert codes["high floodplain"] == codes["floodplain (high)"]
+
+
+def test_features_carry_the_workbook_morphological_unit_lists():
+    """sideca, gravin and gravou lost their MU lists when FEATURES was transcribed."""
+    for fid in ("sideca", "gravin", "gravou"):
+        feature = FEATURES[fid]
+        assert feature.mu_relevant, "%s has no relevant morphological units" % fid
+        assert feature.mu_method == 1
+    assert "pool" in FEATURES["gravin"].mu_relevant
+    assert "floodplain" in FEATURES["gravou"].mu_relevant
+    assert "cutbank" in FEATURES["sideca"].mu_relevant

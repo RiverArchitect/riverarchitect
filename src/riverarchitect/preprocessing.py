@@ -35,7 +35,7 @@ from . import config, raster
 __all__ = ["detrended_dem", "water_level_elevation", "interpolated_depth",
            "depth_to_water_table", "morphological_units", "MorphologicalUnits",
            "write_input_definitions", "align_condition", "build_product",
-           "INTERPOLATION_METHODS", "PRODUCTS"]
+           "INTERPOLATION_METHODS", "MU_ALIASES", "PRODUCTS"]
 
 logger = logging.getLogger("riverarchitect")
 
@@ -177,12 +177,37 @@ def depth_to_water_table(dem_path, depth_path, output_path=None, wle=None, **kwa
 
 # -------------------------------------------------------------- morphological units
 
+#: Names the lifespan threshold table uses for morphological units that
+#: ``morphological_units.xlsx`` spells differently. The two vocabularies were never
+#: reconciled in the original, where the mismatch raised a ``KeyError`` inside a bare
+#: ``except`` and silently dropped the whole morphological-unit criterion.
+MU_ALIASES = {
+    "agriplain": "agricultural plain",
+    "backswamp": "swamp",
+    "in-channel bar": "bar (in-channel)",
+    "lateral bar": "bar (lateral)",
+    "medial bar": "bar (medial)",
+    "point bar": "bar (point)",
+    "high floodplain": "floodplain (high)",
+    "island high floodplain": "island (permanent)",
+    "island-floodplain": "island (flood only)",
+    "fast glide": "glide (fast)",
+    "slow glide": "glide (slow)",
+}
+
+
 class MorphologicalUnits:
-    """Depth and velocity thresholds that define each morphological unit.
+    """Morphological unit names, raster codes and the depth and velocity ranges they span.
 
     Read from a ``morphological_units.xlsx`` in the original layout: column D the unit name,
     E its raster code, F and G the depth range, H and I the velocity range. The workbook is
     in **SI**, so the thresholds are converted when the condition is in U.S. customary units.
+
+    The floodplain units in the lower half of the workbook carry a name and a code but no
+    depth or velocity range, because they are not delineated hydraulically. They are kept
+    here with :data:`numpy.nan` bounds: :func:`morphological_units` cannot classify a cell
+    into them, but :mod:`riverarchitect.lifespan` needs their codes to apply a feature's
+    ``mu_avoid`` and ``mu_relevant`` lists, most of which name exactly those units.
 
     Args:
         path (str): the workbook. Defaults to the one shipped with the package.
@@ -215,18 +240,33 @@ class MorphologicalUnits:
             code = sheet.cell(row, 5).value
             if not name or code is None or str(name).strip().lower() in ("none", "mu type"):
                 continue
-            bounds = [sheet.cell(row, column).value for column in (6, 7, 8, 9)]
-            if any(value is None for value in bounds):
-                continue
-            h_min, h_max, u_min, u_max = (float(value) * self.factor for value in bounds)
+            raw = [sheet.cell(row, column).value for column in (6, 7, 8, 9)]
+            try:
+                h_min, h_max, u_min, u_max = (float(value) * self.factor for value in raw)
+            except (TypeError, ValueError):
+                # A floodplain unit: named and coded, but not hydraulically delineated.
+                h_min = h_max = u_min = u_max = float("nan")
             self.units[str(name).strip()] = {
                 "code": int(code), "h_min": h_min, "h_max": h_max,
                 "u_min": u_min, "u_max": u_max,
             }
 
+    def classifiable(self):
+        """The units that carry a depth *and* velocity range, so a cell can fall into one."""
+        return {name: entry for name, entry in self.units.items()
+                if not np.isnan(entry["h_min"])}
+
     def codes(self):
-        """``{unit name: raster code}``, as :mod:`riverarchitect.lifespan` expects it."""
-        return {name.lower(): entry["code"] for name, entry in self.units.items()}
+        """``{unit name: raster code}``, as :mod:`riverarchitect.lifespan` expects it.
+
+        Every name in :data:`MU_ALIASES` is added as a second key for the unit it refers to,
+        so a threshold table may use either vocabulary.
+        """
+        codes = {name.lower(): entry["code"] for name, entry in self.units.items()}
+        for alias, canonical in MU_ALIASES.items():
+            if canonical in codes and alias not in codes:
+                codes[alias] = codes[canonical]
+        return codes
 
     def __len__(self):
         return len(self.units)
@@ -260,7 +300,7 @@ def morphological_units(depth_path, velocity_path, output_path=None, table=None,
 
     wet = np.nan_to_num(depth) > 0.0
     layers = []
-    for name, entry in table.units.items():
+    for name, entry in table.classifiable().items():
         with np.errstate(invalid="ignore"):
             selected = (wet
                         & (depth >= entry["h_min"]) & (depth < entry["h_max"])
@@ -398,6 +438,7 @@ PRODUCTS = (
     ("detrended DEM", "detrended"),
     ("water surface, depth and depth to water table", "water"),
     ("morphological units", "mu"),
+    ("analyze flows: seasonal flow duration curves", "flows"),
     ("input_definitions.inp", "inp"),
     ("align every raster onto one grid", "align"),
 )
@@ -410,6 +451,9 @@ PRODUCT_NOTES = {
              "h_interp.tif and d2w.tif.",
     "mu": "Classifies the wetted area into pools, riffles, runs and the rest from depth "
           "and velocity. Writes mu.tif.",
+    "flows": "Turns a daily flow record into one seasonal flow duration curve per species "
+             "and lifestage, which is what SHArea is integrated over. Needs a flow series "
+             "file; writes 00_Flows/<condition>/flow_duration_<code>.xlsx.",
     "inp": "Writes the input_definitions.inp that names the condition's rasters. Add flood "
            "return periods afterwards for lifespan mapping.",
     "align": "Resamples every raster of the condition onto the DEM's grid. Optional - the "
@@ -418,7 +462,7 @@ PRODUCT_NOTES = {
 
 
 def build_product(condition_name, key, discharge=None, method="nearest", unit="us",
-                  output_dir=None):
+                  output_dir=None, flow_series=None):
     """Build one named product for a condition, and report what was written.
 
     The single entry point both the Qt and the tkinter interface call, so neither has to
@@ -431,6 +475,7 @@ def build_product(condition_name, key, discharge=None, method="nearest", unit="u
         method (str): interpolation method, see :data:`INTERPOLATION_METHODS`.
         unit (str): unit system of the rasters.
         output_dir (str): where to write. Defaults to the condition folder.
+        flow_series (str): path to a daily flow record, for the ``"flows"`` product.
 
     Returns:
         list: lines describing what was written.
@@ -461,9 +506,29 @@ def build_product(condition_name, key, discharge=None, method="nearest", unit="u
         velocity = condition.path("u%06d.tif" % discharge)
         path = os.path.join(target, "mu.tif")
         _mu, _profile, table = morphological_units(depth, velocity, path, unit=unit)
-        lines.append("wrote %s (%d unit types)" % (path, len(table)))
+        lines.append("wrote %s (%d unit types can be classified hydraulically; the table "
+                     "also holds %d floodplain units for lifespan mapping)"
+                     % (path, len(table.classifiable()),
+                        len(table) - len(table.classifiable())))
+    elif key == "flows":
+        from .flows import seasonal_flow_duration
+
+        if not flow_series:
+            raise ValueError("analyzing flows needs a daily flow record: a CSV or workbook "
+                             "of dates and mean daily discharge")
+        written = seasonal_flow_duration(flow_series, condition.name, unit=unit,
+                                         output_dir=output_dir)
+        if not written:
+            lines.append("no flow duration curve could be built - the record covers none "
+                         "of the seasons in Fish.xlsx.")
+        for entry in written:
+            lines.append("wrote %s (%s %s, %d day(s) in season)"
+                         % (entry["path"], entry["species"], entry["lifestage"],
+                            entry["days_in_season"]))
     elif key == "inp":
-        path = write_input_definitions(condition.directory)
+        path = write_input_definitions(
+            condition.directory,
+            path=os.path.join(target, "input_definitions.inp"))
         lines.append("wrote %s" % path)
         lines.append("")
         lines.append("Return periods are left empty. Fill them in for lifespan mapping:")

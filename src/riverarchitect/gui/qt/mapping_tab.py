@@ -80,23 +80,11 @@ class MappingTab(RaTab):
             self.condition.setEditText(current)
 
     def _check_qgis(self):
-        try:
-            from ...mapping import QGIS_AVAILABLE
-        except Exception:
-            QGIS_AVAILABLE = False
-        if QGIS_AVAILABLE:
-            self.status.setPlainText("QGIS bindings found. Select a raster directory to "
-                                     "begin.")
-            return
-        self.b_run.setEnabled(False)
-        self.status.setPlainText(
-            "QGIS is not available in this Python environment, so mapping is disabled.\n"
-            "Everything else in River Architect works normally.\n\n"
-            "The QGIS Python bindings are built against the interpreter QGIS was installed\n"
-            "with, and cannot be installed from PyPI. Check them with:\n\n"
-            "    python -c \"from qgis.core import Qgis; print(Qgis.QGIS_VERSION)\"\n\n"
-            "Then start River Architect with that interpreter, or set QGIS_PREFIX_PATH if\n"
-            "QGIS is installed outside /usr.")
+        from ...mapping import qgis_status
+
+        available, message = qgis_status()
+        self.status.setPlainText(message)
+        self.b_run.setEnabled(available)
 
     # ----------------------------------------------------------------- callbacks
 

@@ -9,12 +9,15 @@ API reference
    preprocessing
    lifespan
    maxlifespan
+   terraforming
    volume
    volume_assessment
    sharc
    stranding
    recruitment
+   flows
    mapping
    config
+   guide
    tools
    gui
