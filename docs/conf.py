@@ -134,7 +134,9 @@ suppress_warnings = ["myst.header", "myst.xref_missing", "myst.xref_ambiguous",
 
 html_theme = "sphinx_rtd_theme"
 html_theme_options = {
-    "navigation_depth": 3,
+    # 4, not 3: the API reference now sits inside Development, so its module
+    # pages are one level deeper than they used to be and would be cut off.
+    "navigation_depth": 4,
     "collapse_navigation": False,
     "sticky_navigation": True,
     "prev_next_buttons_location": "both",

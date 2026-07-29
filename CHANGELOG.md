@@ -4,6 +4,22 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Documentation
+
+- Section captions are no longer numbered.
+- **Development** is one page instead of five. The nested *DEVELOPMENT* page, *Using git*,
+  *Edit the Wiki*, *The to-do list for developers* with its *DETAILED PROBLEM DESCRIPTIONS*,
+  and the *Full list of folders and files* are removed. *Add a module to River Architect* is
+  reconciled into a single flat section and rewritten for this codebase - the legacy version
+  documented `master_gui.py`, `moduleTEMPLATE/` and `arcpy.sa`, none of which exist here.
+- The **API reference** is now part of *Development* rather than a section of its own.
+  `navigation_depth` is raised to 4 so its module pages stay visible in the sidebar.
+- **About** drops the legacy *River Architect overview* / *River Architect Wiki* landing page
+  and gains a **License** page: the BSD 3-Clause terms in plain language and in full, the
+  citation, and the third-party components River Architect builds on.
+
 ## [2.1.1] - 2026-07-29
 
 ### Fixed

@@ -45,76 +45,65 @@ does on its false branch, and the fidelity gaps found by running the whole chain
 
 ```{toctree}
 :maxdepth: 2
-:caption: 1. Software setup
+:caption: Software setup
 
 setup/index
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: 2. Usage (Quick Start)
+:caption: Usage (Quick Start)
 
 usage/index
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: 3. Get started and signposts
+:caption: Get started and signposts
 
 getstarted/index
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: 4. Modules
+:caption: Modules
 
 modules/index
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: 5. Tools
+:caption: Tools
 
 tools
 ```
 
 ```{toctree}
 :maxdepth: 1
-:caption: 6. FAQ
+:caption: FAQ
 
 faq
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: 7. Troubleshooting
+:caption: Troubleshooting
 
 troubleshooting
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: API reference
-
-api/index
-```
-
-```{toctree}
-:maxdepth: 1
 :caption: Development
 
-guide/arcpy_migration
-wiki/DevModule
-wiki/DevGit
-wiki/DevWiki
-wiki/Dev2do
+development/index
 ```
 
 ```{toctree}
 :maxdepth: 1
 :caption: About
 
-wiki/main_page
+license
 wiki/Acknowledgment
 wiki/Disclaimer
 ```

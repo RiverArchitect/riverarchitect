@@ -102,7 +102,7 @@ To start using *River Architect*:
 
 ## File structure<a name="structure"></a>
 
-The main directory (`/RiverArchitect/`) contains the program launcher named `Start_River_Architect.bat` and the *Python3* file `master_gui.py`. The *River Architect* modules are located in sub-folders. The master folder (`/RiverArchitect/`) includes the following files and directories (the full list of all files for developers is available [here](DevModule.md#struc)):
+The main directory (`/RiverArchitect/`) contains the program launcher named `Start_River_Architect.bat` and the *Python3* file `master_gui.py`. The *River Architect* modules are located in sub-folders. The master folder (`/RiverArchitect/`) includes the following files and directories:
 
 -   **.sitepackages**
 		Contains adapted third-party Python packages and own packages
