@@ -4,11 +4,32 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.0] - 2026-07-29
 
-Found by running the whole chain end to end on `sample-data/2100_sample` for the first time
-and comparing the behaviour against River Architect 1.4. Details for every item are in
+The first release to have been **run end to end**. Every module was executed in order on
+`sample-data/2100_sample` and compared against River Architect 1.4, which turned up three
+capabilities the wiki describes that had no code at all, and six places where the port was
+plausible but did not do what the original did. All are closed here. Details for each are in
 *Fidelity gaps found by running the whole chain* in `docs/guide/arcpy_migration.md`.
+
+The documentation is restructured to follow the original wiki's table of contents, and both
+front ends gained a **Live Guide** that walks through the whole chain on the sample reach
+without leaving the program.
+
+> **Results change.** Nothing in the public API was removed or narrowed, so this is a minor
+> release and existing code keeps working. **Numbers do change**, because several analyses
+> were wrong before:
+>
+> - lifespan mapping now applies the morphological-unit criterion, which it never did - on
+>   the sample reach `backwt` falls from 124 074 to 2 295 sqft and `gravin` from 33 273 to
+>   7 515;
+> - riparian recruitment counts *consecutive* inundated days rather than their total - full
+>   recruitment potential rises from 5 949 to 17 361 sqft;
+> - SHArea can be computed at all for the first time, because nothing could previously build
+>   the flow duration curve it integrates over.
+>
+> Re-run any project you intend to compare against, rather than mixing figures from 2.0.0
+> and 2.1.0.
 
 ### Added
 
@@ -46,7 +67,7 @@ and comparing the behaviour against River Architect 1.4. Details for every item 
 
 **The Live Guide**
 
-- `riverarchitect.guide` - the **Live Guide**, a seven-step walkthrough of the sample reach
+- `riverarchitect.guide` - the **Live Guide**, a nine-step walkthrough of the sample reach
   held as data so both front ends render the same content. Reachable from **Help ▸ Live
   Guide: Example** in the Qt and the tkinter interface; it can point the project directory
   at the sample data and bring the tab each step talks about to the front.
@@ -88,7 +109,6 @@ and comparing the behaviour against River Architect 1.4. Details for every item 
   condition's `input_definitions.inp`.
 - `stranding.for_fish` now reads the packaged `Fish.xlsx` first, as `cFish` did, rather than
   only its own hard-coded table.
-
 - **"QGIS is not available" although QGIS was installed.** The bindings cannot come from
   PyPI, so a distribution installs them for the *system* interpreter and a conda environment
   never saw them - the message then told the user to install software they already had.
@@ -218,5 +238,6 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
+[2.1.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.1.0
 [2.0.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.0.0
 [1.0.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v1.0.0
