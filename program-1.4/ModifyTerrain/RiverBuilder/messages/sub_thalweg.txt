@@ -1,1 +1,0 @@
-Thalweg Elevation (USER FUNCTION) - governs undulations in the bed elevation along the Thalweg on the X-Z plane. Used to create riffle-pool couplets.
