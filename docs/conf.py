@@ -149,8 +149,8 @@ html_show_sourcelink = True
 htmlhelp_basename = "RiverArchitect"
 
 _here = os.path.dirname(os.path.abspath(__file__))
-if os.path.isfile(os.path.join(_here, "img", "icon.svg")):
-    html_logo = "img/icon.svg"
+if os.path.isfile(os.path.join(_here, "img", "icon-v2.svg")):
+    html_logo = "img/icon-v2.svg"
 if os.path.isfile(os.path.join(_here, "img", "browser-icon.ico")):
     html_favicon = "img/browser-icon.ico"
 
