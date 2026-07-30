@@ -63,10 +63,12 @@ Section 5 of the original wiki, brought up to date. For anything not answered he
 : Yes. Every tab is a thin front end over an ordinary Python module. See
   {doc}`guide/quickstart` and the {doc}`API reference <api/index>`.
 
-**Something is not ported. What is missing?**
-: River Builder ({doc}`modules/morphology`), Project Maker ({doc}`modules/projectmaker`),
-  the pool-riffle morphology designer ({doc}`tools`), and the velocity criterion of Stranding
-  Risk. Each is called out where it belongs, with what to do instead.
+**Is everything from the ArcGIS version here now?**
+: Every analysis module is, including River Builder ({doc}`modules/morphology`) and Project
+  Maker ({doc}`modules/projectmaker`), which were the last two. What remains unported is the
+  pool-riffle morphology designer ({doc}`tools`), which never depended on arcpy, and the
+  velocity criterion of Stranding Risk ({doc}`modules/ecohydraulics`). Both are called out
+  where they belong.
 
 ## Legacy page
 

@@ -10,12 +10,14 @@ API reference
    lifespan
    maxlifespan
    terraforming
+   riverbuilder
    volume
    volume_assessment
    sharc
    stranding
    recruitment
    flows
+   projectmaker
    mapping
    config
    guide

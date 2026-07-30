@@ -29,6 +29,10 @@ Modules
     Riparian seedling recruitment potential.
 :mod:`riverarchitect.terraforming`
     Threshold-based grading and widening of a DEM for planting.
+:mod:`riverarchitect.riverbuilder`
+    Synthetic river valleys from a handful of design parameters.
+:mod:`riverarchitect.projectmaker`
+    Construction cost against the gain in seasonal habitat area.
 :mod:`riverarchitect.flows`
     Seasonal flow duration curves, annual peaks and flood return periods.
 :mod:`riverarchitect.mapping`
@@ -44,15 +48,16 @@ The graphical interface lives in :mod:`riverarchitect.gui` and is started with t
 ``riverarchitect`` console script, or with ``python -m riverarchitect``.
 """
 
-__version__ = "2.1.1"
+__version__ = "2.2.0"
 __author__ = "River Architect Development Team"
 __license__ = "BSD-3-Clause"
 
 from . import config  # noqa: F401
 
 __all__ = ["config", "guide", "condition", "raster", "volume", "volume_assessment",
-           "lifespan", "maxlifespan", "terraforming", "stranding", "sharc",
-           "preprocessing", "recruitment", "flows", "mapping", "tools", "__version__"]
+           "lifespan", "maxlifespan", "terraforming", "riverbuilder", "stranding",
+           "sharc", "preprocessing", "recruitment", "flows", "projectmaker", "mapping",
+           "tools", "__version__"]
 
 
 def __getattr__(name):
@@ -63,8 +68,9 @@ def __getattr__(name):
     it fails, and only when it is actually used.
     """
     if name in ("raster", "volume", "volume_assessment", "condition", "lifespan",
-                "maxlifespan", "terraforming", "stranding", "sharc", "preprocessing",
-                "recruitment", "flows", "mapping", "guide", "tools"):
+                "maxlifespan", "terraforming", "riverbuilder", "stranding", "sharc",
+                "preprocessing", "recruitment", "flows", "projectmaker", "mapping",
+                "guide", "tools"):
         import importlib
         module = importlib.import_module("." + name, __name__)
         globals()[name] = module

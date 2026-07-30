@@ -17,8 +17,10 @@ from .qtcompat import (QAction, QApplication, QDesktopServices, QFileDialog, QLa
 from .getstarted_tab import GetStartedTab
 from .lifespan_tab import LifespanTab
 from .mapping_tab import MappingTab
+from .projectmaker_tab import ProjectMakerTab
 from .maxlifespan_tab import MaxLifespanTab
 from .recruitment_tab import RecruitmentTab
+from .riverbuilder_tab import RiverBuilderTab
 from .sharc_tab import SharcTab
 from .stranding_tab import StrandingTab
 from .terraforming_tab import TerraformingTab
@@ -32,8 +34,9 @@ __all__ = ["RiverArchitectWindow", "run", "TAB_GROUPS", "TABS"]
 TAB_GROUPS = (
     ("Get Started", (GetStartedTab,)),
     ("Lifespan", (LifespanTab, MaxLifespanTab)),
-    ("Morphology", (TerraformingTab, VolumeTab)),
+    ("Morphology", (TerraformingTab, RiverBuilderTab, VolumeTab)),
     ("Ecohydraulics", (SharcTab, StrandingTab, RecruitmentTab)),
+    ("Project Maker", (ProjectMakerTab,)),
     ("Maps", (MappingTab,)),
 )
 

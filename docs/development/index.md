@@ -76,8 +76,9 @@ Register it in **both** `TAB_GROUPS` declarations - `gui/qt/main.py` and `gui/ma
 TAB_GROUPS = (
     ("Get Started", (GetStartedTab,)),
     ("Lifespan", (LifespanTab, MaxLifespanTab)),
-    ("Morphology", (TerraformingTab, VolumeTab)),
+    ("Morphology", (TerraformingTab, RiverBuilderTab, VolumeTab)),
     ("Ecohydraulics", (SharcTab, StrandingTab, RecruitmentTab)),
+    ("Project Maker", (ProjectMakerTab,)),
     ("Maps", (MappingTab,)),
 )
 ```
@@ -147,7 +148,8 @@ src/riverarchitect/
 ├── preprocessing.py     GetStarted: the terrain products everything else reads
 ├── flows.py             seasonal flow duration curves, annual peaks, return periods
 ├── lifespan.py          LifespanDesign          maxlifespan.py   MaxLifespan
-├── terraforming.py      ModifyTerrain           volume.py        volume integration
+├── terraforming.py      ModifyTerrain           riverbuilder.py  synthetic valleys
+├── volume.py            volume integration      projectmaker.py  cost vs. habitat
 ├── sharc.py             SHArC                   volume_assessment.py
 ├── stranding.py         StrandingRisk           recruitment.py   RiparianRecruitment
 ├── mapping.py           QGIS print layouts, the only module that imports QGIS

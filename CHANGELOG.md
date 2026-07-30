@@ -4,7 +4,42 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.2.0] - 2026-07-30
+
+**Feature parity with the ArcGIS original.** River Builder and Project Maker were the last
+two modules without an open-source implementation; both are ported here, so every analysis
+the 1.x series offered now runs without Esri software, without R, and without a licence. The
+interface carries all eleven modules.
+
+### Added
+
+**The last two ArcGIS modules, ported**
+
+- `riverarchitect.riverbuilder` - **River Builder**. Generates a synthetic river valley -
+  meandering centreline, varying bankfull width, thalweg, symmetric/asymmetric/trapezoidal
+  cross-sections, floodplain and terrace benches - and writes it as a DEM with a hillshade.
+  The original called a 1189-line R script through `rpy2` and rebuilt the point cloud as a
+  TIN with ArcGIS 3D Analyst; the geometry is numpy here and the TIN is
+  `scipy.interpolate.LinearNDInterpolator`, so neither R nor a licence is needed. The
+  parameter file format is unchanged, so an existing RiverBuilder input runs as it is, and
+  the `PERL` noise is seeded so a run is reproducible - the original's was not.
+- `riverarchitect.projectmaker` - **Project Maker**. Prices the works from what the earlier
+  modules mapped, compares SHArea between an existing and a with-project condition, and
+  reports the cost per unit of habitat gained. The unit rates are the original workbook's,
+  held as Python so a change to a rate is reviewable; the four percentage rates compound in
+  the order the workbook applied them.
+- New **Morphology ▸ River Builder** and **Project Maker** tabs in both front ends. The
+  interface now carries all eleven modules.
+
+### Fixed
+
+- Two bugs found while porting River Builder, both in this release's own new code: the
+  channel slope dropped the `valley_slope / sinuosity` term, which left a channel that
+  barely fell and an absurd regime depth with it; and the arc length started at the first
+  step rather than at zero, so a perfectly straight valley reported a sinuosity of 1.01.
+- Project Maker no longer derives a quantity for a rate priced per length or per piece from
+  a mapped area. Pricing 250 000 logs because a feature covers 250 000 square feet is how a
+  cost estimate becomes fiction; those lines are left empty and named in the log instead.
 
 ### Documentation
 
@@ -266,6 +301,7 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
+[2.2.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.2.0
 [2.1.1]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.1.1
 [2.1.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.1.0
 [2.0.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.0.0

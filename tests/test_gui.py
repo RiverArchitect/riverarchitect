@@ -81,8 +81,9 @@ def test_qt_window_exposes_every_ported_module(qt_app):
 
     window = RiverArchitectWindow()
     titles = " ".join(factory.title for factory in TABS).lower()
-    for expected in ("get started", "lifespan design", "max lifespan", "volume assessment",
-                     "sharc", "stranding risk", "recruitment", "mapping"):
+    for expected in ("get started", "lifespan design", "max lifespan", "terraforming",
+                     "river builder", "volume assessment", "sharc", "stranding risk",
+                     "recruitment", "project maker", "mapping"):
         assert expected in titles
 
 
@@ -92,11 +93,17 @@ def test_qt_groups_match_the_arcgis_structure(qt_app):
 
     window = RiverArchitectWindow()
     top = [window.tabs.tabText(i) for i in range(window.tabs.count())]
-    assert top == ["Get Started", "Lifespan", "Morphology", "Ecohydraulics", "Maps"]
+    assert top == ["Get Started", "Lifespan", "Morphology", "Ecohydraulics",
+                   "Project Maker", "Maps"]
 
     eco = window.groups["Ecohydraulics"]
     assert [eco.tabText(i) for i in range(eco.count())] == [
         "Habitat Area (SHArC)", "Stranding Risk", "Riparian Seedling Recruitment"]
+
+    # Morphology carries both halves of the original ModifyTerrain plus the volumes.
+    morphology = window.groups["Morphology"]
+    assert [morphology.tabText(i) for i in range(morphology.count())] == [
+        "Terraforming", "River Builder", "Volume Assessment"]
 
 
 def test_sharc_tab_lists_the_fish_database(qt_app):
@@ -201,8 +208,9 @@ def test_tk_window_builds_every_tab(tk_root):
 
     window = RiverArchitectGui(tk_root)
     titles = " ".join(window.tabs).lower()
-    for expected in ("get started", "lifespan design", "max lifespan", "volume assessment",
-                     "sharc", "stranding risk", "recruitment", "mapping"):
+    for expected in ("get started", "lifespan design", "max lifespan", "terraforming",
+                     "river builder", "volume assessment", "sharc", "stranding risk",
+                     "recruitment", "project maker", "mapping"):
         assert expected in titles
 
 

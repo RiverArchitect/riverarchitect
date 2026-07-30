@@ -28,8 +28,10 @@ from .. import __version__, config, guide
 from .getstarted_tab import GetStartedGui
 from .lifespan_tab import LifespanGui
 from .mapping_tab import MappingGui
+from .projectmaker_tab import ProjectMakerGui
 from .maxlifespan_tab import MaxLifespanGui
 from .recruitment_tab import RecruitmentGui
+from .riverbuilder_tab import RiverBuilderGui
 from .sharc_tab import SharcGui
 from .stranding_tab import StrandingGui
 from .terraforming_tab import TerraformingGui
@@ -41,8 +43,9 @@ __all__ = ["RiverArchitectGui", "main", "TAB_GROUPS"]
 TAB_GROUPS = (
     ("Get Started", (GetStartedGui,)),
     ("Lifespan", (LifespanGui, MaxLifespanGui)),
-    ("Morphology", (TerraformingGui, VolumeGui)),
+    ("Morphology", (TerraformingGui, RiverBuilderGui, VolumeGui)),
     ("Ecohydraulics", (SharcGui, StrandingGui, RecruitmentGui)),
+    ("Project Maker", (ProjectMakerGui,)),
     ("Maps", (MappingGui,)),
 )
 

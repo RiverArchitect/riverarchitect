@@ -27,9 +27,19 @@ the four possible offsets instead, so a species may name its lifestages whatever
 upstream publishes and are kept deliberately - see `sample-data/README.md`. Expect one odd
 row in any per-discharge table on that reach.
 
-**Not ported.** River Builder, Project Maker, the pool-riffle morphology designer, and the
-velocity criterion of Stranding Risk. Each is documented where it belongs rather than failing
-silently.
+**Not ported.** The pool-riffle morphology designer ({doc}`tools`) and the velocity
+criterion of Stranding Risk. Both are documented where they belong rather than failing
+silently. Every analysis module of the ArcGIS version is otherwise present.
+
+**River Builder's regime relation can produce an absurd depth.** ``H = 165*D50*tau_cr/S`` is
+inversely proportional to slope, so a gentle valley with a coarse bed gives a bankfull depth
+greater than the channel is wide. That is the original's formula reproduced faithfully; the
+tab reports it instead of building the valley silently, and the answer is to give the
+bankfull depth explicitly.
+
+**Project Maker leaves some quantities empty.** A rate priced per yard of bank, per culvert
+or per bridge does not follow from a mapped area, so it is not guessed. The log names what
+could not be derived; enter those directly.
 
 **"QGIS is not available" although QGIS is installed.** The bindings are installed for the
 *system* interpreter and River Architect may be running in a conda environment. It searches

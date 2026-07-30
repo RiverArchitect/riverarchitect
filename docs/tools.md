@@ -73,6 +73,9 @@ tables for self-sustaining pool-riffle channels from cross-section-averaged hydr
 is independent of the raster analysis and of `arcpy`, and has not been rewritten. The legacy
 page below describes it.
 
+For a synthetic channel *geometry* rather than a design table, see **River Builder** in
+{doc}`modules/morphology`, which is ported.
+
 ## In this section
 
 ```{toctree}

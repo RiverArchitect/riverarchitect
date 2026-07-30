@@ -114,8 +114,9 @@ The top-level tabs group the modules the way the ArcGIS version did, and three o
 ```text
 Get Started
 Lifespan        -> Lifespan Design | Max Lifespan
-Morphology      -> Terraforming | Volume Assessment
+Morphology      -> Terraforming | River Builder | Volume Assessment
 Ecohydraulics   -> Habitat Area (SHArC) | Stranding Risk | Riparian Seedling Recruitment
+Project Maker
 Maps
 ```
 
@@ -126,6 +127,11 @@ Maps
 **Max lifespan** answers the planner's question rather than the engineer's: given several feature lifespan maps, *which* feature belongs here? It reads the lifespan tab's output, takes the cell-wise maximum, and writes one best-feature mask and polygon layer per feature plus `max_lf.tif`. Ties are kept rather than broken, so a cell where two features both reach the maximum appears in both layers - the choice is yours to make on other grounds.
 
 **Terraforming** lowers the terrain where a feature planned by *Max Lifespan* sits further above the water table than its roots can reach, by exactly the excess, and reports the excavation that implies. Point it at the Max Lifespan output folder; feed its `dem_terraformed.tif` to Volume Assessment as the modified DEM.
+
+**River Builder** generates a synthetic valley - meandering centreline, varying width,
+thalweg, floodplain and terrace - from design parameters, and writes it as a DEM with a
+hillshade. Use it when the reach no longer contains a natural target to design towards. An
+existing RiverBuilder parameter file can be loaded directly.
 
 **Volume Assessment** compares a pre-project and a post-project DEM and reports fill,excavation and net volumes plus the affected areas. The *level of detection* excludeselevation differences smaller than the survey noise. Volumes are integrated under the triangulated surface; see {doc}`volumes` for why that matters.
 

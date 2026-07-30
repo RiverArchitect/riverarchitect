@@ -1,6 +1,7 @@
 # Morphology (Terraforming)
 
-Changing the terrain, and quantifying the change. Two modules, run in that order.
+Changing the terrain, and quantifying the change. Three modules: two that produce a terrain
+and one that measures the difference between two of them.
 
 ## Terraforming
 
@@ -42,14 +43,6 @@ feature must see the first one's excavation rather than the original DEM.
 `cut_depth.tif` is NoData where nothing was dug - two-argument `con`, not a zero cut. Feed
 `dem_terraformed.tif` to Volume Assessment as the modified DEM.
 
-```{admonition} River Builder is not part of this package
-:class: note
-
-The original's ModifyTerrain tab also hosted **River Builder**, a generator of synthetic
-river valleys with its own input format and its own publication. It is a separate program
-and is not ported here. Its description is preserved in the legacy page below.
-```
-
 ```{admonition} Post-processing is still required
 :class: warning
 
@@ -57,6 +50,63 @@ As in the original, a threshold-based terrain modification is a *proposal*, not 
 construction drawing. It needs computer-aided design afterwards - edge smoothing, and
 translation into real-world construction geometry - before anyone digs.
 ```
+
+## River Builder
+
+{mod}`riverarchitect.riverbuilder` - the **Morphology ▸ River Builder** tab.
+
+Terraforming modifies a terrain that exists. River Builder **invents one**. A restoration
+design needs a target, and a reach channelised for a century no longer contains one; this
+generates a valley with the geometry a natural one would have, from parameters an engineer
+can defend.
+
+The construction, in order:
+
+1. a **centreline** down the valley, displaced sideways by the meandering function; its arc
+   length gives the sinuosity;
+2. **bankfull width** at each station, from the width function about the base width, floored
+   at the minimum;
+3. **curvature**, from the curvature function - plus the analytical curvature of the sine
+   itself when the cross-section is asymmetric;
+4. **channel slope**, the valley slope divided by the sinuosity plus the trend of curvature
+   along the reach. A meandering channel falls the same height over a longer path, so it is
+   gentler than the valley;
+5. **thalweg and bank tops**, and a **cross-section** between them - a symmetric U, an
+   asymmetric U leaning into the bend, or a trapezoid;
+6. **floodplain and terrace** benches either side, each with its own offset function;
+7. the points are triangulated onto a regular grid, clipped to the valley boundary, and
+   written as a GeoTIFF with a hillshade beside it.
+
+$$
+H_{bf} = \frac{165 \, D_{50} \, \tau^{*}_{cr}}{S}
+$$
+
+is the regime relation that sets the bankfull depth when none is given: the depth at which
+the channel just mobilises its own median grain size. It is inversely proportional to slope,
+so a gentle valley with a coarse bed produces a depth greater than the channel is wide -
+which is not a river. The original produced that silently; here it is reported, and the
+answer is to give the depth explicitly.
+
+Sub-reach variability is expressed as functions - `SIN`, `COS`, `SIN_SQ`, `LINE` and `PERL`
+(smooth pseudo-random noise) - which are summed where a parameter names several. The
+parameter file format is the original's, so an existing RiverBuilder input runs unchanged.
+
+```{admonition} What replaced R and 3D Analyst
+:class: note
+
+The original called a 1189-line R script through `rpy2`, wrote a point cloud to CSV, and
+rebuilt it as a TIN and a raster with ArcGIS 3D Analyst - so it needed R, rpy2, ArcGIS *and*
+a licence. The geometry is numpy here and the interpolation is
+{class}`scipy.interpolate.LinearNDInterpolator`, which is what a TIN is; it returns NaN
+outside the convex hull, which is the clip to the valley boundary the original did with a
+soft-clip polygon.
+
+The `PERL` noise is seeded, so the same input file gives the same valley. The original drew
+from a hand-rolled generator seeded off the clock, and no run could be reproduced.
+```
+
+The DEM is a starting point, not a construction drawing: run a 2D model over it, build a
+condition from the results, and put it through the rest of the chain.
 
 ## Volume Assessment
 
@@ -86,7 +136,7 @@ matches the original software and the one a contractor will recognise.
 
 ## River reaches
 
-Both modules can be limited to a **reach**: a named stretch of river with its own extent, so
+Terraforming and Volume Assessment can be limited to a **reach**: a named stretch of river with its own extent, so
 that a long project can be planned and reported in pieces. Reach definitions are described
 in the legacy page below; this release applies extents through the raster mask and the QGIS
 layout rather than through the original's reach workbook.
@@ -98,7 +148,7 @@ layout rather than through the original's reach workbook.
 
 ../guide/volumes
 Modify Terrain: working principles (legacy) <../wiki/ModifyTerrain>
-River Builder <../wiki/RiverBuilder>
+River Builder: parameters and background (legacy) <../wiki/RiverBuilder>
 Volume Assessment: working principles (legacy) <../wiki/VolumeAssessment>
 River reach definitions <../wiki/RiverReaches>
 ```
@@ -106,6 +156,7 @@ River reach definitions <../wiki/RiverReaches>
 ```{eval-rst}
 .. seealso::
 
-   :mod:`riverarchitect.terraforming`, :mod:`riverarchitect.volume_assessment` and
-   :mod:`riverarchitect.volume` in the API reference.
+   :mod:`riverarchitect.terraforming`, :mod:`riverarchitect.riverbuilder`,
+   :mod:`riverarchitect.volume_assessment` and :mod:`riverarchitect.volume` in the API
+   reference.
 ```
