@@ -140,6 +140,22 @@ def test_taux_tool_writes_the_four_rasters(tmp_path):
     assert np.allclose(theta, expected.theta84, rtol=1e-6)
 
 
+def test_the_application_icon_ships_inside_the_package():
+    """The icon must resolve from the package, not from the repository layout.
+
+    Both front ends load it through ``config.icon_path()`` at start-up. If it lived only in
+    ``docs/img/`` - or if ``assets/**/*`` fell out of the wheel's package-data - a source
+    checkout would still work while every installed copy raised on launch.
+    """
+    import os
+
+    from riverarchitect import config
+
+    path = config.icon_path()
+    assert os.path.isfile(path), "packaged icon missing: %s" % path
+    assert os.path.dirname(path) == os.path.join(config.package_dir(), "assets")
+
+
 def test_reconcile_nodata_reports_missing_dependencies_from_main():
     """The dependency check belongs in main(), not at import time."""
     from riverarchitect.tools import reconcile_nodata

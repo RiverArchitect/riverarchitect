@@ -4,11 +4,17 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.3.0] - 2026-07-31
+
+**Corrected bed shear stress, and conditions from River Architect 1.x are readable again.**
+The dimensionless bed shear stress the original computed with a single logarithmic
+resistance law is replaced by a regime-aware one, which changes every result that depends on
+it. Separately, conditions whose hydraulic rasters use 1.x's decimal discharge naming were
+invisible to the whole package; they now work. The interface gains an application icon.
 
 ### Changed
 
-- **The dimensionless bed shear stress is now regime-aware, and referenced to $D_{84}$.**
+- **The dimensionless bed shear stress is now regime-aware, and referenced to `D84`.**
   The original's single Keulegan-Einstein expression assumed one logarithmic resistance law
   at every relative submergence; on the bundled sample reach about 95 % of wet cells sit at
   `h/ks < 7`, where that law does not hold and the computed stress diverges as the argument
@@ -20,6 +26,14 @@ All notable changes to River Architect are recorded here. The format follows
   numerically and are now read as `theta84` thresholds. On the sample reach `Generic`
   planting rose from 23 166 to 44 775 sqft and full recruitment potential from 17 361 to
   31 977 sqft. `docs/guide/arcpy_migration.md` records the reasoning.
+- **The legacy wiki pages say so.** `docs/wiki/LifespanDesign.md` and `docs/wiki/RSR.md`
+  still carry the ArcPy 1.x equations verbatim, as the rest of `docs/wiki/` does, but each
+  now opens with a note that the shipped calculation differs and links to the current
+  equations. They document the historical method, not the current one.
+- **The documentation navigation is one tree.** The eight captioned `toctree` blocks on the
+  landing page collapsed into a single one, with `collapse_navigation` on so only the current
+  branch expands. License, acknowledgments and disclaimer moved behind a new `docs/about.md`
+  rather than sitting loose at the root.
 
 ### Added
 
@@ -35,6 +49,15 @@ All notable changes to River Architect are recorded here. The format follows
   that report in the error instead of only saying what was missing.
 - `riverarchitect-taux` - the Shields stress calculation as a command-line tool, for one set
   of rasters outside a condition folder (`python -m riverarchitect.tools.taux`).
+- **An application icon.** Both front ends set it (`iconphoto` on tkinter,
+  `setWindowIcon` on Qt) from `config.icon_path()`, and the artwork ships inside the package
+  as `riverarchitect/assets/icon-v2.png` so an installed copy has it too. On Windows the
+  process declares `config.APP_ID` as its AppUserModelID, without which the taskbar groups
+  the window under the Python interpreter instead of showing the icon. The previous artwork
+  is kept as `docs/img/icon-stale*`.
+- **A note on the grain-size statistic** in the Get Started docs: `dmean.tif` is a file name,
+  not a promise about which percentile it holds, and the bed-shear calculation's
+  `D84 = 2.2 * D50` fallback is only defensible when the input really is `D50`.
 
 ### Fixed
 

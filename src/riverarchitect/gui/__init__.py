@@ -92,7 +92,7 @@ def main(argv=None):
         int: process exit status.
     """
     _set_windows_app_id()
-    
+
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s  %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S")
