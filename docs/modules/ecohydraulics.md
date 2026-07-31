@@ -12,7 +12,7 @@ Turns 2D hydrodynamic results into a map of how good the habitat is for a given 
 and lifestage, and then into a single number a project can be judged on.
 
 1. **Habitat suitability curves** come from `Fish.xlsx`: for each species and lifestage, a
-   piecewise-linear curve mapping flow depth, velocity, substrate size or cover radius onto a
+   piecewise-linear curve mapping water depth, velocity, substrate size or cover radius onto a
    suitability index between 0 and 1.
 2. **Hydraulic HSI rasters** apply those curves to the depth and velocity rasters of a
    discharge, giving `dsi` and `vsi`.

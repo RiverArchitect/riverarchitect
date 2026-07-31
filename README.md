@@ -128,7 +128,8 @@ More building blocks in the
 |---|---|
 | `riverarchitect.raster` | Raster I/O, alignment, map algebra, interpolation (IDW, kriging, nearest neighbour), connectivity, zonal statistics |
 | `riverarchitect.condition` | Reading a condition folder and its `input_definitions.inp` |
-| `riverarchitect.preprocessing` | Detrended DEM, water levels, morphological units, condition setup |
+| `riverarchitect.preprocessing` | Detrended DEM, water levels, morphological units, bed shear stress, condition setup |
+| `riverarchitect.shear` | Regime-aware dimensionless bed shear stress (Shields stress) |
 | `riverarchitect.lifespan` | Lifespan and design mapping for restoration features |
 | `riverarchitect.maxlifespan` | Best-feature assessment across several lifespan maps |
 | `riverarchitect.sharc` | Habitat suitability indices and Seasonal Habitat Area |

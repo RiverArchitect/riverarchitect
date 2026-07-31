@@ -29,7 +29,7 @@ lifespan:
 
 | Criterion | Fails when |
 |---|---|
-| Flow depth | depth reaches `h_max` |
+| Water depth | depth reaches `h_max` |
 | Flow velocity | velocity reaches `u_max` |
 | Froude number | Froude reaches `froude_max` |
 | Grain stability | dimensionless bed shear stress reaches `tau_cr`, or - when a safety factor is set - the flow can mobilise a grain of the size actually present |

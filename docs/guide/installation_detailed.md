@@ -205,7 +205,7 @@ my_project/
 │       ├── dmean.tif             mean grain size
 │       ├── d2w.tif               depth to the water table
 │       ├── scour.tif, fill.tif   DEM of difference
-│       ├── h001000.tif           flow depth at 1000 cfs
+│       ├── h001000.tif           water depth at 1000 cfs
 │       ├── u001000.tif           flow velocity at 1000 cfs
 │       └── input_definitions.inp raster names and return periods
 ├── 02_Maps/                      QGIS projects and PDF output

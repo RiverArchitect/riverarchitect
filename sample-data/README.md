@@ -43,14 +43,14 @@ sample-data/
     ├── wle.tif                  water level elevation, ft
     ├── mu.tif, mu_str.tif       morphological units
     ├── back.tif, boundary.tif   background and analysis boundary
-    ├── h000300.tif … h088053.tif   flow depth at 60 discharges, ft
+    ├── h000300.tif … h088053.tif   water depth at 60 discharges, ft
     ├── u000300.tif … u088053.tif   flow velocity at the same discharges, ft/s
     ├── flow_definitions.xlsx    discharge definitions
     └── input_definitions.inp    raster names and the return period of each discharge
 ```
 
 The six-digit number in a hydraulic raster name is the discharge in cfs: `h001000.tif` is
-flow depth at 1000 cfs.
+water depth at 1000 cfs.
 
 Grids are **not** uniform. Depth, velocity, grain size and the DEM are on a 3 ft grid;
 `scour.tif` and `fill.tif` are on a 5 ft grid, and `back.tif` on a 3.28 ft grid. Combining

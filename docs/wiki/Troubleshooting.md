@@ -96,16 +96,16 @@ Error messages
     - *Remedy:*  See `ERROR: Bad call of map centre coordinates [...]`.
     
  - **`ERROR: MU calculation failed.`**
-    - *Cause:*   Error raised by the `MU` class (`GetStarted/cMorphUnits.py`) when the defined flow depth and/or velocity Rasters are not usable.
+    - *Cause:*   Error raised by the `MU` class (`GetStarted/cMorphUnits.py`) when the defined water depth and/or velocity Rasters are not usable.
     - *Remedy:*
-        + Ensure that no other program uses the selected in flow depth and velocity Rasters, and *Condition* folder.
+        + Ensure that no other program uses the selected in water depth and velocity Rasters, and *Condition* folder.
         + Manually / visually verify the consistency of the provided input Rasters (*Float* - type).
         + See also next error message (*Baseflow MU update failed.*)
     
  - **`ERROR: MU update failed.`**
-    - *Cause:*   Error raised by the `MU` class (`GetStarted/cMorphUnits.py`) when processing the provided flow depth and/or velocity Rasters lead to non-meaningful results.
+    - *Cause:*   Error raised by the `MU` class (`GetStarted/cMorphUnits.py`) when processing the provided water depth and/or velocity Rasters lead to non-meaningful results.
     - *Remedy:*
-        + Ensure that the flow depth and velocity Rasters have consistent units.
+        + Ensure that the water depth and velocity Rasters have consistent units.
         + ISSUE: The current code uses U.S. customary units for MU delineation according to [Wyrick and Pasternack (2014)](https://www.sciencedirect.com/science/article/pii/S0169555X14000099). If required, manual changes of the delineation functions can be made in `GetStarted/cMorphUnits.py` (`calculate_mu_baseflow` function approximately from line 75 onward). We are working on improving the Morphological Unit generator.
 
  - **`ERROR: Boundary shapefile in arcpy.PolygonToRaster[...].`**
@@ -132,10 +132,10 @@ Error messages
     - *Cause:*   The automated terrain modification with grading and/or widen features uses max. lifespan Rasters (maps) to identify relevant areas. If The `get_action_Raster(self, feature_name)` function of the `ModifyTerrain()` class in `ModifyTerrain/cModifyTerrain.py` cannot find max. lifespan Rasters in the defined max. lifespan Raster directory (default: `MaxLifespan/Output/Rasters/CONDITION/`), it raises this error message.
     - *Remedy:*  Ensure that grading and/or widen max. lifespan Rasters exist in the defined input folder (default `MaxLifespan/Output/Rasters/CONDITION/`) and that the names of the Rasters contain the feature shortname (i.e., `grade` and/or `widen`).
 
- - **`ERROR: Cannot find flow depth Raster.`**
-    - *Cause:*   Raised by `make_chsi(self, fish, boundary_shp)` of the [*SHArC*][6]'s `CHSI()` class in `SHArC/cHSI.py` when it could associate a flow depth Raster based on the name of a habitat suitability index (HSI) Raster name.
+ - **`ERROR: Cannot find water depth Raster.`**
+    - *Cause:*   Raised by `make_chsi(self, fish, boundary_shp)` of the [*SHArC*][6]'s `CHSI()` class in `SHArC/cHSI.py` when it could associate a water depth Raster based on the name of a habitat suitability index (HSI) Raster name.
     - *Remedy:*
-        + Ensure that the flow depth Raster names in `RiverArchitect/01_Conditions/CONDITION/` strictly comply with the naming conventions described in the [Conditions / Input Rasters section](Signposts.md#conditions).
+        + Ensure that the water depth Raster names in `RiverArchitect/01_Conditions/CONDITION/` strictly comply with the naming conventions described in the [Conditions / Input Rasters section](Signposts.md#conditions).
         + Ensure that the HSI Rasters are stored in `.../SHArC/HSI/CONDITION/`, with the correct Raster names including information about the discharge (see the [SHArC output section](SHArC.md#heoutput)).
 
  - **`ERROR: Cannot load modified DEM.`**
@@ -192,18 +192,18 @@ Error messages
     - *Cause:*   The `make_sub_condition(...)` (`GetStarted/fSubCondition.py`) function raises this error message when it failed cropping the Raster with the spatial analyst operation `Con(~IsNull(boundary_ras), Float(source_Raster))`.
     - *Remedy:*  Verify the consistency of the Rasters in the source condition and make sure that no other program is using data from the source condition or the new sub-*Condition* folder.
 
- - **`ERROR: Could not crop Raster to defined flow depth.`**
+ - **`ERROR: Could not crop Raster to defined water depth.`**
     - *Cause:*   The `crop_input_Raster(self, fish_species, fish_lifestage, depth_Raster_path)` function of the `CovHSI(HHSI)` class (`HabitatEvluation/cHSI.py`) raises this error message when it failed cropping the Raster with the spatial analyst operation `Con((Float(h_Raster) >= h_min), cover_type_Raster)`.
-    - *Remedy:*  Ensure that the provided flow depth file (selected in the GUI) contains valid data and that `Fish.xlsx` contains a minimum flow depth value for the selected fish species and lifestage.
+    - *Remedy:*  Ensure that the provided water depth file (selected in the GUI) contains valid data and that `Fish.xlsx` contains a minimum water depth value for the selected fish species and lifestage.
 
  - **`ERROR: Could not export PDF page no. XX`**
     - *Cause:*   The `make_pdf_maps(self, ...)` function of the `Mapper()` class (`.site_packages/riverpy/cMapper.py`) raises this error when `LifespanDesign/.templates/mapping.inp` or `MaxLifespan/.templates/mapping.inp` contain invalid xy-coordinates (format).
     - *Remedy:*  Ensure the definitions in [`LifespanDesign/.templates/mapping.inp` and `MaxLifespan/.templates/mapping.inp`](Signposts.md#inpfile) are correct.
 
  - **`ERROR: Could not find / access input Rasters.`**
-    - *Cause:*   Error raised by the `D2W` class (`GetStarted/cDepth2Groundwater.py`) or the `DET` class (`GetStarted/cDetrendedDEM.py`) or the `MU` class (`GetStarted/cMorphUnits.py`) when the defined DEM, flow depth, or velocity *GeoTIFF*s are not usable.
+    - *Cause:*   Error raised by the `D2W` class (`GetStarted/cDepth2Groundwater.py`) or the `DET` class (`GetStarted/cDetrendedDEM.py`) or the `MU` class (`GetStarted/cMorphUnits.py`) when the defined DEM, water depth, or velocity *GeoTIFF*s are not usable.
     - *Remedy:*
-        + Ensure that no other program uses the selected in DEM/flow depth Raster and *Condition* folder.
+        + Ensure that no other program uses the selected in DEM/water depth Raster and *Condition* folder.
         + Manually / visually verify the consistency of the provided input Rasters.
         + Avoid running `d2w.tif`, `mu.tif` and `det.tif` creation simultaneously and for multiple conditions (the *.cache* folders are locked by individual instantiations).
 
@@ -479,10 +479,10 @@ Error messages
 	    + In the case of doubts: Replace `01_Conditions/CONDITION/input_definitions.inp` and `mapping.inp` with the original files and re-apply modifications strictly following the [Conditions / Input Rasters section](Signposts.md#conditions).
 	
  - **`ERROR: Input Rasters contain invalid data.`**
-    - *Cause:*   Error raised by the `D2W` class (`GetStarted/cDepth2Groundwater.py`) or the `DET` class (`GetStarted/cDetrendedDEM.py`) when the defined DEM or flow depth *GeoTIFF* are not usable.
+    - *Cause:*   Error raised by the `D2W` class (`GetStarted/cDepth2Groundwater.py`) or the `DET` class (`GetStarted/cDetrendedDEM.py`) when the defined DEM or water depth *GeoTIFF* are not usable.
     - *Remedy:*
-        + Ensure that no other program uses the selected in DEM/flow depth Raster and *Condition* folder.
-        + Manually / visually verify the consistency of the provided DEM / flow depth Rasters.
+        + Ensure that no other program uses the selected in DEM/water depth Raster and *Condition* folder.
+        + Manually / visually verify the consistency of the provided DEM / water depth Rasters.
         + Avoid running both routines simultaneously and for multiple *Conditions* (there is only one *.cache* folder that is locked by every process call).
 
  - **`ERROR: Insufficient data. Check Raster consistency and add more flows(?).`**
@@ -628,8 +628,8 @@ Error messages
     - *Remedy:*  Ensure that the provided shapefile or Raster fullfils the requirements explained in the [GetStarted - Create Sub-Condition](Signposts.md#sub-condition) section.
     
  - **`ERROR: The Raster name is not coherent with the name conventions. Name correction needed.`**
-    - *Cause:*   Error raised by the `MakeFlowTable` class (`riverpy/cMakeTable.py`) when a Raster was wrongly identified as being a flow depth Raster because of a violation of file name conventions.
-    - *Remedy:* Ensure that all file names in the `01_Conditions/CONDITION/` folder follow the [file name conventions](Signposts.md#terms). If the *Condition* folder contains other files than flow depth and velocity *GeoTiff*s starting with the letter `h` or `u`, rename these files or remove them from the *Condition* folder.
+    - *Cause:*   Error raised by the `MakeFlowTable` class (`riverpy/cMakeTable.py`) when a Raster was wrongly identified as being a water depth Raster because of a violation of file name conventions.
+    - *Remedy:* Ensure that all file names in the `01_Conditions/CONDITION/` folder follow the [file name conventions](Signposts.md#terms). If the *Condition* folder contains other files than water depth and velocity *GeoTiff*s starting with the letter `h` or `u`, rename these files or remove them from the *Condition* folder.
     
  - **`ERROR: The selected folder does not contain any depth/velocity Raster containing the defined string.`**
     - *Cause:*   Error raised by the `ConditionCreator` class (`GetStarted/cConditionCreator.py`) when the defined folder does not contain any valid depth or velocity Raster.
@@ -764,8 +764,8 @@ Warning messages
 
 
  - **`WARNING: Could not access hydraulic Raster extents. Using MAXOF instead.`**
-    - *Cause:*   Raised by the `D2W` class (`GetStarted/cDepth2Groundwater.py`) when the defined flow depth *GeoTIFF* has no valid extents.
-    - *Remedy:* Manually / visually verify the provided flow depth Raster and make corrections / overwrite it if necessary.
+    - *Cause:*   Raised by the `D2W` class (`GetStarted/cDepth2Groundwater.py`) when the defined water depth *GeoTIFF* has no valid extents.
+    - *Remedy:* Manually / visually verify the provided water depth Raster and make corrections / overwrite it if necessary.
 
 - **`WARNING: Could not clear/remove .cache.`**
     - *Cause:*   All modules may raise this warning message when the content in the `.cache` folder was accessed and locked by another software.
@@ -778,8 +778,8 @@ Warning messages
  - **`WARNING: Could not crop lifespan Raster extents to wetted area.`**
     - *Cause:*   Raised by the `ArcPyAnalysis` class (`LifespanDesign/cLifespanDesignAnalysis.py`) when it failed to crop lifespan maps (Rasters) to the extents of the depth Raster associated with the highest discharge analyzed.
     - *Remedy:*
-        + Manually / visually verify the provided flow depth Rasters and make corrections / overwrite it if necessary.
-        + If cropping the lifespan Raster to the wetted area of the highest discharge is not desired, apply the following Raster calculation to the highest discharge's flow depth Raster to eliminate `NoData` values (otherwise, all `NoData` pixels are excluded from the lifespan Raster):<br/>
+        + Manually / visually verify the provided water depth Rasters and make corrections / overwrite it if necessary.
+        + If cropping the lifespan Raster to the wetted area of the highest discharge is not desired, apply the following Raster calculation to the highest discharge's water depth Raster to eliminate `NoData` values (otherwise, all `NoData` pixels are excluded from the lifespan Raster):<br/>
         `Con((IsNull(hQQQQQQ) == 1), (IsNull(hQQQQQQ) * 0), Float(hQQQQQQ))`
 
  - **`WARNING: Could not divide [...] by [...]`**
@@ -790,13 +790,13 @@ Warning messages
     - *Cause:*   Raised by the `ProjectMaker/s30_terrain_stabilization/`'s  or `ProjectMaker/s21_plantings_stabilization/`'s `main()` function when it cannot find lifespan Rasters.
     - *Remedy:*  Go to the <a href="Lifespan/Design">LifespanDesign</a> tab for the selected *Condition*. Create lifespan maps for the goup layers plantings, nature-based engineering, and connectivity. <a href="Project Maker">ProjectMaker</a> absolutely requires `Grains / Boulders` (`lf_grains.tif`), and optionally requires `Streamwood` (`lf_wood.tif`) and `nature-based engineering (other)` (`lf_bio.tif`).
 
- - **`WARNING: Could not get flow depth Raster properties. Setting [...]`**
-    - *Cause:*   The `crop_input_Raster(self, ...)` function (`SHArC/cHSI.py`) prints this warning message when it cannot read the Raster properties from the defined input flow depth Raster.
-    - *Remedy:*  Make sure that the defined flow depth Raster exists in `RiverArchitect/01_Conditions/CONDITION/`.
+ - **`WARNING: Could not get water depth Raster properties. Setting [...]`**
+    - *Cause:*   The `crop_input_Raster(self, ...)` function (`SHArC/cHSI.py`) prints this warning message when it cannot read the Raster properties from the defined input water depth Raster.
+    - *Remedy:*  Make sure that the defined water depth Raster exists in `RiverArchitect/01_Conditions/CONDITION/`.
 
  - **`WARNING: Could not get minimum flow depth [...]. Setting h min [...]`**
-    - *Cause:*   The `crop_input_Raster(self, ...)` function (`SHArC/cHSI.py`) prints this warning message when it could not read the minimum flow depth from `Fish.xlsx`. A default value of 0.1 (ft or m) is used to delineate relevant flow regions.
-    - *Remedy:*  Make sure that the defined Fish species / lifestage is assigned a cover value and at least one flow depth value in `Fish.xlsx` according to the definitions in [CoverHSI](SHArC.md#hemakecovhsi).
+    - *Cause:*   The `crop_input_Raster(self, ...)` function (`SHArC/cHSI.py`) prints this warning message when it could not read the minimum water depth from `Fish.xlsx`. A default value of 0.1 (ft or m) is used to delineate relevant flow regions. The message is quoted as the ArcGIS version emits it, which is why it says "flow depth" where this documentation says water depth.
+    - *Remedy:*  Make sure that the defined Fish species / lifestage is assigned a cover value and at least one water depth value in `Fish.xlsx` according to the definitions in [CoverHSI](SHArC.md#hemakecovhsi).
     
  - **`WARNING: Could not identify maximum flow in flow duration curve.`**
     - *Cause:*   The `get_flow_duration_data(self, ...)` function (`riverpy/cFlows.py`) prints this warning message when it could not identify a maximum flow for interpolating flow exceedance probabilities.

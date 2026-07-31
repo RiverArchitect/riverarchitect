@@ -257,7 +257,7 @@ Every *cHSI* raster refers to a steady discharge within a flow duration curve. T
     -   The pre-project terrain DEM dates from 2008 and terrain modifications were performed based on the 2008 DEM in a reach called `rea`.
     -   Both DEMs, original and modified correspond to pre- and post-project conditions, respectively.
     -   Both DEMs were simulated in the 2D hydrodynamic model with discharges of 100, 200, 500, 1000, 2000, and 5000 cfs (or m<sup>3</sup>/s).
-    -   The corresponding modelling results (flow depth and velocity) were stored in the directories `RiverArchitect/01_Conditions/CONDITION/` and `RiverArchitect/01_Conditions/CONDITION_rea_lyr10/`, respectively. The string `lyr10` refers to terraforming according to the code naming conventions.
+    -   The corresponding modelling results (water depth and velocity) were stored in the directories `RiverArchitect/01_Conditions/CONDITION/` and `RiverArchitect/01_Conditions/CONDITION_rea_lyr10/`, respectively. The string `lyr10` refers to terraforming according to the code naming conventions.
     -   The *River Architect*'s [*SHArC*][6] module applied to both situations with a *cHSI* threshold value of, for example, &theta; = 0.5. This threshold value means that all pixels with a *cHSI* value lower than 0.5 were considered as being non-habitat and the [*SHArC*][6] module excludes these pixels from the *cHSI* rasters. Thus, the [*SHArC*][6] module produced *cHSI* rasters that are stored in:
         -   `RiverArchitect/SHArC/SHArea/Rasters/CONDITION/` (existing / pre-project)
         -   `RiverArchitect/SHArC/SHArea/Rasters/CONDITION_rea_lyr10/` (with implementation / post-project)

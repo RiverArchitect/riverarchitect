@@ -53,7 +53,7 @@ resolution, in **US customary units** (feet, cubic feet per second). Under
 | `dmean.tif` | mean grain size, ft |
 | `d2w.tif` | depth to the water table, ft |
 | `scour.tif`, `fill.tif` | DEM of difference, ft, on a **5 ft** grid |
-| `h000300.tif` … `h088053.tif` | flow depth at 60 discharges, ft |
+| `h000300.tif` … `h088053.tif` | water depth at 60 discharges, ft |
 | `u000300.tif` … `u088053.tif` | flow velocity at the same discharges, ft/s |
 | `input_definitions.inp` | which rasters belong to the condition, and the flood return period of each discharge |
 
@@ -85,7 +85,7 @@ $$
 D_{cr} = \frac{(u \cdot n)^2}{(s - 1)\ \tau_{*,cr}\ h^{1/3}\ \mathit{SF}}
 $$
 
-with $u$ flow velocity, $h$ flow depth, $n$ Manning's roughness, $s = 2.68$ the relative
+with $u$ flow velocity, $h$ water depth, $n$ Manning's roughness, $s = 2.68$ the relative
 grain density, $\tau_{*,cr}$ the critical dimensionless bed shear stress and $\mathit{SF}$ a
 safety factor. The default threshold values for angular boulders are $\tau_{*,cr} = 0.047$
 and $\mathit{SF} = 1.3$.

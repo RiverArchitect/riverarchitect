@@ -36,7 +36,7 @@ The `Fish.xlsx` workbook is read by the `Fish` class stored in `RiverArchitect/.
 
 -   `"u": row - row` needs to correspond to the row number where the flow velocity-related habitat suitability curve starts.
 
--   `"h": row - row` needs to correspond to the row number where the flow depth-related habitat suitability curve starts.
+-   `"h": row - row` needs to correspond to the row number where the water depth-related habitat suitability curve starts.
 
 -   `"substrate": row - row` needs to correspond to the row number where the substrate-related (*D*) habitat suitability curve starts.
 

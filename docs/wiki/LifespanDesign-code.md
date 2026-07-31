@@ -30,7 +30,7 @@ All class names, variable names, and function names are in alphabetic order (a =
 
 The best position of restoration features and their lifespans depend on multiple parameters in most cases. The output Rasters (lifespan maps) are computed in by batch-processing every parameter (i.e., one parameter map is processed after another). This batch processing strictly follows the below-listed hierarchy:
 
-1.  Flow depth Rasters (dimensional) starting with the lowest discharge to the highest discharge<br/>
+1.  Water depth Rasters (dimensional) starting with the lowest discharge to the highest discharge<br/>
     Internal Raster name: `ras_hQQQQQQ`
 
 2.  Flow velocity Rasters (dimensional) starting with the lowest discharge to the highest discharge<br/>

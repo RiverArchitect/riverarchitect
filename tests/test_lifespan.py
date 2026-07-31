@@ -83,6 +83,35 @@ def test_input_definitions_are_parsed(condition_dir):
     assert values["dem_raster"] == "dem"
 
 
+def test_both_depth_key_spellings_are_read(tmp_path):
+    """"Water depth" is what this package writes; "Flow depth" is what 1.x wrote.
+
+    Every condition in existence carries the 1.x spelling - the bundled sample among them -
+    so dropping it would make them all unreadable.
+    """
+    for key in ("Water depth (h)", "Flow depth (h)", "WATER DEPTH", "flow depth"):
+        path = tmp_path / "defs.inp"
+        path.write_text("%s = h000100.tif, h000200.tif #[LIST]\n" % key, encoding="utf-8")
+        values = parse_input_definitions(str(path))
+        assert values["depth_rasters"] == ["h000100.tif", "h000200.tif"], key
+
+
+def test_written_input_definitions_use_the_corrected_term(tmp_path):
+    """A file this package writes says "water depth", and reads back the same either way."""
+    from riverarchitect import preprocessing as pre
+
+    profile = make_profile(width=2, height=1)
+    for discharge in (100, 200):
+        raster.write(str(tmp_path / ("h%06d.tif" % discharge)), np.ones((1, 2)), profile)
+        raster.write(str(tmp_path / ("u%06d.tif" % discharge)), np.ones((1, 2)), profile)
+
+    path = pre.write_input_definitions(tmp_path)
+    text = open(path, encoding="utf-8").read()
+    assert "Water depth (h)" in text
+    assert "Flow depth" not in text
+    assert parse_input_definitions(path)["depth_rasters"] == ["h000100.tif", "h000200.tif"]
+
+
 def test_comments_and_blank_lines_are_ignored(tmp_path):
     path = tmp_path / "defs.inp"
     path.write_text("# a comment line\n\nReturn periods = 1.0, 2.0 #[LIST] trailing\n",

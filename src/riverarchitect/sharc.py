@@ -7,7 +7,7 @@ then into a single number a project can be judged on.
 The chain
 ---------
 1. **Habitat suitability curves** come from ``Fish.xlsx``: for each species and lifestage, a
-   piecewise-linear curve mapping flow depth, flow velocity, substrate size or cover radius
+   piecewise-linear curve mapping water depth, flow velocity, substrate size or cover radius
    onto a suitability index between 0 and 1.
 2. **Hydraulic HSI rasters** apply those curves to the depth and velocity rasters of a
    discharge, giving ``dsi`` (depth) and ``vsi`` (velocity).
@@ -329,7 +329,7 @@ def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=N
         profile (dict): the raster profile the layers are on, for the cell size.
         unit (str): ``"us"`` or ``"si"``; the grain limits are converted accordingly.
         fish (FishDatabase): the curve database. Built by default.
-        depth (numpy.ndarray): flow depth. When given, cover is cropped to cells at least as
+        depth (numpy.ndarray): water depth. When given, cover is cropped to cells at least as
             deep as the first point of the depth curve, as the original's
             ``crop_input_raster`` did - cover a fish cannot reach shelters nothing.
 

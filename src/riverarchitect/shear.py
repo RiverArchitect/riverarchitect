@@ -181,7 +181,7 @@ def calculate_taux(velocity, depth, d84, *, gravity=9.81, density_ratio=RHO_RATI
 
     Args:
         velocity (numpy.ndarray): depth-averaged flow velocity ``U``.
-        depth (numpy.ndarray): flow depth ``h``.
+        depth (numpy.ndarray): water depth ``h``.
         d84 (numpy.ndarray): ``D84`` grain size; see :func:`d84_of`.
         gravity (float): gravitational acceleration in the rasters' unit system.
         density_ratio (float): sediment-to-water density ratio ``s``.

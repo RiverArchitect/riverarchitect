@@ -54,6 +54,16 @@ invisible to the whole package; they now work. The interface gains an applicatio
   the 1.x prefix but is documented as what 1.x actually stored there: `u*^2`, not the
   `rho_w u*^2` its name claims. Nothing reads these back - both analyses recompute the
   stress - so a stale or hand-edited `ts<Q>.tif` cannot quietly change a result.
+- **"Water depth" replaces "flow depth" throughout.** Depth is a property of the water
+  column, not of the flow, so the term the ArcGIS version used was wrong. The
+  documentation, the docstrings and the interface now say water depth, and
+  `write_input_definitions` writes `Water depth (h) = ...` into new
+  `input_definitions.inp` files. **Existing conditions keep working**: the parser reads
+  both spellings, and 1.x is unaffected because it reads that file by line position rather
+  than by key. Two strings deliberately keep the old wording because they are literal
+  identifiers of the ArcGIS version rather than prose - the `Flow depth` row label in
+  `threshold_values.xlsx`, which 1.x matches exactly, and the `WARNING: Could not get
+  minimum flow depth` message quoted on the troubleshooting page.
 - `Condition.describe()` and `Condition.validate()` - what a condition folder provides, what
   it lacks, and the raster naming discovery expects. Analyses that cannot start now embed
   that report in the error instead of only saying what was missing.

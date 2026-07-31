@@ -96,7 +96,7 @@ The [Lifespan & Design][3] tab enables the creation of:
     *D<sub>cr</sub>* =  *SF* *· u<sup>2</sup> · n<sup>2</sup>* / *\[(s - 1) · h<sup>1/3</sup> · &tau;<sub>\*,cr</sub> \]* <br/>
 
 *D<sub>cr</sub>* is the minimum required angular boulders (rocks) size (in m or inches); *s* is the dimensionless relative grain density (ratio of sediment and water density, equal to 2.68); and *n* is [Manning\'s *n*][manningsn] can be changed in the GUI (in s/ft<sup>1/3</sup> or s/m<sup>1/3</sup> - an internal conversion factor of k = 1.49 applies in the case of the US customary system). The following parameters are taken from `.../01_Conditions/CONDITION/` input *GeoTIFF*s
-- *h* is the flow depth (pixel-wise, in m or ft);
+- *h* is the water depth (pixel-wise, in m or ft);
 - *u* is the flow velocity (pixel-wise, in m/s or fps).
 
 **NOTE**: Lifespan and Design Rasters of mobile grains are **sensitive to the safety factor** and limitations due to **scour/fill** rates input Rasters (possibly not covering the whole project area). Verify output Rasters and omit scour/fill rates and/or the safety factor to obtain better results.
@@ -153,16 +153,16 @@ The [Lifespan & Design][3] tab enables the creation of:
 
 Lifespan maps and design maps are created for streamwood placement and engineered log jams (ELJs). Recommended threshold values in the [`threshold_values.xlsx` workbook](#featoverview) are:
 
--   Flow depth `h` corresponding to 1.7 multiplied with a log diameter of (e.g., 0.6 m · 1.7 = 1.02 m or 3.34 ft) (see [Lange and Bezzola 2005)][lange05];
+-   Water depth `h` corresponding to 1.7 multiplied with a log diameter of (e.g., 0.6 m · 1.7 = 1.02 m or 3.34 ft) (see [Lange and Bezzola 2005)][lange05];
 -   Froude number `Fr` of 1.0 (see [Lange and Bezzola 2005)][lange05];
 -   Morphological Units (avoidance-method) with `mu_avoidance = [tributar channel, tributary delta]` (see below explanations);
--   Frequency threshold (design maps) of 10.0 years (computed as a function of flow depth, not Froude number, see below explanations).
+-   Frequency threshold (design maps) of 10.0 years (computed as a function of water depth, not Froude number, see below explanations).
 
 Regarding morphological units, riffle-pool and plane bed morphologies are favorable for streamwood placement, where side channel and tributary systems are not convenient for wood placement. Streamwood inclusive list is defined as<br/>
 `mu_good = ["riffle", "riffle transition", "pool", "floodplain", "island floodplain", "lateral bar", "medial bar", "run"]`<br/>
 and the exclusive list is defined as `mu_bad = ["tributary channel", "tributary delta"]`.<br/>
 For streamwood, the exclusive approach based on `mu_bad` applies (see [parameters](LifespanDesign-parameters.md)).<br/>
-The design maps for the minimum required log diameter *D<sub>w</sub>* results from [Ruiz-Villanueva et al. (2016)][ruiz16b]'s interpolation curve as a function of the flow depth. The module applies on the single-thread formula because it returns larger values for the log diameter than the multi-thread formula when the probability of motion is set to zero: `Dw` = 0.32 / 0.18·`h`. The output map limits to regions where `Dw` is smaller than 7.6 m (300 in - lease contact us if that is not sufficient for a particular application).
+The design maps for the minimum required log diameter *D<sub>w</sub>* results from [Ruiz-Villanueva et al. (2016)][ruiz16b]'s interpolation curve as a function of the water depth. The module applies on the single-thread formula because it returns larger values for the log diameter than the multi-thread formula when the probability of motion is set to zero: `Dw` = 0.32 / 0.18·`h`. The output map limits to regions where `Dw` is smaller than 7.6 m (300 in - lease contact us if that is not sufficient for a particular application).
 
 The [Lifespan & Design][3] tab enables the creation of:
 
@@ -217,7 +217,7 @@ The survival analysis of plantings assumes a general cutting length of min. 2.1 
 Recommended threshold values in the [`threshold_values.xlsx` workbook](#featoverview) for phreatophytes are:
 
 -   Box Elder (*Acer Negundo*)
-	+  Flow depth `h` of 0.3 m (1 ft) (exclude all submerged regions for more than *Q<sub>sub</sub>*, which persists for more than 85 consecutive days according to [Friedman and Auble 1999][friedman99])
+	+  Water depth `h` of 0.3 m (1 ft) (exclude all submerged regions for more than *Q<sub>sub</sub>*, which persists for more than 85 consecutive days according to [Friedman and Auble 1999][friedman99])
 	+  Critical dimensionless bed shear stress `taux` of 0.047 ([Friedman and Auble 1999][friedman99])
 	+  No Topographic change rate applies because Box Elder is reported to survive burial ([Kui and Stella 2016][kui16a])
 	+  Depth to groundwater `d2w`  with lower and upper thresholds of 0.6 m (2 ft) to 2.0 m (6 ft), respectively.<br/>
@@ -225,7 +225,7 @@ Recommended threshold values in the [`threshold_values.xlsx` workbook](#featover
     +  *Note:* A maximum submergence duration supported by Box Elder cuttings of 85 days per year needs to be considered and verified as a function of flow duration curves.
 
 -   Cottonwood (*Populus Fremontii*)
-	+ Flow depth `h` of >= 0.5 · *stem height* and 
+	+ Water depth `h` of >= 0.5 · *stem height* and 
 	+ Flow velocity `u` of >= 0.9-1.2 m/s (3.0-4.0 fps) ([Stromberg et al. 1993][stromberg93], [Wilcox and Shafroth 2013][wilcox13], [Bywater-Reyes 2015][bywater15])
 	+ Topographic change rates:
 	   * `scour` >= 0.1 *times root depth* ([Polzin and Rood 2006][polzin06]), or >= 0.2 *times root depth* ([Kui and Stella 2016][kui16a]), or >= 0.5 *times root depth* ([Bywater-Reyes 2015][bywater15])
@@ -241,7 +241,7 @@ Recommended threshold values in the [`threshold_values.xlsx` workbook](#featover
 
 -   Willows
 	+  (Goodding\'s) Black willow (*Salix nigra* including *Salix Gooddingii*)
-	   * Flow depth `h` of >= 1.0-1.5 *times the shrub height* ([Stromberg et al. 1993][stromberg93])
+	   * Water depth `h` of >= 1.0-1.5 *times the shrub height* ([Stromberg et al. 1993][stromberg93])
 	   * Depth to groundwater `d2w` with a lower threshold of 0.3 m (1.0 ft) and an upper threshold of 1.5 m  (4.9 ft) <br/>
          *Full source ranges: 0.6 m to 2.7 m ([SYRCL 2013][syrcl13]), 0.9 m to 1.5 m ([Stillwater Sciences 2006][stillwater06]), up to 2.0 m ([Shafroth et al. 1998][shafroth98]), 0.21±0.05 m to 1.44±0.22 m for establishment of woody riparian species, up to 2.0 m for existing plants([Stromberg et al. 1996][stromberg96]), up to 3.2 m for adult lifestages, [Stromberg et al. 1996][stromberg96]), up to 4-5 m for salicae in general ([Politti et al. 2018][politti18]), up to 2.6 m for native plants ([Lite and Stromberg 2005][lite05])*
 	+  Red willow (*Salix laevigata*)
@@ -252,7 +252,7 @@ Recommended threshold values in the [`threshold_values.xlsx` workbook](#featover
 	     *Full source ranges: 0.6 m to 2.7 m ([SYRCL 2013][syrcl13])*
 	+  Willows (*Salix alba*)<br/>
 		 *Salix alba parameters are extracted from [Pasquale et al. (2011)][pasquale11], [(2012)][pasquale12], and [(2014)][pasquale14].*
-	   * Flow depth `h` of *>=* 0.2 m (0.7 ft)
+	   * Water depth `h` of *>=* 0.2 m (0.7 ft)
 	   * Critical dimensionless bed shear stress `taux` of 0.1 (if the root depth is larger than 0.5 m and the stem height is larger than 1.0 m)
 	   * Topographic change: scour rate `tcd`-`scour` >= 0.1 m (0.2 ft)      
 	+  The default workbook case applies sample values of a minimum cutting length of 2.1 m (7 ft), a topographic change observation period length of 3 years and a planting depth of 80% (0.8) of the cutting length.
@@ -371,7 +371,7 @@ for h.ras in h.rasters and u.ras in u.rasters:
 ```
 
 This sample function uses `arcpy.sa`'s `Slope` function with the arguments `PERCENTRISE` for obtaining percent values instead of degrees and `zFactor` = 1.0 because the x-y-grid units are the same as in z-direction. `g` denotes gravity acceleration (SI metric: 9.81 m/s<sup>2</sup> or U.S. customary: 32.2 ft/s<sup>2</sup>).\
-However, the underlying 2D numerical model uses the critical flow depth as an iteration criterion for stability, which causes that *S<sub>e,min</sub>* approximately equals *S<sub>0</sub>*. Thus, the *S<sub>e,min</sub>* / *S<sub>0</sub>* ratio is approximately unity and not meaningful. Otherwise, the ratio *S<sub>e,min</sub>* / *S<sub>0</sub>* indicates pixels with excess energy (*S<sub>e,min</sub>* / *S <sub>0</sub> >* 1) allegedly cause erosion. Pixels with energy shortage  (*S<sub>e,min</sub>* / *S <sub>0</sub> <* 1) allegedly result in sediment deposition. Minor topographic change would be expected where the *S<sub>e,min</sub>* / *S <sub>0</sub>*-ratio is close to unity.<br/>
+However, the underlying 2D numerical model uses the critical water depth as an iteration criterion for stability, which causes that *S<sub>e,min</sub>* approximately equals *S<sub>0</sub>*. Thus, the *S<sub>e,min</sub>* / *S<sub>0</sub>* ratio is approximately unity and not meaningful. Otherwise, the ratio *S<sub>e,min</sub>* / *S<sub>0</sub>* indicates pixels with excess energy (*S<sub>e,min</sub>* / *S <sub>0</sub> >* 1) allegedly cause erosion. Pixels with energy shortage  (*S<sub>e,min</sub>* / *S <sub>0</sub> <* 1) allegedly result in sediment deposition. Minor topographic change would be expected where the *S<sub>e,min</sub>* / *S <sub>0</sub>*-ratio is close to unity.<br/>
 
 Unless this problem is not solved, the *River Architect* can only indicate the adequacy of side channel construction on lifespan maps within relevant regions marked with pixel-values of `1` in `sidech.tif`. For creating `sidech.tif`, we recommend to first create a polygon shapefile and draw polygons around side-channel-relevant regions with the following criteria defined by [van Denderen et al. (2017)][vandenderen17]:
 

@@ -73,7 +73,7 @@ def detrended_dem(dem_path, depth_path, output_path=None, method="nearest", step
 
     Args:
         dem_path (str): the digital elevation model.
-        depth_path (str): a flow depth raster; its wetted cells define the thalweg. Use a
+        depth_path (str): a water depth raster; its wetted cells define the thalweg. Use a
             low, in-channel discharge.
         output_path (str): where to write the result. Optional.
         method (str): ``"nearest"`` (the original's behaviour), ``"idw"`` or ``"kriging"``.
@@ -135,7 +135,7 @@ def water_level_elevation(dem_path, depth_path, output_path=None, method="neares
 
 
 def interpolated_depth(dem_path, depth_path, output_path=None, wle=None, **kwargs):
-    """Flow depth extended beyond the modelled wetted area.
+    """Water depth extended beyond the modelled wetted area.
 
     ``wle - dem``, kept where positive. Used where a 2D model covers less than the area an
     analysis needs.
@@ -285,7 +285,7 @@ def morphological_units(depth_path, velocity_path, output_path=None, table=None,
     original's ``CellStatistics(..., "MAXIMUM")`` did.
 
     Args:
-        depth_path (str): flow depth raster, usually at baseflow.
+        depth_path (str): water depth raster, usually at baseflow.
         velocity_path (str): flow velocity raster at the same discharge.
         output_path (str): where to write the result. Optional.
         table (MorphologicalUnits): the threshold table. Built by default.
@@ -511,7 +511,7 @@ def write_input_definitions(condition_dir, return_periods=None, discharges=None,
         "#",
         "# RASTER NAMES",
         "#" + "-" * 87,
-        "Flow depth (h) = %s #[Comma separated LIST]" % depth,
+        "Water depth (h) = %s #[Comma separated LIST]" % depth,
         "Flow velocity (u) = %s #[Comma separated LIST]" % velocity,
         "Grain sizes (D mean) = %s #[STRING]" % names["grain_raster"],
         "Detrended DEM = %s #[STRING]" % names["detrended_raster"],

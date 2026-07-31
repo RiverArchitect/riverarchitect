@@ -27,7 +27,7 @@ These are not cosmetic. The modules find rasters by name.
 | `mu.tif` | morphological units |
 | `wle.tif` | water level elevation |
 | `scour.tif`, `fill.tif` | DEM of difference: annual erosion and deposition |
-| `h<Q>.tif` | flow depth at discharge `Q` |
+| `h<Q>.tif` | water depth at discharge `Q` |
 | `u<Q>.tif` | flow velocity at the same discharge |
 | `ts<Q>.tif` | dimensionless bed shear stress (Shields stress) at that discharge |
 | `tb<Q>.tif` | squared shear velocity `u*^2` at that discharge |
@@ -74,7 +74,7 @@ the return periods are what turn a set of discharges into a lifespan axis.
 
 ```text
 Return periods = 1.0, 1.08, 1.13, 2.0, 5.0, 20.0, 50.0 #[Comma separated LIST]
-Flow depth (h) = h007250.tif, h007750.tif, ... #[Comma separated LIST]
+Water depth (h) = h007250.tif, h007750.tif, ... #[Comma separated LIST]
 Flow velocity (u) = u007250.tif, u007750.tif, ... #[Comma separated LIST]
 Grain sizes (D mean) = dmean #[STRING]
 Detrended DEM = dem_detrend #[STRING]

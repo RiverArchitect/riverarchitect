@@ -33,7 +33,7 @@ The *Get Started*-tab buttons invite the user to create conditions from scratch,
 - Create a spatial subset of a *Condition*: Define a boundary Raster that delineates a spatial frame for creating a subset of an existing *Condition* (useful for comparing project alternatives at different sites).
 
 ## Create New Condition<a name="new-condition"></a>
-The creation of a new *Condition* requires that a 2D hydrodynamic model was previously run to obtain spatially explicit flow depth and velocity data. All input files must be pre-formated by the user according to the naming convention used, per list below. Moreover, grain size data (spatially explicit )and a digital terrain elevation model are required inputs at this time, even if you are not analyzing them in your needs.
+The creation of a new *Condition* requires that a 2D hydrodynamic model was previously run to obtain spatially explicit water depth and velocity data. All input files must be pre-formated by the user according to the naming convention used, per list below. Moreover, grain size data (spatially explicit )and a digital terrain elevation model are required inputs at this time, even if you are not analyzing them in your needs.
 
 Beginner tip: If your folder with the input files has all the files in it with no subfolder file structure, then you have specify a "raster string" to help River Architect know which files are velocity rasters and which are dpeth rasters. A better approach is to put all the depth rasters into their own subfolder, and then the same for velocity before you make the condiiton. If you find that even with depth and velocity rasters placed into their own folders, River Architect is still not reading in your rasters, then the solution is to specify the raster string- after you've made sure you have a systematic approach to naming your hydraulic raster files!
 
@@ -43,8 +43,8 @@ A new popup window inquires following inputs for generating a new *Condition* fr
 
 - A name for the new *Condition*
 - A folder containing flow velocity Rasters (preferably use *GeoTFF* `.tif` Rasters) corresponding to multiple discharges ([read more on discharge definitions](#inputs)). A *Raster string* may be defined to select only Rasters that contain certain letters in their name from the defined folder (e.g., enter `u`).
-- A folder containing flow depth Rasters (preferably use *GeoTFF* `.tif` Rasters) corresponding to multiple discharges ([read more on discharge definitions](#inputs)).  A *Raster string* may be defined to select only Rasters that contain certain letters in their name from the defined folder (e.g., enter `h`).
-- A *DEM* (Digital Elevation Model) or *DTM* (Digital Terrain elevation Model) of the terrain covered by the flow depth and velocity Rasters.
+- A folder containing water depth Rasters (preferably use *GeoTFF* `.tif` Rasters) corresponding to multiple discharges ([read more on discharge definitions](#inputs)).  A *Raster string* may be defined to select only Rasters that contain certain letters in their name from the defined folder (e.g., enter `h`).
+- A *DEM* (Digital Elevation Model) or *DTM* (Digital Terrain elevation Model) of the terrain covered by the water depth and velocity Rasters.
 - A *Grain Size* Raster. Note: currently, there is a divergent usage of this file, which we will try to replace in the future. For the lifespan module, the dmean raster must be in the same units as all the other files, and then the assumption is made as to the units based on the choose of units selected for the conditions. For the SI system, the units must be meters, whereas peopel typiclaly think of grain size in millimeters, so make sure the raster is in units of meters. For CHSI habitat analysis in the SHArC module and for the riparian seedling recruitment module, it's different. For these modules, this file must be named either dmean_ft.tif for U.S. customary in feet or dmean.tif for SI metric in meters.
 - An optional folder containing velocity angle Rasters (preferably use *GeoTFF* `.tif` Rasters) corresponding to multiple discharges ([read more on discharge definitions](#inputs)). Note that velocity angles are defined in degrees from North, i.e. North=0, East=90, West=-90, South=180/-180. A *Raster string* may be defined to select only Rasters that contain certain letters in their name from the defined folder (e.g., enter `va`).
 - An optional *Scour* Raster (U.S. customary: in feet or SI metric: in meters) containing annual scour rates, which may result from terrain change detection analyses ([Pasternack and Wyrick 2017](http://dx.doi.org/10.1002/esp.4064)) or hydro-morphodynamic modeling (tricky).
@@ -63,7 +63,7 @@ Once the input is defined, clicking on the `CREATE CONDITION` button will create
 
 - `fill.tif` is topographic change Raster indicating annual sediment deposition rates, which are required by the <a href="LifespanDesign">LifespanDesign</a>, and indirectly, the <a href="MaxLifespan">Max Lifespan</a> and <a href="ProjectMaker">ProjectMaker</a> modules.
 
-- `hQQQQQQ_QQQ.tif` are flow depth rasters required by the <a href="LifespanDesign">LifespanDesign</a>, <a href="SHArC">SHArC</a>, <a href="StrandingRisk">Stranding Risk</a>,  <a href="RiparianSeedlingRecruitment">Riparian Seedling Recruitment</a>, and (indirectly) the <a href="ProjectMaker">ProjectMaker</a> and <a href="MaxLifespan">Max Lifespan</a> modules. [Read more about file name conventions.](#terms)
+- `hQQQQQQ_QQQ.tif` are water depth rasters required by the <a href="LifespanDesign">LifespanDesign</a>, <a href="SHArC">SHArC</a>, <a href="StrandingRisk">Stranding Risk</a>,  <a href="RiparianSeedlingRecruitment">Riparian Seedling Recruitment</a>, and (indirectly) the <a href="ProjectMaker">ProjectMaker</a> and <a href="MaxLifespan">Max Lifespan</a> modules. [Read more about file name conventions.](#terms)
 
 - `uQQQQQQ_QQQ.tif` are flow velocity rasters required by the <a href="LifespanDesign">LifespanDesign</a>, <a href="SHArC">SHArC</a>, <a href="StrandingRisk">Stranding Risk</a>,  <a href="RiparianSeedlingRecruitment">Riparian Seedling Recruitment</a>, and (indirectly) the <a href="ProjectMaker">ProjectMaker</a> and <a href="MaxLifespan">Max Lifespan</a> modules. [Read more about file name conventions.](#terms)
 
@@ -71,7 +71,7 @@ Once the input is defined, clicking on the `CREATE CONDITION` button will create
 
 - `vaQQQQQQ_QQQ.tif` is flow velocity direction rasters required by the [Stranding Risk](StrandingRisk.md) module. [Read more about file name conventions.](#terms)
 
-The flow depth and velocity Rasters may require manual renaming to adapt to these Raster name conventions. In the convention, "u" is for velocity, "h" is for depth, and "va" is for velocity direction. For all of those, "QQQQQQ_QQQ" is a representation of the digits available to specify dicharge. "Q" is a number 0-9 and "_" is the substitute in a file name for a decimal place. That means that the program can handle discharge values as low as 0.001 and as high as 999999.999. LEGACY CONTENT: A [*River Architect Tools* script](Tools.md#renamefiles) facilitates renaming multiple file names to the older format of QQQQQQ. Subsequently, populating the created *Condition* is strongly recommended
+The water depth and velocity Rasters may require manual renaming to adapt to these Raster name conventions. In the convention, "u" is for velocity, "h" is for depth, and "va" is for velocity direction. For all of those, "QQQQQQ_QQQ" is a representation of the digits available to specify dicharge. "Q" is a number 0-9 and "_" is the substitute in a file name for a decimal place. That means that the program can handle discharge values as low as 0.001 and as high as 999999.999. LEGACY CONTENT: A [*River Architect Tools* script](Tools.md#renamefiles) facilitates renaming multiple file names to the older format of QQQQQQ. Subsequently, populating the created *Condition* is strongly recommended
 
 ## Populate Condition<a name="pop-condition"></a>
 This set of actions allows you to create various raster data files that can be products in and of themselves or they can be prerequistes for subsequent analysis. Currently, there are 4 products one can obtain from this window. First, you can create bed shear stress rasters in both dimensional units and as nondimensional Shields stress. Second you can crate a "Depth to water table" raster. Third, you can create a detrended DEM. Note: there are many ways to detrend a DEM, so never assume that anyone is doing it any particular way- always check on the concept for how it is done! Finally, you can create a riverbed morphological unit raster.
@@ -89,9 +89,9 @@ This button does not currently appear funcitonal! We are working to fix it!
 Instream morphological unit Rasters according to [Wyrick and Pasternack (2014)][wyrick14] enable the correct allocation of [river design features](River-design-features.md) as defined in the [thresholds workbook](LifespanDesign.md#modthresh). For this purpose, the following inputs are needed:
 
  -  A flow velocity raster (use [baseflow](https://en.wikipedia.org/wiki/Baseflow) in line with [scientific literature][wyrick14]);
- -  A flow depth raster (use [baseflow](https://en.wikipedia.org/wiki/Baseflow) in line with [scientific literature][wyrick14]).
+ -  A water depth raster (use [baseflow](https://en.wikipedia.org/wiki/Baseflow) in line with [scientific literature][wyrick14]).
 
-The delineation of morphological units as a function of flow depth and velocity can be modified in the `morphological_units.xlsx` workbook (`RiverArchitect/.site_packages/templates/` folder). A click on the `Populate Condition` GUI's `View/change MU definitions` opens this workbook.
+The delineation of morphological units as a function of water depth and velocity can be modified in the `morphological_units.xlsx` workbook (`RiverArchitect/.site_packages/templates/` folder). A click on the `Populate Condition` GUI's `View/change MU definitions` opens this workbook.
 
 ![ramus](https://github.com/RiverArchitect/Media/raw/master/images/mu_xlsx.PNG)
 
@@ -111,11 +111,11 @@ For making changes in the workbook, choose either one of the pre-defined river c
 The depth to the water table is primarily required for identifying relevant regions for target indigenous [plant species](River-design-features.md#plants). For this purpose, the following input Rasters are required.
 
  -  A terrain DEM (or DTM) is automatically assigned from the selected *Condition* folder.
- -  A low-level flow depth Raster (in arid regions) based on the assumption that the groundwater table in the vicinity of the river corresponds to at least this water level, which marks the moment of highest water stress for plants.
+ -  A low-level water depth Raster (in arid regions) based on the assumption that the groundwater table in the vicinity of the river corresponds to at least this water level, which marks the moment of highest water stress for plants.
 
 RiverArchitect estimates the depth to water table by interpolating the given low flow water surface across the DEM extent. There are three options for the interpolation method used to calculate this surface:
 
-- `IDW`: Inverse distance weighted interpolation. Each null cell in the low flow depth raster is assigned a weighted average of its 12 nearest neighbors. Each weight is inversely proportional to the second power of the distance between the interpolated cell and its neighbor. Thus, the closest neighbors to an interpolated cell receive the largest weights.
+- `IDW`: Inverse distance weighted interpolation. Each null cell in the low water depth raster is assigned a weighted average of its 12 nearest neighbors. Each weight is inversely proportional to the second power of the distance between the interpolated cell and its neighbor. Thus, the closest neighbors to an interpolated cell receive the largest weights.
 - `Kriging`: Ordinary Kriging interpolation. This method also uses a weighted average of the 12 nearest neighbors, but weights are calculated using a semi-variogram, which describes the variance of the input data set as a function of the distance between points. A spherical functional form is also assumed for the fitted semi-variogram. Kriging is the most accurate interpolation method if certain assumptions are met regarding normality and stationarity of error terms. However, it is also the most computationally expensive method.
 - `Nearest Neighbor`: The simplest method, which sets the water surface elevation of each null cell to that of the nearest neighboring cell.
 
@@ -125,9 +125,9 @@ All interpolated rasters are saved with a corresponding `.info.txt` file which r
 Automation of [grading](River-design-features.md#grading) or the relevance of [widening and berm setbacks](River-design-features.md#berms) build on the relative elevation of the terrain over the river water surface elevation. For this purpose, the following input Rasters are required.
 
  -  A terrain DEM (or DTM) is automatically assigned from the selected *Condition* folder.
- -  A flow depth Raster (in arid regions) marks the level for relative elevations. Designers may have different reasons for choosing the relevant flow depth Raster (low flows for habitat enhancement or high flows for flood protection), and therefore, no recommendation is made here.
+ -  A water depth Raster (in arid regions) marks the level for relative elevations. Designers may have different reasons for choosing the relevant water depth Raster (low flows for habitat enhancement or high flows for flood protection), and therefore, no recommendation is made here.
 
-Please note that step-like artifacts may occur in the detrended DEM. The steps result from variations in the Thalweg elevation of the DEM that attenuate with the selection of flow depth Rasters of higher discharges. Users can decide to select a low-flow depth Raster to be on the safe side for delineating vegetation plantings or a high-flow depth Raster to reduce step-like artifacts in the detrended DEM.
+Please note that step-like artifacts may occur in the detrended DEM. The steps result from variations in the Thalweg elevation of the DEM that attenuate with the selection of water depth Rasters of higher discharges. Users can decide to select a low-water depth Raster to be on the safe side for delineating vegetation plantings or a high-water depth Raster to reduce step-like artifacts in the detrended DEM.
 
 ## Create a spatial subset of a Condition<a name="sub-condition"></a>
 The creation of a spatial subset of a *Condition* requires a Boundary shapefile or Raster (if this is a GRID Raster, select the corresponding .aux.xml file). The boundary file needs to contain On-values (Integer 1) and Off-values (Integer 0) values only as specified in the [Project Area Polygon preparation](ProjectMaker.md#pminp2).
@@ -145,7 +145,7 @@ If a Raster is selected:
 The boundary files are of particular interest within the <a href="ProjectMaker">ProjectMaker</a> and <a href="SHArC">SHArC</a> modules.
 
 ## Analyze Flows<a name="ana-flows"></a>
-The sustainability (lifespan) and ecohydraulic analyses require hydraulic data related to discharges (flows) and the return period. The *Analyze Discharge* pop-up window guides through the creation of flow-metadata files that link hydraulic Raster names with flows and return periods for a *Condition*. *Analyze Discharge* looks for flow depth and velocity Rasters in a selected *Condition*, extracts the flow quantity, and creates a template workbook in the *Condition* folder. For this purpose, hydraulic (flow depth and velocity) Rasters must be named according to the [Geofile name convetions](#terms) (i.e., flow depth Rasters = "hQQQQQQ_QQQ.tif" and flow velocity Rasters = "uQQQQQQ_QQQ.tif"). QQQQQQ_QQQ is discharge where "_" is the substitute in a file name for a decimal place.
+The sustainability (lifespan) and ecohydraulic analyses require hydraulic data related to discharges (flows) and the return period. The *Analyze Discharge* pop-up window guides through the creation of flow-metadata files that link hydraulic Raster names with flows and return periods for a *Condition*. *Analyze Discharge* looks for water depth and velocity Rasters in a selected *Condition*, extracts the flow quantity, and creates a template workbook in the *Condition* folder. For this purpose, hydraulic (water depth and velocity) Rasters must be named according to the [Geofile name convetions](#terms) (i.e., water depth Rasters = "hQQQQQQ_QQQ.tif" and flow velocity Rasters = "uQQQQQQ_QQQ.tif"). QQQQQQ_QQQ is discharge where "_" is the substitute in a file name for a decimal place.
 
 ![raq](https://github.com/RiverArchitect/Media/raw/master/images/gui_start_flows.PNG)
 
@@ -184,13 +184,13 @@ The resulting `input_definitions.inp` is stored in the directory `RiverArchitect
 |Line No.| [Par.](LifespanDesign-parameters.md) | Description|
 |:-------|:-------------|:-----------|
 | Lines 1-3 | None |Do not change|
-| Line  4 | Return periods | Comma-separated list of flood discharge return periods corresponding to the hydraulic rasters; i.e., the first entry after ``='' corresponds to the return period of the first velocity and flow depth raster (Lines 11 and 12, respectively)|
+| Line  4 | Return periods | Comma-separated list of flood discharge return periods corresponding to the hydraulic rasters; i.e., the first entry after ``='' corresponds to the return period of the first velocity and water depth raster (Lines 11 and 12, respectively)|
 | Lines 5-7 | None |Do not change|
 | Line  8 | *CHSI* | One raster name of spatial composite Habitat Suitability Indexes |
 | Line  9 | *DoD*  | Comma-separated list of two (first = scour, second = fill) DEM of Differences rasters; if one raster is missing, replace it by double quotation marks, for example scour is missing: `... = "", fill # ...`|
 | Line 10 | `det`  | One raster name defining the detrended DEM raster|
 | Line 11 | `u`	| Comma-separated list defining flow velocity rasters corresponding to discharge return periods (Line4); replace missing rasters by double quotation marks, for example, when `u` rasters of a return period list of five entries are not available for entries 2 and 4, `... = u001000, "", u003000, "", u005000 # ...`. However, ensure that at least two `u` rasters are defined. The `00Q000` identifier relates to the underlying discharge in thousand cfs or m<sup>3</sup>/s (see [Geofile name conventions](#terms)).|
-| Line 12 | `h`	| Comma-separated list defining flow depth rasters corresponding to discharge return periods (Line 4); replace missing rasters by double quotation marks, for example, when `h` rasters of a return period list of six entries are not available for entries 2, 3 and 5, type `... = h001000, "", "", h004000, "", h006000 # ...`. Ensure that at least two `h` rasters are defined. The `00Q000` identifier relates to the underlying discharge in thousand cfs or m<sup>3</sup>/s (see [Geofile name conventions](#terms)).|
+| Line 12 | `h`	| Comma-separated list defining water depth rasters corresponding to discharge return periods (Line 4); replace missing rasters by double quotation marks, for example, when `h` rasters of a return period list of six entries are not available for entries 2, 3 and 5, type `... = h001000, "", "", h004000, "", h006000 # ...`. Ensure that at least two `h` rasters are defined. The `00Q000` identifier relates to the underlying discharge in thousand cfs or m<sup>3</sup>/s (see [Geofile name conventions](#terms)).|
 | Line 13 | Grain size| One raster name defining the raster containing mean grain diameters (typically `dmean`; pay attention to raster units: use feet for U.S. customary and m for S.I.)|
 | Line 14 | `mu`  | One raster name delineating morphological units according to the definitions in Sec. \ref{sec:par}|
 | Line 15 | `d2w` | One raster name defining the depth to water table|
@@ -223,7 +223,7 @@ The alignment routine reprojects and/or resamples the input raster data to match
 Caution should be taken when using the built-in alignment routine, as input data may have already been resampled (e.g. from a mesh, TIN, or point features) and repeated resampling of data may create artifacts in the resultant data. Additionally, other routines in River Architect assume that water surface elevation can be calculated by summation of the DEM and depth rasters, which may not hold true if these data have been subject to different resampling schemes.
 
 # Geofile (Raster) conventions<a name="terms"></a>
-The input Rasters need to be in **GeoTIFF** (*.tif*) format, notably, a `raster_name.tif` file. _Note that River Architect is designed to also handle Esri's GRID format, but the primary raster file type should be GeoTIFF_. Depth Raster names must start with `h` and velocity Raster names must start with `u`, followed by a nine-digit discharge `QQQQQQ_QQQ`, which is independent of the unit system. For example, a flow depth Raster associated with a discharge of 55.237 m³/s needs to be called `h000055_237.tif` and a velocity Raster associated with a discharge of 11000.982 m³/s needs to be called `u011000_982.tif`. Moreover, every flow depth Raster requires a matching velocity Raster and vice versa (e.g., for 55 cfs, a depth Raster `h000055.tif` requires a velocity Raster called `u000055.tif`).<br/>
+The input Rasters need to be in **GeoTIFF** (*.tif*) format, notably, a `raster_name.tif` file. _Note that River Architect is designed to also handle Esri's GRID format, but the primary raster file type should be GeoTIFF_. Depth Raster names must start with `h` and velocity Raster names must start with `u`, followed by a nine-digit discharge `QQQQQQ_QQQ`, which is independent of the unit system. For example, a water depth Raster associated with a discharge of 55.237 m³/s needs to be called `h000055_237.tif` and a velocity Raster associated with a discharge of 11000.982 m³/s needs to be called `u011000_982.tif`. Moreover, every water depth Raster requires a matching velocity Raster and vice versa (e.g., for 55 cfs, a depth Raster `h000055.tif` requires a velocity Raster called `u000055.tif`).<br/>
 **Note: `back.tif` may be used to limit calculation extents.**
 
 
@@ -242,7 +242,7 @@ LEGACY CONTENT. This is broken as of 2022, because of hte changein discharge for
 | u000350    | ...     |
 | u......    | ...                        |
 | u088053    | highest                    |
-| **`FLOW DEPTH`**       | **`(in ft or m)`** |
+| **`WATER DEPTH`**       | **`(in ft or m)`** |
 | h000300      | lowest   |
 | h000350      | ...   |
 | h......      | ...                      |

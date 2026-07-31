@@ -136,7 +136,7 @@ STEPS = (
         body="""
         This walkthrough runs the whole chain on 2100_sample: a real gravel-cobble reach
         in U.S. customary units, with a DEM, a mean grain size raster, a DEM of difference
-        and 60 pairs of modelled flow depth and velocity rasters between 300 and 88053 cfs.
+        and 60 pairs of modelled water depth and velocity rasters between 300 and 88053 cfs.
 
         The order matters. Every later module reads a raster that Get Started produces, so
         preparing the condition is not optional housekeeping - it is step one of the
@@ -320,7 +320,7 @@ STEPS = (
         tab="Habitat Area (SHArC)",
         body="""
         This is the first of the three ecohydraulic analyses and the one the other two lean
-        on. Habitat suitability curves from Fish.xlsx map flow depth and velocity onto an
+        on. Habitat suitability curves from Fish.xlsx map water depth and velocity onto an
         index between 0 and 1; their geometric mean is the composite habitat suitability
         index (cHSI), masked to the wetted area. Usable habitat area at a discharge is the
         area where cHSI exceeds the threshold - 0.4 by default.

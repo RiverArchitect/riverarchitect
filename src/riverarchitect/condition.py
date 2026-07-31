@@ -8,11 +8,16 @@ metadata every analysis module needs before it can start.
 The file format is the original one, so existing conditions are read unchanged::
 
     Return periods = 1.0, 1.08, 1.13 #[Comma separated LIST] defines lifespans
-    Flow depth (h) = h007250.tif, h007750.tif #[Comma separated LIST]
+    Water depth (h) = h007250.tif, h007750.tif #[Comma separated LIST]
     Grain sizes (D mean) = dmean #[STRING]
 
 Everything after ``#`` is a comment, the key is matched case-insensitively on a substring,
 and the ``.tif`` extension is optional.
+
+River Architect 1.x wrote ``Flow depth (h)`` for that second key. Both spellings are read,
+so no existing condition needs editing; this package writes the hydraulically correct
+*water depth*, since "flow depth" names a property of the flow rather than of the water
+column it is measured in.
 """
 
 import os
@@ -26,7 +31,8 @@ __all__ = ["Condition", "parse_input_definitions", "discharge_token", "discharge
 #: as lower-case substrings, because the original files are inconsistent about wording.
 _KEYS = {
     "return periods": "return_periods",
-    "flow depth": "depth_rasters",
+    "water depth": "depth_rasters",
+    "flow depth": "depth_rasters",       # what River Architect 1.x wrote; still read
     "flow velocity": "velocity_rasters",
     "grain sizes": "grain_raster",
     "dem of differences": "dod_rasters",

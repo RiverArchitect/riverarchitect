@@ -21,7 +21,8 @@ This is the one thing worth knowing before anything else. The modules chain, and
 ```text
   Get Started      prepare the condition          detrended DEM, water surface,
        |                                          d2w, morphological units,
-       |                                          flow duration curves
+       |                                          bed shear stress (ts/tb/hks/
+       |                                          regime), flow duration curves
        v
   Lifespan         how long does each feature     lf_<feature>.tif
        |           survive at each cell?          ds_<feature>.tif

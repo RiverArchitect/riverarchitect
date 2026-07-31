@@ -13,7 +13,7 @@ lifespan is longer than the largest modelled event and cannot be quantified from
 features that is the stable grain size at the design flood.
 
 .. note::
-   The streamwood design map of the original, which sized a stable log from flow depth and
+   The streamwood design map of the original, which sized a stable log from water depth and
    Froude number rather than from a Shields criterion, is **not** implemented. Streamwood
    still gets a lifespan map; it simply gets no design map, and
    :meth:`LifespanDesign.run_feature` omits ``design_raster`` from its result rather than
@@ -72,7 +72,7 @@ class Feature:
         tau_cr (float): critical dimensionless bed shear stress.
         safety_factor (float): safety factor for the mobile-grain analysis. When set, the
             mobile-grain analysis runs *instead of* the dimensionless shear-stress one.
-        h_max (float): flow depth above which the feature fails, in the condition's length
+        h_max (float): water depth above which the feature fails, in the condition's length
             unit.
         u_max (float): flow velocity above which the feature fails.
         froude_max (float): Froude number above which the feature fails.

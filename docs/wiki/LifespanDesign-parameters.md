@@ -25,7 +25,7 @@ Combinations of recurring parameters determine the lifespans of features. The co
 
 -   `Fr` is the Froude number (dimensionless hydraulic variable) corresponding to `u`/(`h` *g*), where *g* denotes gravity acceleration 
 
--   `h` is the flow depth (length units)
+-   `h` is the water depth (length units)
 
 -   `mu` are the morphological units (strings; see also [Wyrick and Pasternack 2014][wyrick14])
 

@@ -52,7 +52,7 @@ def compute(velocity_path, depth_path, grains_path, output_prefix, grain_kind="d
 
     Args:
         velocity_path (str): depth-averaged velocity raster; defines the output grid.
-        depth_path (str): flow depth raster.
+        depth_path (str): water depth raster.
         grains_path (str): grain size raster; see ``grain_kind``.
         output_prefix (str): path prefix of the four outputs.
         grain_kind (str): ``"dmean"``, ``"d50"`` or ``"d84"``.
@@ -102,7 +102,7 @@ def main():
         description="Regime-aware dimensionless bed shear stress from aligned velocity, "
                     "depth and grain-size rasters.")
     parser.add_argument("--velocity", required=True, help="velocity raster; defines the grid")
-    parser.add_argument("--depth", required=True, help="flow depth raster")
+    parser.add_argument("--depth", required=True, help="water depth raster")
     parser.add_argument("--grains", required=True, help="grain size raster")
     parser.add_argument("--output-prefix", required=True,
                         help="path prefix of the four output rasters")

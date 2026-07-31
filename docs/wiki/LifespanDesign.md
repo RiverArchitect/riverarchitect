@@ -62,13 +62,13 @@ When defining threshold values in `threshold_values.xlsx` carefully study the fo
 
 > **Current GDAL implementation:** the equations below record the historical ArcPy 1.x
 > hierarchy.  The current dimensionless bed-shear calculation does not apply the displayed
-> Keulegan expression at every flow depth.  It switches from Rickenmann--Recking resistance
+> Keulegan expression at every water depth.  It switches from Rickenmann--Recking resistance
 > at low relative submergence to Keulegan--Einstein resistance at high relative submergence,
 > with a smooth transition between them.  See the
 > [current equations and validity notes](../modules/lifespans.md#dimensionless-bed-shear-stress-taux).
 
 1. **Dimensional hydraulic parameter** analysis:
-   - **Flow depth** starting with the lowest discharge to the highest discharge Raster (`hQQQQQQ_QQQ.tif`). A threshold value for the flow depth above which a feature will fail can be defined in row 12 in `threshold_values.xlsx`.
+   - **Water depth** starting with the lowest discharge to the highest discharge Raster (`hQQQQQQ_QQQ.tif`). A threshold value for the water depth above which a feature will fail can be defined in row 12 in `threshold_values.xlsx`, whose row is labelled `Flow depth` - the ArcGIS version matches that label exactly, so do not rename it in the workbook.
    - **Bed shear stress (historical ArcPy formulation)**  &tau;<sub>b</sub> calculated as<br/>
 	   `ras_tb` = \{&rho;<sub>w</sub> · \[`uQQQQQQ_QQQ` / (5.75 * Log<sub>10</sub>(12.2 · `hQQQQQQ_QQQ` / (2 · 2.2 · `dmean`)))\]<sup>2</sup>\} <br/>
 	   where
@@ -123,9 +123,9 @@ When defining threshold values in `threshold_values.xlsx` carefully study the fo
    	+ frequency threshold in years in row 15 to define the minimum expected lifespan that is required; *River Architect* uses hydraulic parameter rasters (`hQQQQQQ_QQQ` and `uQQQQQQ_QQQ`) corresponding to the return period defined within the [GetStarted](Signposts.md#ana-flows) module ([read more on the calculation of stable grain sizes](River-design-features.md#rocks)).
    	+ optional: set a required maximum grain size (e.g., to ensure the filter stability of sand for [increasing the soil capilarity](River-design-features.md#finesed) for vegetation plantings, the default value for the *Incorporation of fine sediment* feature in column *S* is set to 2.6 cm corresponding to 0.00667 in)
    - For **stable wood log design maps**, make the following definitions for a feature in `threshold_values.xlsx`: 
-   	+ flow depth in row 11 (in m or ft)
+   	+ water depth in row 11 (in m or ft)
    	+ Froude number in row 13 (dimensionless)
-   	+ frequency threshold in years in row 15 to define the minimum expected lifespan that is required; *River Architect* uses hydraulic parameter rasters (`hQQQQQQ_QQQ` and `uQQQQQQ_QQQ` for the flow depth and Froude number calculation) corresponding to the return period defined within the [GetStarted](Signposts.md#ana-flows) module ([read more on the calculation of stable wood log sizes](River-design-features.md#elj)).
+   	+ frequency threshold in years in row 15 to define the minimum expected lifespan that is required; *River Architect* uses hydraulic parameter rasters (`hQQQQQQ_QQQ` and `uQQQQQQ_QQQ` for the water depth and Froude number calculation) corresponding to the return period defined within the [GetStarted](Signposts.md#ana-flows) module ([read more on the calculation of stable wood log sizes](River-design-features.md#elj)).
 
 More information on threshold values is provided in the [Feature](River-design-features.md) descriptions with detailed discussions of the identifiers and threshold values.
 
