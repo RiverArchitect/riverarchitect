@@ -77,7 +77,7 @@ def _set_windows_app_id():
     try:
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-            "RiverArchitect.Desktop"
+            config.APP_ID
         )
     except (AttributeError, OSError):
         pass
