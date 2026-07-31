@@ -4,6 +4,49 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The dimensionless bed shear stress is now regime-aware, and referenced to $D_{84}$.**
+  The original's single Keulegan-Einstein expression assumed one logarithmic resistance law
+  at every relative submergence; on the bundled sample reach about 95 % of wet cells sit at
+  `h/ks < 7`, where that law does not hold and the computed stress diverges as the argument
+  of the logarithm approaches one. `riverarchitect.shear.calculate_taux` now uses
+  Rickenmann-Recking (2011) below `h/ks = 7`, Keulegan-Einstein above 20, and a smooth
+  stress-coefficient blend between them, with the Shields stress referenced to
+  `D84 = 2.2 * dmean` rather than to the mean grain size. **Every taux-dependent result
+  moves**: `lifespan.FEATURES` and the recruitment parameters keep their critical values
+  numerically and are now read as `theta84` thresholds. On the sample reach `Generic`
+  planting rose from 23 166 to 44 775 sqft and full recruitment potential from 17 361 to
+  31 977 sqft. `docs/guide/arcpy_migration.md` records the reasoning.
+
+### Added
+
+- `riverarchitect.shear` - the single implementation of the Shields stress, pure numpy and
+  usable on any aligned rasters. `lifespan` and `recruitment` both call it, so the two
+  cannot drift apart.
+- **Shear diagnostics.** Lifespan Design and Riparian Recruitment write `hks<Q>.tif`
+  (relative submergence) and `regime<Q>.tif` (0 invalid, 1 Rickenmann-Recking, 2 blended,
+  3 Keulegan-Einstein) per discharge, so which closure applied where is visible rather than
+  implicit.
+- `Condition.describe()` and `Condition.validate()` - what a condition folder provides, what
+  it lacks, and the raster naming discovery expects. Analyses that cannot start now embed
+  that report in the error instead of only saying what was missing.
+- `riverarchitect-taux` - the Shields stress calculation as a command-line tool, for one set
+  of rasters outside a condition folder (`python -m riverarchitect.tools.taux`).
+
+### Fixed
+
+- **Conditions using River Architect 1.x decimal discharge names were invisible.**
+  `h000001_060.tif` (1.06 m³/s, written by 1.x's `write_Q_str` as `%010.3f` with `_` for the
+  decimal point) matched neither the discovery pattern nor the discharge parser, which read
+  only the leading digits and would have collided distinct discharges at the same integer.
+  Such a condition reported "no paired depth and velocity rasters" however complete it was.
+  Both naming forms are now read, sorted numerically, and round-tripped through the new
+  `condition.discharge_token`; output file names, `input_definitions.inp` writing and the
+  discharge lists in both front ends follow.
+
 ## [2.2.0] - 2026-07-30
 
 **Feature parity with the ArcGIS original.** River Builder and Project Maker were the last

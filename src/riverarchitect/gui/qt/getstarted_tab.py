@@ -147,7 +147,8 @@ class GetStartedTab(RaTab):
         except Exception as exc:
             self.info.setText(str(exc))
             return
-        self.discharge.addItems(["%.0f" % q for q in self._discharges])
+        from ...condition import discharge_label
+        self.discharge.addItems([discharge_label(q) for q in self._discharges])
         if self._discharges:
             self.discharge.setCurrentIndex(0)
         self._describe_product()

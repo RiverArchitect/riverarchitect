@@ -157,7 +157,8 @@ class StrandingGui(RaModuleGui):
             self.info.config(text=str(exc))
             return
 
-        labels = ["%.0f" % q for q in self._discharges]
+        from ..condition import discharge_label
+        labels = [discharge_label(q) for q in self._discharges]
         self.q_low_box.config(values=labels)
         self.q_high_box.config(values=labels)
         if labels:
@@ -221,12 +222,14 @@ class StrandingGui(RaModuleGui):
                                              "wetted (%s)" % area, "stranded (%s)" % area,
                                              "%"),
                  "-" * 58]
+        from ..condition import discharge_label
         for row in result["per_discharge"]:
-            lines.append("%10.0f %7d %13.0f %14.0f %6.2f"
-                         % (row["discharge"], row["pools"], row["wetted_area"],
-                            row["stranded_area"], row["percent_stranded"]))
+            lines.append("%10s %7d %13.0f %14.0f %6.2f"
+                         % (discharge_label(row["discharge"]), row["pools"],
+                            row["wetted_area"], row["stranded_area"],
+                            row["percent_stranded"]))
         lines += ["",
-                  "Worst discharge  : %.0f %s, %.0f %s stranded"
+                  "Worst discharge  : %g %s, %.0f %s stranded"
                   % (result["worst_discharge"], discharge,
                      result["worst_stranded_area"], area),
                   "Ever disconnected: %.0f %s" % (result["total_disconnected_area"], area),

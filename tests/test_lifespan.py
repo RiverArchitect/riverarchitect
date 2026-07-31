@@ -94,6 +94,72 @@ def test_discharge_is_read_from_the_file_name():
     assert Condition.discharge_of("h001000.tif") == 1000.0
     assert Condition.discharge_of("u088053.tif") == 88053.0
     assert Condition.discharge_of("dem.tif") is None
+    # v1's write_Q_str form: '%010.3f' with '.' replaced by '_'.
+    assert Condition.discharge_of("h000001_060.tif") == 1.06
+    assert Condition.discharge_of("u000293_000.tif") == 293.0
+    assert Condition.discharge_of("wse000025_400.tif") == 25.4
+
+
+def test_discharge_token_round_trips():
+    from riverarchitect.condition import discharge_label, discharge_token
+
+    assert discharge_token(550) == "000550"
+    assert discharge_token(1.06) == "000001_060"
+    assert discharge_token(293.0) == "000293"
+    assert Condition.discharge_of("h%s.tif" % discharge_token(1.06)) == 1.06
+    assert Condition.discharge_of("h%s.tif" % discharge_token(550)) == 550.0
+    assert discharge_label(550.0) == "550"
+    assert discharge_label(1.06) == "1.06"
+
+
+def test_decimal_discharge_condition_is_discovered(tmp_path):
+    """A v1-style condition folder with underscore-decimal names and no .inp file."""
+    directory = tmp_path / "rsrm_style"
+    directory.mkdir()
+    profile = make_profile()
+    shape = (profile["height"], profile["width"])
+    for token in ("000001_060", "000003_890", "000025_400"):
+        raster.write(str(directory / ("h%s.tif" % token)), np.full(shape, 1.0), profile)
+        raster.write(str(directory / ("u%s.tif" % token)), np.full(shape, 1.0), profile)
+    raster.write(str(directory / "dmean.tif"), np.full(shape, 0.001), profile)
+
+    condition = Condition("rsrm_style", directory=str(directory))
+    assert condition.discharges == [1.06, 3.89, 25.4]
+    assert condition.all_depth_rasters() == ["h000001_060.tif", "h000003_890.tif",
+                                             "h000025_400.tif"]
+    assert condition.depth_raster_for(3.89) == "h000003_890.tif"
+    assert condition.velocity_raster_for(99.0) is None
+    pairs = list(condition.hydraulic_pairs())
+    assert [period for period, _h, _u in pairs] == [1.06, 3.89, 25.4]
+
+
+def test_condition_describe_reports_what_is_there_and_what_is_wrong(tmp_path):
+    """A folder with unpaired rasters and no .inp yields an actionable report."""
+    directory = tmp_path / "broken"
+    directory.mkdir()
+    profile = make_profile()
+    shape = (profile["height"], profile["width"])
+    raster.write(str(directory / "h000001_060.tif"), np.ones(shape), profile)
+    # deliberately: no matching u raster, no dem, no dmean, no .inp
+
+    condition = Condition("broken", directory=str(directory))
+    problems = condition.validate()
+    assert any("input_definitions.inp is missing" in p for p in problems)
+    assert any("No velocity raster" in p for p in problems)
+    assert any("1.06 has a depth raster but no velocity raster" in p for p in problems)
+    assert any("DEM" in p for p in problems)
+    assert any("grain size" in p for p in problems)
+
+    report = condition.describe()
+    assert "depth rasters: 1" in report
+    assert "velocity rasters: none" in report
+    assert "Problems:" in report
+
+
+def test_condition_validate_is_quiet_on_a_complete_condition(project):
+    condition = Condition("synthetic")
+    assert condition.validate() == []
+    assert "Problems:" not in condition.describe()
 
 
 def test_condition_pairs_depth_with_velocity(project):
@@ -191,6 +257,62 @@ def test_run_feature_writes_a_lifespan_raster(project, tmp_path):
     array, _profile = raster.read(result["lifespan_raster"])
     finite = array[np.isfinite(array)]
     assert set(finite.tolist()) <= {2.0, 5.0, 10.0, 25.0}
+
+
+def test_taux_failure_period_matches_the_closed_form(project):
+    """A pure tau_cr feature (no safety factor) fails at an analytically known flood.
+
+    The fixture has depth 2.0 and dmean 0.05 everywhere, so h/ks = 2.0/0.22 = 9.09: the
+    blended regime. theta84 rises with the squared velocity ramp, and the first discharge
+    whose closed-form theta84 crosses tau_cr is the expected failure period everywhere.
+    """
+    import math
+
+    analysis = LifespanDesign("synthetic", unit="si")
+    analysis._set_reference()
+    grain = analysis._read("dmean")
+
+    def theta84_of(u, h=2.0, dmean=0.05):
+        d84 = 2.2 * dmean
+        chi = h / (2.0 * d84)
+        x = h / d84
+        rr = 4.416 * x ** 1.904 * (1.0 + (x / 1.283) ** 1.618) ** -1.083
+        keu = 5.75 * math.log10(12.2 * chi)
+        t = min(max((chi - 7.0) / 13.0, 0.0), 1.0)
+        w = t * t * (3.0 - 2.0 * t)
+        cf = (1.0 - w) / rr ** 2 + w / keu ** 2
+        return u ** 2 * cf / (9.81 * 1.68 * d84)
+
+    tau_cr = 0.047
+    expected = None
+    for period, velocity in zip([2.0, 5.0, 10.0, 25.0], [1.0, 2.0, 4.0, 8.0]):
+        if theta84_of(velocity) >= tau_cr:
+            expected = period
+            break
+    assert expected is not None  # the fixture must exercise the criterion
+
+    lifespan = analysis._hydraulic_lifespan(Feature("t", "test", tau_cr=tau_cr), grain)
+    assert np.all(lifespan == expected)
+
+
+def test_run_feature_writes_the_shear_diagnostics(project, tmp_path):
+    """Every taux run leaves hks<token> and regime<token> beside the lifespan maps."""
+    import rasterio
+
+    analysis = LifespanDesign("synthetic", unit="si")
+    output = tmp_path / "out"
+    analysis.features = {"t": Feature("t", "test", tau_cr=0.047)}
+    result = analysis.run(["t"], output_dir=str(output))
+    assert result
+    for token in ("001000", "002000", "003000", "004000"):
+        assert (output / ("hks%s.tif" % token)).is_file()
+        regime_path = output / ("regime%s.tif" % token)
+        assert regime_path.is_file()
+        with rasterio.open(str(regime_path)) as src:
+            assert src.dtypes[0] == "uint8"
+            assert src.nodata == 0
+            # depth 2.0 and dmean 0.05 everywhere -> h/ks = 9.09: all cells blended
+            assert set(np.unique(src.read(1))) == {2}
 
 
 def test_unknown_feature_is_reported_not_raised(project, tmp_path):

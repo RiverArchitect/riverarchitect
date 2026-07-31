@@ -41,68 +41,17 @@ it talks about to the front. The same content is at {doc}`guide/example_walkthro
 ## Contents
 
 ```{toctree}
-:maxdepth: 2
-:caption: Software setup
+:maxdepth: 4
 
 setup/index
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Usage (Quick Start)
-
 usage/index
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Get started
-
 getstarted/index
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Modules
-
 modules/index
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Tools
-
 tools
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: FAQ
-
 faq
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Troubleshooting
-
 troubleshooting
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Development
-
 development/index
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: About
-
-license
-wiki/Acknowledgment
-wiki/Disclaimer
+about
 ```
 
 ## What it does

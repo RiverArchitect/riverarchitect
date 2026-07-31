@@ -60,17 +60,29 @@ import logging
 logging.basicConfig(level=logging.INFO)
 ```
 
-**2. Check the condition before the analysis.** In order:
+**2. Check the condition before the analysis.** One line prints what the folder provides,
+what it lacks, and the raster naming the discovery expects:
 
 ```python
 from riverarchitect.condition import Condition
 
+print(Condition("2100_sample").describe())
+```
+
+For a closer look:
+
+```python
 c = Condition("2100_sample")
+print(c.validate())                           # problems as a list, empty when usable
 print(c.return_periods)                       # empty? lifespan mapping has no axis
 print(len(c.depth_rasters), len(c.all_depth_rasters()))
 for name in (c.dem_raster, c.d2w_raster, c.detrended_raster, c.grain_raster, c.mu_raster):
     print(name, c.exists(name))               # False means that criterion is skipped
 ```
+
+Both hydraulic raster naming forms are accepted: plain integers (`h000550.tif` models
+550 cfs or m³/s) and the decimal form of River Architect 1.x, which writes the discharge
+as `%010.3f` with `_` as the decimal separator (`h000001_060.tif` models 1.06).
 
 **3. Plot maximum depth and velocity against discharge.** Ten seconds of this finds a
 mislabelled or corrupt hydraulic raster, which nothing in the software can detect for you.
@@ -91,7 +103,8 @@ wrong place by a factor near 3.28, this is why.
 | `no lf_*.tif rasters in <dir>` | Max Lifespan was pointed at a folder with no lifespan maps | run Lifespan Design first |
 | `no feature action rasters in <dir>` | Terraforming was pointed at a folder with no `best_*.tif` | run Max Lifespan first |
 | `no such species in Fish.xlsx: <x>` | the species is not in the workbook | the message lists the available names; matching ignores case and spacing |
-| `no depth rasters found for condition <x>` | the discharges requested have no `h<Q>.tif` | check the six-digit zero-padded naming |
+| `no depth rasters found for condition <x>` | the discharges requested have no `h<Q>.tif` | check the naming: `h000550.tif`, or `h000001_060.tif` for a decimal discharge |
+| `the dimensionless bed shear stress is NoData everywhere` | the grain raster does not overlap the hydraulics, or holds something other than grain diameters | check `dmean.tif` units and extent; the `regime<Q>.tif` diagnostic maps show where the closure was valid |
 | `no discharge has both a depth and a velocity raster` | `h<Q>.tif` and `u<Q>.tif` do not pair up | every depth raster needs a velocity raster at the same discharge |
 | `no flow in the record falls inside the season given` | the flow record does not cover that lifestage's season | use a longer record, or a lifestage whose season it covers |
 | `a Gumbel fit needs at least 10 annual peaks` | too short a record for a return period estimate | use a longer record, or supply return periods from a formal analysis |

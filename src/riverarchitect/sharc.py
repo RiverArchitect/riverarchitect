@@ -35,7 +35,7 @@ import os
 import numpy as np
 
 from . import config, raster
-from .condition import Condition
+from .condition import Condition, discharge_token
 
 __all__ = ["FishDatabase", "apply_curve", "cover_hsi", "SHArC", "COMBINE_METHODS",
            "COVER_TYPES", "GRAIN_SIZE_LIMITS"]
@@ -657,7 +657,8 @@ class SHArC:
             rows.append(row)
 
             if write_rasters:
-                path = os.path.join(output_dir, "csi_%s%06d.tif" % (code, discharge))
+                path = os.path.join(output_dir, "csi_%s%s.tif"
+                                    % (code, discharge_token(discharge)))
                 raster.write(path, chsi, profile)
                 row["raster"] = path
 

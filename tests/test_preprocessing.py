@@ -179,6 +179,20 @@ def test_write_input_definitions_round_trips(tmp_path):
     assert values["dem_raster"] == "dem"
 
 
+def test_write_input_definitions_keeps_decimal_discharge_names(tmp_path):
+    profile = make_profile(width=2, height=1)
+    for token in ("000001_060", "000293_000"):
+        raster.write(str(tmp_path / ("h%s.tif" % token)), np.ones((1, 2)), profile)
+        raster.write(str(tmp_path / ("u%s.tif" % token)), np.ones((1, 2)), profile)
+
+    path = pre.write_input_definitions(tmp_path)
+    values = parse_input_definitions(path)
+    # The names on disk are kept: "h000293_000.tif" parses to 293.0, and regenerating
+    # the compact token "h000293.tif" would name a raster that is not there.
+    assert values["depth_rasters"] == ["h000001_060.tif", "h000293_000.tif"]
+    assert values["velocity_rasters"] == ["u000001_060.tif", "u000293_000.tif"]
+
+
 def test_write_input_definitions_rejects_mismatched_return_periods(tmp_path):
     profile = make_profile(width=2, height=1)
     raster.write(str(tmp_path / "h000100.tif"), np.ones((1, 2)), profile)

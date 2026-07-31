@@ -17,6 +17,8 @@ __all__ = ["NODATA", "FT2AC", "FT2M", "CFS2CMS", "UNITS",
            "dir_conditions", "dir_flows", "dir_maps", "dir_output",
            "area_unit", "unit_labels"]
 
+APP_ID = "org.riverarchitect.RiverArchitect"
+
 #: Canonical NoData value for every raster River Architect writes.
 #:
 #: Never test cell values against this constant directly. Go through the declared NoData
@@ -36,6 +38,9 @@ CFS2CMS = 0.0283168466
 UNITS = ("us", "si")
 
 _PROJECT_HOME = None
+
+def icon_path():
+    return os.path.join(package_dir(), "assets", "icon-v2.png")
 
 
 def package_dir():

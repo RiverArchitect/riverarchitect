@@ -6,6 +6,7 @@ API reference
 
    raster
    condition
+   shear
    preprocessing
    lifespan
    maxlifespan

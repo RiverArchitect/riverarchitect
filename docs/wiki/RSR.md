@@ -167,7 +167,11 @@ If a recruitment band elevation method is preferred, upper and lower band elevat
 
 ## Bed Preparation Assessment<a name="bed-preparation"></a>
 
-The dimensionless bed shear stress (&tau;<sub>\*</sub>) was calculated with the following equation, which is consistent with the [Lifespan Design](LifespanDesign.md) module:
+> **Historical method:** this legacy page retains the ArcPy 1.x equation for reproducibility.
+> The current GDAL implementation uses a relative-submergence-dependent resistance law; see
+> the [current equations and validity notes](../modules/lifespans.md#dimensionless-bed-shear-stress-taux).
+
+In the ArcPy 1.x implementation, dimensionless bed shear stress (&tau;<sub>\*</sub>) was calculated with the following equation, which was consistent with the historical [Lifespan Design](LifespanDesign.md) module:
 
 <p align="center">
   <img src="https://github.com/RiverArchitect/Media/raw/master/

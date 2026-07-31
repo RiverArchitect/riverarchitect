@@ -45,6 +45,144 @@ lifespan:
 | Topographic change | scour or fill at or above the rate - or, for an inverse-relevance feature, below it |
 | Morphological units | the units in `mu_relevant`, or everything except `mu_avoid` |
 
+### Dimensionless bed shear stress (`taux`)
+
+River Architect keeps the historical name `taux` for the **Shields parameter**.  It is not
+a dimensional stress and it is not the $x$-component of a stress tensor.  For the reference
+grain fraction $D_{84}$,
+
+$$
+\theta_{84} \equiv \mathtt{taux}
+  = \frac{u_*^2}{g(s-1)D_{84}},
+\qquad
+\tau_b = \rho_w u_*^2,
+$$
+
+where $u_*$ is shear velocity, $g$ is gravitational acceleration, $s=\rho_s/\rho_w$,
+and $\tau_b$ is dimensional bed shear stress.  The hydraulic-model raster supplies the
+depth-averaged speed $U$, not $u_*$, so a flow-resistance relation is needed to recover
+$u_*^2$ cell by cell.
+
+Define
+
+$$
+k_s=2D_{84}, \qquad \chi=\frac{h}{k_s}, \qquad x=\frac{h}{D_{84}}=2\chi.
+$$
+
+The current calculation changes resistance law with relative submergence:
+
+| Relative submergence | Resistance relation | Interpretation |
+|---|---|---|
+| $\chi \le 7$ | Rickenmann--Recking | protruding grains and large-scale roughness strongly affect the depth-averaged flow |
+| $7 < \chi < 20$ | smooth blend | avoids a numerical seam between resistance laws |
+| $\chi \ge 20$ | Keulegan--Einstein | well-submerged, fully rough logarithmic resistance |
+
+The high-submergence branch is
+
+$$
+C_K \equiv \frac{U}{u_*}
+ = 5.75\log_{10}(12.2\chi).
+$$
+
+This is the relation represented by the original ArcPy expression
+`Square(u / (5.75 * Log10(12.2 * h / (2 * D84))))`.  It contains **one** base-10
+logarithm.  It is a depth-integrated resistance law derived from a logarithmic wall profile;
+it does not require two logarithmic layers in the water column, and it does not assert that
+the instantaneous velocity profile is logarithmic from the grain crests to the free surface.
+
+For lower submergence, River Architect uses the field relation of Rickenmann and Recking
+(2011):
+
+$$
+C_{RR} \equiv \frac{U}{u_*}
+ = 4.416x^{1.904}
+   \left[1+\left(\frac{x}{1.283}\right)^{1.618}\right]^{-1.083}.
+$$
+
+Within the transition interval, let
+
+$$
+t=\frac{\chi-7}{20-7}, \qquad w=t^2(3-2t),
+$$
+
+and blend the **stress coefficient**, not the velocity ratio:
+
+$$
+C_f = \left(\frac{u_*}{U}\right)^2
+    = \frac{1-w}{C_{RR}^2}+\frac{w}{C_K^2}.
+$$
+
+Outside that interval, $C_f=C_{RR}^{-2}$ below it and $C_f=C_K^{-2}$ above it.  The
+reported quantities are then
+
+$$
+u_*^2=U^2C_f, \qquad
+\tau_b=\rho_wU^2C_f, \qquad
+\mathtt{taux}=\frac{U^2C_f}{g(s-1)D_{84}}.
+$$
+
+```{admonition} What the switch does and does not diagnose
+:class: important
+
+The values 7 and 20 are River Architect's engineering transition bounds, not universal
+phase boundaries.  Published field comparisons show that the unmodified Keulegan relation
+can disagree substantially with gravel-bed observations at low relative depth; the precise
+range also depends on bed structure, form drag, slope and how $k_s$ is defined.  The
+Rickenmann--Recking branch is therefore used where a grain-only log law is least defensible,
+and the interval is blended so a one-cell change in depth does not create a jump in stress.
+
+This switch assumes turbulent, hydraulically rough gravel/cobble flow.  Check the roughness
+Reynolds number $k_s^+=u_*k_s/\nu$: if viscosity still affects the resistance, use a
+smooth/transitionally rough resistance law or, preferably, bed shear exported by the
+hydraulic model.  The switch also cannot separate grain stress from bar, step, bank,
+vegetation or large-wood form drag.
+```
+
+```{admonition} Relative submergence is not the shallow-water assumption
+:class: note
+
+$h/k_s$ compares water depth with bed roughness.  Saint-Venant or depth-averaged modelling
+instead requires depth to be small relative to the horizontal length scale and vertical
+accelerations to remain modest.  A wide river can satisfy the depth-averaged approximation
+while having low $h/k_s$.  Conversely, a locally deep pool can contain strong three-
+dimensional secondary flow.  River Architect uses local depth $h\approx R$ as a wide-channel
+approximation to hydraulic radius; for narrow or sidewall-dominated channels, calculate the
+appropriate hydraulic radius or use modelled bed shear.
+```
+
+```{admonition} The grain percentile must be consistent
+:class: warning
+
+Use a measured $D_{84}$ raster when possible.  The fallback $D_{84}\approx2.2D_{50}$ was
+the median relation in the Rickenmann--Recking field data and is only justified when the
+input represents $D_{50}$.  A file called `dmean.tif` is not automatically $D_{50}$;
+record what statistic it contains.  Compare $\theta_{84}$ with a critical Shields value
+defined for the same reference fraction, or apply an explicit hiding/exposure correction.
+```
+
+Primary sources: [Keulegan (1938)](https://nvlpubs.nist.gov/nistpubs/jres/21/jresv21n6p707_A1b.pdf),
+[Einstein (1950)](https://books.google.com/books?id=ah_n36gVE2gC), and
+[Rickenmann and Recking (2011)](https://doi.org/10.1029/2010WR009793).
+
+#### Where it lives, and what it writes
+
+{func}`riverarchitect.shear.calculate_taux` is the single implementation; both
+{meth}`riverarchitect.lifespan.LifespanDesign.shields_stress` and
+{meth}`riverarchitect.recruitment.RecruitmentPotential.shields_stress` call it, so the two
+modules cannot drift apart. It is pure numpy and takes plain arrays, so it can be used
+directly on any aligned depth, velocity and $D_{84}$ rasters.
+
+Every run writes two diagnostic rasters per discharge beside its maps:
+
+| Raster | Content |
+|---|---|
+| `hks<Q>.tif` | relative submergence $\chi=h/k_s$ |
+| `regime<Q>.tif` | 0 invalid, 1 Rickenmann--Recking, 2 blended, 3 Keulegan--Einstein |
+
+Read `regime<Q>.tif` before trusting a stress map. On the bundled sample reach about 95 % of
+wet cells are regime 1, meaning the original program's single logarithmic law was applied
+almost everywhere outside its range of validity.
+
 ### Threshold values
 
 Defaults live in {data}`riverarchitect.lifespan.FEATURES` as **Python rather than a binary

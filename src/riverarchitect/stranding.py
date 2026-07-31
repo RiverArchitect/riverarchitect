@@ -34,7 +34,7 @@ import os
 import numpy as np
 
 from . import config, raster
-from .condition import Condition
+from .condition import Condition, discharge_token
 
 __all__ = ["TRAVEL_THRESHOLDS", "travel_thresholds", "StrandingRisk"]
 
@@ -259,7 +259,8 @@ class StrandingRisk:
             })
 
             if write_rasters:
-                raster.write(os.path.join(output_dir, "disconnected_%06d.tif" % discharge),
+                raster.write(os.path.join(output_dir, "disconnected_%s.tif"
+                                          % discharge_token(discharge)),
                              raster.con(mask, 1.0), reference)
 
         # The original expressed the disconnected area as a share of the wetted extent at
@@ -322,7 +323,7 @@ class StrandingRisk:
         pools = raster.polygonize(mask.astype("int32"), reference, mask=mask)
         pools["area"] = pools.geometry.area
         pools = pools.sort_values("area", ascending=False)
-        path = os.path.join(output_dir, "pools_%06d.gpkg" % discharge)
+        path = os.path.join(output_dir, "pools_%s.gpkg" % discharge_token(discharge))
         try:
             pools.to_file(path, driver="GPKG")
         except Exception as exc:  # a missing vector driver must not lose the rasters

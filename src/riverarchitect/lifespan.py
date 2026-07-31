@@ -42,8 +42,8 @@ import os
 
 import numpy as np
 
-from . import config, raster
-from .condition import Condition
+from . import config, raster, shear
+from .condition import Condition, discharge_token
 
 __all__ = ["Feature", "FEATURES", "LifespanDesign", "load_threshold_workbook",
            "feature_groups"]
@@ -51,7 +51,7 @@ __all__ = ["Feature", "FEATURES", "LifespanDesign", "load_threshold_workbook",
 logger = logging.getLogger("riverarchitect")
 
 #: Relative grain density (ratio of sediment and water density).
-RHO_RATIO = 2.68
+RHO_RATIO = shear.RHO_RATIO
 #: Default Manning's n in s/m^(1/3). Divided by 1.49 for U.S. customary units.
 MANNING_N = 0.0473934
 #: Gravitational acceleration in m/s^2.
@@ -287,6 +287,9 @@ class LifespanDesign:
             self.g = G_SI
 
         self._reference = None                 # profile every raster is aligned onto
+        self._taux_cache = {}                  # discharge token -> theta84
+        self._shear_diagnostics = {}           # discharge token -> (h_over_ks, regime)
+        self._diagnostics_written = set()      # output dirs already holding them
 
     # ----------------------------------------------------------------------- inputs
 
@@ -309,19 +312,27 @@ class LifespanDesign:
         for _period, depth_path, _u in self.condition.hydraulic_pairs():
             self._reference = raster.profile_of(depth_path)
             return self._reference
-        raise FileNotFoundError("condition %r has no usable raster to define the grid"
-                                % self.condition.name)
+        raise FileNotFoundError("condition %r has no usable raster to define the grid.\n\n%s"
+                                % (self.condition.name, self.condition.describe()))
 
     def _hydraulics(self):
-        """Yield ``(return_period, depth, velocity)`` arrays on the reference grid."""
+        """Yield ``(return_period, token, depth, velocity)`` on the reference grid.
+
+        ``token`` is the discharge in file-name form, e.g. ``"000550"`` - it keys the
+        per-discharge shear diagnostics and their output file names, the same way
+        :mod:`riverarchitect.recruitment` names its own.
+        """
         for period, depth_path, velocity_path in self.condition.hydraulic_pairs():
+            discharge = self.condition.discharge_of(depth_path)
+            token = discharge_token(discharge) if discharge is not None \
+                else os.path.splitext(os.path.basename(depth_path))[0]
             depth, depth_profile = raster.read(depth_path)
             velocity, velocity_profile = raster.read(velocity_path)
             depth = raster.align(depth, depth_profile, self._reference)
             velocity = raster.align(velocity, velocity_profile, self._reference)
             # Dry cells must be NoData, not zero: h**(1/3) in the denominator of the
             # mobile-grain formula otherwise divides by zero across the whole dry bed.
-            yield period, np.where(depth > 0, depth, np.nan), velocity
+            yield period, token, np.where(depth > 0, depth, np.nan), velocity
 
     # -------------------------------------------------------------------- criteria
 
@@ -339,19 +350,40 @@ class LifespanDesign:
                     / ((RHO_RATIO - 1.0) * tau_cr * depth ** (1.0 / 3.0))
                     / safety_factor)
 
-    def shields_stress(self, depth, velocity, grain):
-        """Dimensionless bed shear stress from Manning's equation and D84 = 2.2 * Dmean."""
-        with np.errstate(invalid="ignore", divide="ignore"):
-            d84 = 2.2 * grain
-            shear_velocity = velocity / (5.75 * np.log10(12.2 * depth / (2.0 * d84)))
-            return shear_velocity ** 2 / ((RHO_RATIO - 1.0) * self.g * grain)
+    def shields_stress(self, depth, velocity, grain, token=None):
+        """Dimensionless bed shear stress ``theta84``, referenced to ``D84 = 2.2 * Dmean``.
+
+        Replaces the Keulegan-only expression of the original (arcpy counterpart:
+        ``analyse_taux``) with the regime-aware closure of :mod:`riverarchitect.shear`,
+        which stays physically meaningful in the shallow cells the logarithmic law cannot
+        describe. When ``token`` is given, the relative submergence and regime rasters of
+        that discharge are kept for :meth:`write_shear_diagnostics`.
+        """
+        if token is not None and token in self._taux_cache:
+            return self._taux_cache[token]
+        result = shear.calculate_taux(velocity, depth, shear.d84_of(grain),
+                                      gravity=self.g)
+        if token is not None:
+            # theta84 does not depend on the feature, so one computation per discharge
+            # serves every taux feature; the diagnostics are kept for writing once.
+            self._taux_cache[token] = result.theta84
+            self._shear_diagnostics[token] = (result.h_over_ks, result.regime)
+            self.logger.info("      * taux %s: %s", token,
+                             ", ".join("%s %d" % (label, count) for label, count
+                                       in shear.regime_summary(result.regime).items()))
+            if not result.regime.any():
+                self.logger.warning(
+                    "      * taux %s is NoData everywhere: the grain raster %r may not "
+                    "share units or extent with the hydraulic rasters.", token,
+                    self.condition.grain_raster)
+        return result.theta84
 
     def _hydraulic_lifespan(self, feature, grain):
         """Earliest failure return period across every hydraulic criterion."""
         per_criterion = []
         depth_fail, velocity_fail, froude_fail, grain_fail = [], [], [], []
 
-        for period, depth, velocity in self._hydraulics():
+        for period, token, depth, velocity in self._hydraulics():
             if feature.h_max is not None:
                 depth_fail.append(raster.con(depth >= feature.h_max, period))
             if feature.u_max is not None:
@@ -368,7 +400,7 @@ class LifespanDesign:
                                                       feature.safety_factor)
                     grain_fail.append(raster.con(mobile >= grain, period))
                 else:
-                    taux = self.shields_stress(depth, velocity, grain)
+                    taux = self.shields_stress(depth, velocity, grain, token=token)
                     grain_fail.append(raster.con(taux >= feature.tau_cr, period))
 
         for failures in (depth_fail, velocity_fail, froude_fail, grain_fail):
@@ -547,6 +579,8 @@ class LifespanDesign:
                 raster.write(path, design, self._reference)
                 result["design_raster"] = path
 
+        self.write_shear_diagnostics(output_dir)
+
         dx, dy = raster.cell_size(self._reference)
         mapped = np.isfinite(lifespan)
         result["area"] = float(mapped.sum() * dx * dy)
@@ -557,6 +591,25 @@ class LifespanDesign:
             result["median_lifespan"] = float(np.nanmedian(lifespan))
         return result
 
+    def write_shear_diagnostics(self, output_dir):
+        """Write the relative submergence and resistance-regime rasters of each discharge.
+
+        For every discharge whose Shields stress has been computed, ``hks<token>.tif``
+        (relative submergence ``h/ks``) and ``regime<token>.tif`` (uint8 code per
+        :data:`riverarchitect.shear.REGIME_LABELS`) land beside the lifespan maps, so
+        users can see which resistance closure applied where. Idempotent per output
+        directory and per run.
+        """
+        if not self._shear_diagnostics or output_dir in self._diagnostics_written:
+            return
+        os.makedirs(output_dir, exist_ok=True)
+        for token, (h_over_ks, regime) in self._shear_diagnostics.items():
+            raster.write(os.path.join(output_dir, "hks%s.tif" % token),
+                         h_over_ks, self._reference)
+            raster.write(os.path.join(output_dir, "regime%s.tif" % token),
+                         regime, self._reference, dtype="uint8", nodata=0)
+        self._diagnostics_written.add(output_dir)
+
     def _design_raster(self, feature, lifespan, grain):
         """Stable grain size, or stable log diameter, at the feature's design flood."""
         target = feature.design_frequency
@@ -564,7 +617,7 @@ class LifespanDesign:
             return None
 
         chosen = None
-        for period, depth, velocity in self._hydraulics():
+        for period, _token, depth, velocity in self._hydraulics():
             if period >= target:
                 chosen = (depth, velocity)
                 break
@@ -599,6 +652,11 @@ class LifespanDesign:
                            if feature.lifespan_mapping]
 
         self._set_reference()
+        if not any(True for _pair in self.condition.hydraulic_pairs()):
+            # Without hydraulics every feature would silently map nothing; say why.
+            self.logger.warning("   >> no paired depth and velocity rasters - only "
+                                "spatial criteria can apply.\n%s",
+                                self.condition.describe())
         results = []
         for fid in feature_ids:
             feature = self.features.get(fid)

@@ -11,9 +11,11 @@ import logging
 import os
 
 from ... import __version__, config, guide
-from .qtcompat import (QAction, QApplication, QDesktopServices, QFileDialog, QLabel,
-                       QMainWindow, QMessageBox, QTabWidget, QUrl, QVBoxLayout, QWidget,
-                       Qt, QT_BINDING, exec_app)
+from .qtcompat import (
+    QAction, QApplication, QDesktopServices, QFileDialog, QIcon, QLabel,
+    QMainWindow, QMessageBox, QTabWidget, QUrl, QVBoxLayout, QWidget,
+    Qt, QT_BINDING, exec_app,
+)
 from .getstarted_tab import GetStartedTab
 from .lifespan_tab import LifespanTab
 from .mapping_tab import MappingTab
@@ -254,9 +256,17 @@ class RiverArchitectWindow(QMainWindow):
 def run(argv=None):
     """Create the application, show the window and run the event loop."""
     app = QApplication.instance() or QApplication(argv or [])
+
     app.setApplicationName("River Architect")
+    app.setApplicationDisplayName("River Architect")
     app.setApplicationVersion(__version__)
+    app.setDesktopFileName(config.APP_ID)
+
+    icon = QIcon(config.icon_path())
+    app.setWindowIcon(icon)
 
     window = RiverArchitectWindow()
+    window.setWindowIcon(icon)
     window.show()
     return exec_app(app)
+    

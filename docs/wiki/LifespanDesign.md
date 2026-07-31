@@ -60,9 +60,16 @@ Any threshold value can be changed or defined for any feature, but the workbook 
 *River Architect* automatically identifies defined threshold values for selected features. Moreover, *River Architect* automatically applies all defined threshold values to the extent of Rasters available within a [*Condition*](Signposts.md#new-condition). The identification and execution of possible analyses follow a strictly hierarchical order. If an analysis cannot be executed because of missing threshold value definitions or Rasters, *River Architect* automatically proceeds to the hierarchically next lower analysis. The analysis hierarchy is defined in order to first created lifespan maps (if row 24 in `threshold_values.xlsx` is set to *TRUE* for a feature), and second to save design maps (if row 25 in `threshold_values.xlsx` is set to *TRUE* for a feature).
 When defining threshold values in `threshold_values.xlsx` carefully study the following **hierarchy** and parameter application of *River Architect* ([read more about **threshold application to features**](River-design-features.md)):
 
+> **Current GDAL implementation:** the equations below record the historical ArcPy 1.x
+> hierarchy.  The current dimensionless bed-shear calculation does not apply the displayed
+> Keulegan expression at every flow depth.  It switches from Rickenmann--Recking resistance
+> at low relative submergence to Keulegan--Einstein resistance at high relative submergence,
+> with a smooth transition between them.  See the
+> [current equations and validity notes](../modules/lifespans.md#dimensionless-bed-shear-stress-taux).
+
 1. **Dimensional hydraulic parameter** analysis:
    - **Flow depth** starting with the lowest discharge to the highest discharge Raster (`hQQQQQQ_QQQ.tif`). A threshold value for the flow depth above which a feature will fail can be defined in row 12 in `threshold_values.xlsx`.
-   - **Bed shear stress**  &tau;<sub>b</sub> calculated as<br/>
+   - **Bed shear stress (historical ArcPy formulation)**  &tau;<sub>b</sub> calculated as<br/>
 	   `ras_tb` = \{&rho;<sub>w</sub> · \[`uQQQQQQ_QQQ` / (5.75 * Log<sub>10</sub>(12.2 · `hQQQQQQ_QQQ` / (2 · 2.2 · `dmean`)))\]<sup>2</sup>\} <br/>
 	   where
    	+ A threshold value for mobility according to the bed shear stress &tau;<sub>\b, cr</sub> can be defined in row 6 of `threshold_values.xlsx` (read more for example in [Lamb et al. 2008](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2007JF000831))
@@ -72,7 +79,7 @@ When defining threshold values in `threshold_values.xlsx` carefully study the fo
    - **Flow velocity** starting with the lowest discharge to the highest discharge Raster (`uQQQQQQ_QQQ.tif`). A threshold value for the velocity above which a feature will fail can be defined in row 13 in `threshold_values.xlsx`.
 
 1. **Dimensionless hydraulic parameter** analysis:
-   - **Dimensionless bed shear stress (aka Shields stres)**  &tau;<sub>\*</sub> calculated as<br/>
+   - **Dimensionless bed shear stress (aka Shields stress; historical ArcPy formulation)**  &tau;<sub>\*</sub> calculated as<br/>
 	   `ras_taux` = `ras_tb` / \[&rho;<sub>w</sub> · *g* (*s* - 1) · `dmean`\] <br/>
 	   where
    	+ A threshold value for mobility according to the critical dimensionless bed shear stress &tau;<sub>\*, cr</sub> can be defined in row 7 of `threshold_values.xlsx` (read more for example in [Lamb et al. 2008](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2007JF000831))

@@ -242,6 +242,52 @@ Note the `RuntimeWarning: All-NaN slice encountered` that `np.nanmax` emits when
 is NoData at a cell; arcpy silently returns NoData there. Suppress with
 `np.errstate(invalid="ignore")` or `warnings.catch_warnings()`, and confirm the result is NaN.
 
+### The bed-shear expression is a resistance model, not just raster syntax
+
+The original Lifespan Design calculation contained this ArcPy map-algebra expression:
+
+```python
+Square(u / (5.75 * Log10(12.2 * h / (2 * 2.2 * grains))))
+```
+
+`2.2 * grains` was intended to estimate $D_{84}$ from a $D_{50}$-like input, and the
+result of `Square(...)` is $u_*^2$.  A literal replacement with `np.square` would preserve
+the ArcPy syntax while also preserving the assumption that one Keulegan logarithmic
+resistance law is suitable at every relative submergence.
+
+The GDAL/rasterio calculation instead selects a resistance law from
+$\chi=h/(2D_{84})$: Rickenmann--Recking for $\chi\le7$, Keulegan--Einstein for
+$\chi\ge20$, and a smooth stress-coefficient blend between them.  It lives in
+{mod}`riverarchitect.shear`, which is pure numpy and takes plain arrays:
+
+```python
+from riverarchitect import shear
+
+result = shear.calculate_taux(velocity, depth, shear.d84_of(dmean), gravity=g)
+result.theta84     # Shields stress referenced to D84
+result.ustar2      # squared shear velocity
+result.h_over_ks   # relative submergence
+result.regime      # 0 invalid, 1 Rickenmann-Recking, 2 blended, 3 Keulegan-Einstein
+```
+
+Read each source band through {func}`riverarchitect.raster.read`, which turns NoData into
+`numpy.nan`, and align depth, velocity and grain size onto one reference grid with
+{func}`riverarchitect.raster.align` before calling it.  The complete physical definition,
+limits and grain-percentile warning are in the
+[Lifespans calculation](../modules/lifespans.md#dimensionless-bed-shear-stress-taux).
+
+Two consequences of the change are worth stating plainly, because they alter every
+taux-dependent result relative to River Architect 1.x:
+
+* **The Shields stress is now referenced to $D_{84}$**, not to the mean grain size that the
+  original divided by.  In the deep-water limit $\theta_{84}$ is therefore the legacy value
+  divided by 2.2.  The critical values in `lifespan.FEATURES` and the recruitment parameters
+  are unchanged numerically and are now read as $\theta_{84}$ thresholds.
+* **The resistance law is no longer Keulegan everywhere.**  On the bundled sample reach
+  about 95 % of wet cells have $\chi<7$, so the original applied its single logarithmic law
+  almost entirely outside the range where it is defensible.  The `regime<Q>.tif` diagnostic
+  raster written by each run reports this per cell.
+
 ### Raster <-> vector conversion
 
 | arcpy | open-source | status |
@@ -527,7 +573,8 @@ correct - Cottonwood really is keyed to a water table 1 to 7 **feet** down.
 `mu_method = 1` in `threshold_values.xlsx`, and those rows were dropped when `FEATURES` was
 transcribed. The features were therefore mapped without their spatial restriction, which
 overstated them substantially: `gravin` fell from 33 273 to 7 515 sqft once the criterion was
-restored, and `backwt` - which did have its list - from 124 074 to 2 295 sqft once the
+restored (5 490 sqft with the regime-aware bed shear stress described below, which came
+later), and `backwt` - which did have its list - from 124 074 to 2 295 sqft once the
 criterion could resolve any codes at all, which is the next item.
 
 ### The morphological-unit code table was unreachable, and half of it was discarded
@@ -607,10 +654,34 @@ port reproduced its shape but not three of its rules:
 
 The classification boundary differed too: the original treats a cell submerged for exactly
 `inundation_lethal` days as stressed (0.5), and only `> lethal` as dead. Together these moved
-full recruitment potential on the sample reach from 5 949 to 17 361 sqft.
+full recruitment potential on the sample reach from 5 949 to 17 361 sqft (31 977 sqft with
+the regime-aware bed shear stress described below, which came later).
 
 ### `build_product("inp")` ignored its output directory
 
 Every other product honoured `output_dir`; the `.inp` writer always wrote into the condition
 folder, so building products into a scratch directory overwrote the condition's real
 `input_definitions.inp`.
+
+### The Keulegan-only Shields stress was replaced, deliberately
+
+This one is not a defect in the port: it is a place where reproducing the original faithfully
+would reproduce a physical error. The single expression
+`Square(u / (5.75 * Log10(12.2 * h / (2 * 2.2 * grains))))` assumes the Keulegan--Einstein
+logarithmic resistance law at every relative submergence. On the sample reach about 95 % of
+wet cells have $h/k_s<7$, where the roughness layer occupies much of the water column and
+that law does not hold; in the shallowest cells the argument of the logarithm approaches one
+and the computed stress diverges. Shallow riffle margins are exactly where lifespan and
+recruitment analyses look.
+
+{mod}`riverarchitect.shear` therefore switches to Rickenmann--Recking (2011) below
+$h/k_s=7$, keeps Keulegan--Einstein above 20, blends the stress coefficient smoothly between
+them, and references the result to $D_{84}$. Every run writes `hks<Q>.tif` and
+`regime<Q>.tif` so the closure used in each cell is visible rather than implicit.
+
+The results move, and they move in both directions: the median stress on the sample reach
+falls (the $D_{84}$ reference alone divides the deep-water value by 2.2) while the shallow
+cells the old expression mishandled can now fail earlier. On the sample reach `Generic`
+planting rose from 23 166 to 44 775 sqft, `gravin` fell from 7 515 to 5 490 sqft, and full
+recruitment potential rose from 17 361 to 31 977 sqft. Anything comparing against a River
+Architect 1.x run must expect these differences.

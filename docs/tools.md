@@ -26,6 +26,24 @@ within one dataset. This rewrites a folder to `config.NODATA` (-999.0).
 The NoData **mask is preserved exactly**; only the sentinel changes. `--dry-run` reports what
 would be rewritten without touching anything.
 
+### Bed shear stress
+
+```bash
+riverarchitect-taux --velocity u000550.tif --depth h000550.tif --grains dmean.tif \
+    --unit us --output-prefix out/q000550
+```
+
+Runs the Shields stress calculation of {mod}`riverarchitect.shear` on one set of rasters,
+outside a condition folder - useful for checking model output before it is organised as a
+condition, or for comparing the closure against measured stress. It writes
+`<prefix>_theta84.tif`, `<prefix>_ustar2.tif`, `<prefix>_h_over_ks.tif` and
+`<prefix>_regime.tif`, and prints how many cells fell into each resistance regime.
+
+Depth and grain size are resampled onto the velocity raster's grid, so the three need not
+share an extent. They **must** share a unit system, and `--unit` must name it. Pass
+`--grain-kind d84` when the grain raster holds a measured $D_{84}$; the default `dmean`
+estimates it as $2.2\,D_{\mathrm{mean}}$, which is what the analysis modules do.
+
 ### lyrx2qml
 
 ```bash

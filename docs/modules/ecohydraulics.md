@@ -154,6 +154,13 @@ overall.
 This is the one module that needs a **daily flow record**: bed preparation, recession and
 scour are about *when* flows happened, not just which flows are possible.
 
+Bed preparation and scour both ask whether the bed was mobile, which is the dimensionless
+bed shear stress $\theta_{84}$ of {mod}`riverarchitect.shear` - the same regime-aware
+calculation Lifespan Design uses, described under
+[dimensionless bed shear stress](lifespans.md#dimensionless-bed-shear-stress-taux). Each run
+writes `hks<Q>.tif` and `regime<Q>.tif` per modelled discharge beside its objective rasters,
+showing the relative submergence and which resistance closure applied where.
+
 Three details decide the result, and all three follow the original:
 
 * a stressful or lethal recession day is only counted where the cell is **dry** that day -

@@ -155,7 +155,8 @@ class GetStartedGui(RaModuleGui):
         except Exception as exc:
             self.info.config(text=str(exc))
             return
-        labels = ["%.0f" % q for q in self._discharges]
+        from ..condition import discharge_label
+        labels = [discharge_label(q) for q in self._discharges]
         self.discharge_box.config(values=labels)
         if labels:
             self.discharge_box.current(0)

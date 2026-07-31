@@ -3,6 +3,7 @@
 import os
 
 from ... import config
+from ...condition import discharge_label
 from .base import RaTab
 from .qtcompat import (QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QHBoxLayout,
                        QLabel, QLocale, QPlainTextEdit, QProgressBar, QPushButton,
@@ -163,12 +164,12 @@ class StrandingTab(RaTab):
             self.b_run.setEnabled(False)
             return
 
-        labels = ["%.0f" % q for q in self._discharges]
+        labels = [discharge_label(q) for q in self._discharges]
         self.q_low.addItems(labels)
         self.q_high.addItems(labels)
         self.q_low.setCurrentIndex(0)
         self.q_high.setCurrentIndex(min(len(labels) - 1, 12))
-        self.info.setText("%d depth raster(s) available, %.0f to %.0f %s."
+        self.info.setText("%d depth raster(s) available, %g to %g %s."
                           % (len(self._discharges), self._discharges[0],
                              self._discharges[-1], self.labels["q"]))
 
@@ -203,7 +204,7 @@ class StrandingTab(RaTab):
         self.b_run.setText("Assessing ...")
         self.progress.setRange(0, 0)
         self.progress.show()
-        self.results.setPlainText("Walking %d discharge(s) from %.0f down to %.0f %s ..."
+        self.results.setPlainText("Walking %d discharge(s) from %g down to %g %s ..."
                                   % (len(chosen), high, low, self.labels["q"]))
 
         def work():
@@ -230,11 +231,12 @@ class StrandingTab(RaTab):
                                              "%"),
                  "-" * 60]
         for row in result["per_discharge"]:
-            lines.append("%10.0f %7d %14.0f %14.0f %7.2f"
-                         % (row["discharge"], row["pools"], row["wetted_area"],
-                            row["stranded_area"], row["percent_stranded"]))
+            lines.append("%10s %7d %14.0f %14.0f %7.2f"
+                         % (discharge_label(row["discharge"]), row["pools"],
+                            row["wetted_area"], row["stranded_area"],
+                            row["percent_stranded"]))
         lines += ["",
-                  "Worst discharge : %.0f %s, %.0f %s stranded"
+                  "Worst discharge : %g %s, %.0f %s stranded"
                   % (result["worst_discharge"], discharge,
                      result["worst_stranded_area"], area),
                   "Ever disconnected: %.0f %s"

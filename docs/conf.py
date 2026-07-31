@@ -137,7 +137,9 @@ html_theme_options = {
     # 4, not 3: the API reference now sits inside Development, so its module
     # pages are one level deeper than they used to be and would be cut off.
     "navigation_depth": 4,
-    "collapse_navigation": False,
+    # Keep only the current branch open.  Root entries are real pages rather
+    # than caption/page-title pairs, so each appears once and expands in place.
+    "collapse_navigation": True,
     "sticky_navigation": True,
     "prev_next_buttons_location": "both",
 }

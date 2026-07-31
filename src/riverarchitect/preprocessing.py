@@ -27,6 +27,7 @@ alternatives the original could not offer.
 
 import logging
 import os
+import re
 
 import numpy as np
 
@@ -356,8 +357,19 @@ def write_input_definitions(condition_dir, return_periods=None, discharges=None,
              "d2w_raster": "d2w", "mu_raster": "mu", "dem_raster": "dem"}
     names.update({key: value for key, value in rasters.items() if value})
 
-    depth = ", ".join("h%06d.tif" % q for q in discharges)
-    velocity = ", ".join("u%06d.tif" % q for q in discharges)
+    from .condition import discharge_token
+
+    def hydraulic_name(prefix, discharge):
+        # Prefer the file actually on disk: "u000293_000.tif" parses to 293.0 but the
+        # token regenerates as "u000293.tif", which would name a raster that isn't there.
+        pattern = re.compile(r"^%s\d+(?:_\d+)?\.tif$" % prefix, re.IGNORECASE)
+        for name in os.listdir(condition_dir):
+            if pattern.match(name) and Condition.discharge_of(name) == float(discharge):
+                return name
+        return "%s%s.tif" % (prefix, discharge_token(discharge))
+
+    depth = ", ".join(hydraulic_name("h", q) for q in discharges)
+    velocity = ", ".join(hydraulic_name("u", q) for q in discharges)
     periods = ", ".join(str(value) for value in (return_periods or []))
 
     lines = [
@@ -480,13 +492,21 @@ def build_product(condition_name, key, discharge=None, method="nearest", unit="u
     Returns:
         list: lines describing what was written.
     """
-    from .condition import Condition
+    from .condition import Condition, discharge_token
 
     condition = Condition(condition_name)
     target = output_dir or condition.directory
     os.makedirs(target, exist_ok=True)
     dem = condition.path(condition.dem_raster)
-    depth = condition.path("h%06d.tif" % discharge) if discharge else None
+    depth = None
+    if discharge:
+        depth_name = condition.depth_raster_for(discharge)
+        if depth_name is None:
+            raise FileNotFoundError(
+                "condition %r has no depth raster for discharge %s (expected a file "
+                "named h%s.tif)" % (condition.name, discharge,
+                                    discharge_token(discharge)))
+        depth = condition.path(depth_name)
     lines = []
 
     if key == "detrended":
@@ -503,7 +523,7 @@ def build_product(condition_name, key, discharge=None, method="nearest", unit="u
             maker(dem, depth, path, wle=wle)
             lines.append("wrote %s" % path)
     elif key == "mu":
-        velocity = condition.path("u%06d.tif" % discharge)
+        velocity = condition.path(condition.velocity_raster_for(discharge))
         path = os.path.join(target, "mu.tif")
         _mu, _profile, table = morphological_units(depth, velocity, path, unit=unit)
         lines.append("wrote %s (%d unit types can be classified hydraulically; the table "

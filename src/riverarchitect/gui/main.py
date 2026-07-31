@@ -261,6 +261,9 @@ def main(argv=None):
 
     try:
         root = tk.Tk()
+        icon = tk.PhotoImage(file=config.icon_path())
+        root.iconphoto(True, icon)
+        root._riverarchitect_icon = icon  # retain the image
     except tk.TclError as exc:
         print("ERROR: no display available for the graphical interface (%s).\n"
               "River Architect's modules can be used directly from Python:\n"

@@ -37,8 +37,8 @@ import os
 
 import numpy as np
 
-from . import config, raster
-from .condition import Condition
+from . import config, raster, shear
+from .condition import Condition, discharge_token
 # Reading a daily flow record lives in `flows`; it is re-exported here because this module
 # was the first to need one and callers import it from here. One implementation, not two.
 from .flows import read_flow_series
@@ -48,8 +48,8 @@ __all__ = ["RecruitmentParameters", "RecruitmentPotential", "read_flow_series"]
 
 logger = logging.getLogger("riverarchitect")
 
-#: Relative grain density, as in :mod:`riverarchitect.lifespan`.
-RHO_RATIO = 2.68
+#: Relative grain density, as in :mod:`riverarchitect.shear`.
+RHO_RATIO = shear.RHO_RATIO
 #: Centimetres per foot and per metre, for the recession-rate thresholds.
 CM_PER_FOOT = 30.48
 CM_PER_METRE = 100.0
@@ -194,12 +194,15 @@ class RecruitmentPotential:
 
         self.discharges = sorted(set(self._depth) & set(self._velocity))
         if not self.discharges:
-            raise ValueError("condition %r has no paired depth and velocity rasters"
-                             % self.condition.name)
+            raise ValueError("condition %r has no paired depth and velocity rasters.\n\n%s"
+                             % (self.condition.name, self.condition.describe()))
 
         self._reference = raster.profile_of(self._depth[self.discharges[0]])
         self._dem = None
         self._wle_cache = {}
+        self._q_mobile_cache = {}              # tau_cr -> q_mobile raster
+        self._taux_cache = {}                  # discharge token -> theta84
+        self._shear_diagnostics = {}           # discharge token -> (h_over_ks, regime)
 
     # ------------------------------------------------------------------- terrain
 
@@ -253,19 +256,39 @@ class RecruitmentPotential:
 
     # ----------------------------------------------------------- bed mobilisation
 
-    def shields_stress(self, depth, velocity, grain):
-        """Dimensionless bed shear stress, as :mod:`riverarchitect.lifespan` computes it."""
-        with np.errstate(invalid="ignore", divide="ignore"):
-            d84 = 2.2 * grain
-            shear_velocity = velocity / (5.75 * np.log10(12.2 * depth / (2.0 * d84)))
-            return shear_velocity ** 2 / ((RHO_RATIO - 1.0) * self.g * grain)
+    def shields_stress(self, depth, velocity, grain, token=None):
+        """Dimensionless bed shear stress ``theta84``, as :mod:`riverarchitect.lifespan`.
+
+        The regime-aware closure of :mod:`riverarchitect.shear` replaces the Keulegan-only
+        expression of the original. When ``token`` is given, the relative submergence and
+        regime rasters of that discharge are kept for :meth:`run` to write.
+        """
+        result = shear.calculate_taux(velocity, depth, shear.d84_of(grain),
+                                      gravity=self.g)
+        if token is not None:
+            self._shear_diagnostics[token] = (result.h_over_ks, result.regime)
+            self.logger.info("   >> taux %s: %s", token,
+                             ", ".join("%s %d" % (label, count) for label, count
+                                       in shear.regime_summary(result.regime).items()))
+            if not result.regime.any():
+                self.logger.warning(
+                    "   >> taux %s is NoData everywhere: the grain raster %r "
+                    "(values %g to %g) may not share units or extent with the "
+                    "hydraulic rasters.", token, self.condition.grain_raster,
+                    np.nanmin(grain) if np.isfinite(grain).any() else float("nan"),
+                    np.nanmax(grain) if np.isfinite(grain).any() else float("nan"))
+        return result.theta84
 
     def q_mobile(self, tau_cr):
         """Lowest modelled discharge at which each cell's bed becomes mobile.
 
         NoData where no modelled discharge mobilises the cell, which reads as "never
-        prepared" downstream.
+        prepared" downstream. Memoized: bed preparation and scour both ask for the same
+        two thresholds, and each pass runs the shear closure over every discharge.
         """
+        if tau_cr in self._q_mobile_cache:
+            return self._q_mobile_cache[tau_cr]
+
         grain = self._read(self.condition.grain_raster)
         if grain is None:
             raise FileNotFoundError("condition %r has no grain size raster"
@@ -273,14 +296,29 @@ class RecruitmentPotential:
 
         per_discharge = []
         for discharge in self.discharges:
-            depth, depth_profile = raster.read(self._depth[discharge])
-            velocity, velocity_profile = raster.read(self._velocity[discharge])
-            depth = raster.align(depth, depth_profile, self._reference)
-            velocity = raster.align(velocity, velocity_profile, self._reference)
-            depth = np.where(depth > 0, depth, np.nan)
-            taux = self.shields_stress(depth, velocity, grain)
+            token = discharge_token(discharge)
+            taux = self._taux_cache.get(token)
+            if taux is None:
+                depth, depth_profile = raster.read(self._depth[discharge])
+                velocity, velocity_profile = raster.read(self._velocity[discharge])
+                depth = raster.align(depth, depth_profile, self._reference)
+                velocity = raster.align(velocity, velocity_profile, self._reference)
+                depth = np.where(depth > 0, depth, np.nan)
+                taux = self.shields_stress(depth, velocity, grain, token=token)
+                self._taux_cache[token] = taux
             per_discharge.append(raster.con(taux >= tau_cr, float(discharge)))
-        return raster.cell_statistics(per_discharge, "MINIMUM")
+
+        if self._shear_diagnostics and not any(
+                regime.any() for _hks, regime in self._shear_diagnostics.values()):
+            raise ValueError(
+                "the dimensionless bed shear stress is NoData everywhere, at every "
+                "discharge. Check that the grain raster %r holds grain diameters in the "
+                "condition's length unit and shares the extent of the hydraulic rasters."
+                % self.condition.grain_raster)
+
+        result = raster.cell_statistics(per_discharge, "MINIMUM")
+        self._q_mobile_cache[tau_cr] = result
+        return result
 
     # --------------------------------------------------------------- crop area
 
@@ -508,6 +546,14 @@ class RecruitmentPotential:
                 path = os.path.join(output_dir, "%s.tif" % name)
                 raster.write(path, array, self._reference)
                 written[name] = path
+            # Shear diagnostics: which resistance closure the Shields stress used where.
+            for token, (h_over_ks, regime) in self._shear_diagnostics.items():
+                path = os.path.join(output_dir, "hks%s.tif" % token)
+                raster.write(path, h_over_ks, self._reference)
+                written["hks%s" % token] = path
+                path = os.path.join(output_dir, "regime%s.tif" % token)
+                raster.write(path, regime, self._reference, dtype="uint8", nodata=0)
+                written["regime%s" % token] = path
 
         def area_of(array, low, high=None):
             with np.errstate(invalid="ignore"):

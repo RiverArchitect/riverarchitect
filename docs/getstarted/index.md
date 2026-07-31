@@ -42,6 +42,17 @@ condition is in one unit system throughout, stated once, and mixing them within 
 the error the naming convention was papering over.
 ```
 
+```{admonition} Record the grain-size statistic
+:class: important
+
+The legacy name `dmean.tif` does not prove that a raster contains $D_{50}$, $D_{84}$, or
+an arithmetic mean.  That distinction matters in the Lifespan module's
+{doc}`dimensionless bed-shear calculation <../modules/lifespans>`: supply measured $D_{84}$
+where possible, or use $D_{84}\approx2.2D_{50}$ only when the input is actually $D_{50}$.
+Store that interpretation in the condition metadata so a later analysis does not silently
+apply the conversion to the wrong statistic.
+```
+
 ## Input definition files
 
 `input_definitions.inp` names which raster is which, and gives the **flood return period of

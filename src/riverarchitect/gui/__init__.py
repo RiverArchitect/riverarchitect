@@ -70,6 +70,19 @@ def select_backend(preferred=None):
     return backends[0]
 
 
+def _set_windows_app_id():
+    if sys.platform != "win32":
+        return
+
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "RiverArchitect.Desktop"
+        )
+    except (AttributeError, OSError):
+        pass
+
+
 def main(argv=None):
     """Console-script entry point. Starts the graphical interface.
 
@@ -78,6 +91,8 @@ def main(argv=None):
     Returns:
         int: process exit status.
     """
+    _set_windows_app_id()
+    
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s  %(levelname)-7s %(message)s",
                         datefmt="%H:%M:%S")

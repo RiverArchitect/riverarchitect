@@ -95,6 +95,26 @@ def test_read_flow_series_skips_unparseable_rows(tmp_path):
     assert list(read_flow_series(str(path))) == [dt.date(2020, 1, 1)]
 
 
+def test_missing_hydraulics_error_carries_the_condition_report(tmp_path, monkeypatch):
+    """The 'no paired rasters' error must tell the user what the folder holds and what
+    naming the discovery expects - the raw message alone stumped real users."""
+    directory = tmp_path / "01_Conditions" / "empty"
+    directory.mkdir(parents=True)
+    profile = make_profile()
+    raster.write(str(directory / "dem.tif"), np.ones((1, 4)), profile)
+    monkeypatch.setenv("RIVERARCHITECT_HOME", str(tmp_path))
+    config.set_project_home(str(tmp_path))
+    try:
+        with pytest.raises(ValueError) as excinfo:
+            RecruitmentPotential("empty", season(2020))
+        message = str(excinfo.value)
+        assert "No depth raster found" in message
+        assert "h000001_060.tif" in message      # the accepted decimal form is spelled out
+        assert "input_definitions.inp" in message
+    finally:
+        config.set_project_home(None)
+
+
 def test_empty_flow_record_is_rejected(floodplain):
     with pytest.raises(ValueError, match="empty"):
         RecruitmentPotential("bench", {})
@@ -124,6 +144,25 @@ def test_wle_clamps_outside_the_modelled_range(floodplain):
 
 # --------------------------------------------------------------- bed mobility
 
+def theta84_of(u, h, dmean, gravity=9.81):
+    """Closed-form regime-aware theta84, written out from the published laws."""
+    import math
+
+    d84 = 2.2 * dmean
+    chi = h / (2.0 * d84)
+    x = h / d84
+    rr = 4.416 * x ** 1.904 * (1.0 + (x / 1.283) ** 1.618) ** -1.083
+    if chi <= 7.0:
+        ratio2 = rr ** 2
+        cf = 1.0 / ratio2
+    else:
+        keu = 5.75 * math.log10(12.2 * chi)
+        t = min((chi - 7.0) / 13.0, 1.0)
+        w = t * t * (3.0 - 2.0 * t)
+        cf = (1.0 - w) / rr ** 2 + w / keu ** 2
+    return u ** 2 * cf / (gravity * 1.68 * d84)
+
+
 def test_q_mobile_is_the_lowest_mobilising_discharge(floodplain):
     """Velocity rises tenfold at the high flow, so the coarse threshold is met there."""
     analysis = RecruitmentPotential("bench", season(2020))
@@ -131,6 +170,38 @@ def test_q_mobile_is_the_lowest_mobilising_discharge(floodplain):
     finite = mobile[np.isfinite(mobile)]
     assert finite.size
     assert set(np.unique(finite)).issubset({100.0, 5000.0})
+
+
+def test_q_mobile_matches_the_closed_form_cell_by_cell(floodplain):
+    """Thresholds chosen from the closed-form theta84 pin every cell's answer exactly."""
+    analysis = RecruitmentPotential("bench", season(2020), unit="si")
+
+    # Wet cells: at 100 cfs only cell 0 (h=0.5, u=0.3); at 5000 cfs cells 0-2
+    # (h=2.5, 1.5, 0.5 at u=3.0). dmean is 0.01 everywhere.
+    theta_low_0 = theta84_of(0.3, 0.5, 0.01)
+    theta_high = [theta84_of(3.0, h, 0.01) for h in (2.5, 1.5, 0.5)]
+    assert theta_low_0 < min(theta_high)  # the fixture keeps the regimes apart
+
+    # A threshold between the low-flow and every high-flow stress: mobilised at 5000 only.
+    between = 0.5 * (theta_low_0 + min(theta_high))
+    mobile = analysis.q_mobile(between)
+    assert mobile[0, 0] == 5000.0 and mobile[0, 1] == 5000.0 and mobile[0, 2] == 5000.0
+    assert not np.isfinite(mobile[0, 3])
+
+    # A threshold below the low-flow stress: cell 0 is already mobile at 100.
+    analysis2 = RecruitmentPotential("bench", season(2020), unit="si")
+    mobile = analysis2.q_mobile(theta_low_0 * 0.5)
+    assert mobile[0, 0] == 100.0
+    assert mobile[0, 1] == 5000.0 and mobile[0, 2] == 5000.0
+    assert not np.isfinite(mobile[0, 3])
+
+
+def test_shields_stress_matches_the_closed_form(floodplain):
+    analysis = RecruitmentPotential("bench", season(2020), unit="si")
+    theta = analysis.shields_stress(np.array([2.5, 0.5]), np.array([3.0, 0.3]),
+                                    np.array([0.01, 0.01]))
+    assert theta[0] == pytest.approx(theta84_of(3.0, 2.5, 0.01), rel=1e-9)
+    assert theta[1] == pytest.approx(theta84_of(0.3, 0.5, 0.01), rel=1e-9)
 
 
 def test_a_threshold_nothing_reaches_gives_all_nodata(floodplain):
@@ -173,6 +244,25 @@ def test_run_writes_one_raster_per_objective(floodplain, tmp_path):
     assert "recruitment_potential" in result["rasters"]
     for path in result["rasters"].values():
         assert os.path.isfile(path)
+
+
+def test_run_writes_the_shear_diagnostics(floodplain, tmp_path):
+    """h/ks and regime rasters land beside the objectives, one pair per discharge."""
+    import rasterio
+
+    analysis = RecruitmentPotential("bench", season(2020))
+    result = analysis.run(output_dir=str(tmp_path / "out"))
+    for token in ("000100", "005000"):
+        assert "hks%s" % token in result["rasters"]
+        assert "regime%s" % token in result["rasters"]
+        with rasterio.open(result["rasters"]["regime%s" % token]) as src:
+            assert src.dtypes[0] == "uint8"
+            assert src.nodata == 0
+            codes = src.read(1)
+        assert set(np.unique(codes)).issubset({0, 1, 2, 3})
+        # the dry bench cell must be invalid, the wet channel cell must not
+        assert codes[0, 3] == 0
+        assert codes[0, 0] != 0
 
 
 def test_existing_vegetation_is_excluded(floodplain, tmp_path):

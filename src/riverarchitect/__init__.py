@@ -15,6 +15,8 @@ Modules
     Earthworks quantities from a pair of DEMs.
 :mod:`riverarchitect.condition`
     Reading a condition folder and its ``input_definitions.inp``.
+:mod:`riverarchitect.shear`
+    Regime-aware dimensionless bed shear stress (Shields stress).
 :mod:`riverarchitect.lifespan`
     Lifespan and design mapping for restoration features.
 :mod:`riverarchitect.maxlifespan`
@@ -54,10 +56,10 @@ __license__ = "BSD-3-Clause"
 
 from . import config  # noqa: F401
 
-__all__ = ["config", "guide", "condition", "raster", "volume", "volume_assessment",
-           "lifespan", "maxlifespan", "terraforming", "riverbuilder", "stranding",
-           "sharc", "preprocessing", "recruitment", "flows", "projectmaker", "mapping",
-           "tools", "__version__"]
+__all__ = ["config", "guide", "condition", "raster", "shear", "volume",
+           "volume_assessment", "lifespan", "maxlifespan", "terraforming",
+           "riverbuilder", "stranding", "sharc", "preprocessing", "recruitment",
+           "flows", "projectmaker", "mapping", "tools", "__version__"]
 
 
 def __getattr__(name):
@@ -67,7 +69,7 @@ def __getattr__(name):
     optional dependency (QGIS, pykrige, rasterstats) is missing: only the module that needs
     it fails, and only when it is actually used.
     """
-    if name in ("raster", "volume", "volume_assessment", "condition", "lifespan",
+    if name in ("raster", "shear", "volume", "volume_assessment", "condition", "lifespan",
                 "maxlifespan", "terraforming", "riverbuilder", "stranding", "sharc",
                 "preprocessing", "recruitment", "flows", "projectmaker", "mapping",
                 "guide", "tools"):

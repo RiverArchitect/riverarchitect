@@ -221,15 +221,22 @@ STEPS = (
         features report identical areas: their hydraulic criteria differ, but at the largest
         floods every cell inside their shared depth-to-water-table band fails eventually, so
         the mapped extent is the same even though the lifespans within it are not.
+
+        Each discharge also leaves two diagnostic rasters, hks<Q>.tif and regime<Q>.tif.
+        They show the relative submergence h/k_s and which bed-resistance closure the
+        dimensionless shear stress used there: 1 Rickenmann-Recking, 2 blended,
+        3 Keulegan-Einstein, 0 invalid. On this reach almost every wet cell is regime 1.
         """,
         settings=(("Condition", CONDITION),
                   ("Features", "Angular boulders (rocks), then all"),
                   ("Units", "U.S. customary")),
         expect="19 features map. Streamwood covers the most ground (~332 000 sqft), "
                "Angular boulders the least. Design maps appear for backwt, rocks, gravin "
-               "and gravou.",
+               "and gravou, and hks/regime diagnostics for every discharge.",
         writes=("Output/LifespanDesign/2100_sample/lf_<feature>.tif",
-                "Output/LifespanDesign/2100_sample/ds_<feature>.tif"),
+                "Output/LifespanDesign/2100_sample/ds_<feature>.tif",
+                "Output/LifespanDesign/2100_sample/hks<Q>.tif",
+                "Output/LifespanDesign/2100_sample/regime<Q>.tif"),
     ),
     GuideStep(
         key="maxlifespan",
@@ -251,7 +258,7 @@ STEPS = (
         """,
         settings=(("Lifespan directory", "Output/LifespanDesign/2100_sample"),
                   ("Write polygons", "yes")),
-        expect="About 335 000 sqft is mapped. Streamwood wins roughly three quarters of it "
+        expect="About 338 000 sqft is mapped. Streamwood wins roughly three quarters of it "
                "and other nature-based engineering most of the rest.",
         writes=("Output/MaxLifespan/2100_sample/max_lf.tif",
                 "Output/MaxLifespan/2100_sample/best_<feature>.tif",
@@ -405,7 +412,7 @@ STEPS = (
                   ("Flow series", "00_Flows/2100_sample/flow_series_2020.csv"),
                   ("Year", "2020"),
                   ("Species", "Fremont Cottonwood")),
-        expect="A crop area of about 72 000 sqft, of which roughly 17 000 sqft reaches full "
+        expect="A crop area of about 72 000 sqft, of which roughly 32 000 sqft reaches full "
                "recruitment potential. Bed preparation is the limiting objective.",
         writes=("Output/RiparianRecruitment/2100_sample_2020/recruitment_potential.tif",
                 "Output/RiparianRecruitment/2100_sample_2020/bed_preparation.tif",

@@ -136,14 +136,19 @@ results = LifespanDesign("2100_sample", unit="us").run()
 | Streamwood (`wood`) | 332 532 | 1.0 - 40.0 |
 | Box Elder, Cottonwood, Willow, and their established forms | 124 542 each | 1.0 - 5.0 |
 | Other nature-based eng. (`bio`) | 74 574 | 50.0 |
-| Generic planting (`Generic`) | 23 166 | 1.0 - 50.0 |
-| White Alder (`whi`) | 8 460 | 1.0 - 50.0 |
-| Gravel: In (`gravin`) | 7 515 | 1.0 - 50.0 |
-| Side channels (`sidech`) | 7 011 | 1.0 - 50.0 |
+| Generic planting (`Generic`, `Generic_est`) | 44 775 each | 1.0 - 50.0 |
+| White Alder (`whi`, `Whi_est`) | 16 200 each | 1.0 - 50.0 |
+| Side channels (`sidech`) | 11 817 | 1.0 - 50.0 |
+| Gravel: In (`gravin`) | 5 490 | 1.0 - 50.0 |
 | Backwater (`backwt`) | 2 295 | 1.0 |
-| Grading (`grade`) | 207 | 1.13 - 20.0 |
+| Grading (`grade`) | 279 | 1.13 - 20.0 |
 | Angular boulders (`rocks`) | 18 | 40.0 |
 | Gravel: Out (`gravou`), fine sediment (`fines`) | 0 | - |
+
+Alongside the maps, each discharge leaves a `hks<Q>.tif` (relative submergence h/k_s) and a
+`regime<Q>.tif` (which bed-resistance closure the Shields stress used: 1 Rickenmann-Recking,
+2 blended, 3 Keulegan-Einstein, 0 invalid). On this reach about 95 % of wet cells fall in
+regime 1 - see [the migration notes](arcpy_migration.md) for why that matters.
 
 Three of those rows repay a second look.
 
@@ -183,12 +188,19 @@ where its own lifespan equals that maximum.
 
 | Feature | Area (sqft) | Share | Max lifespan |
 |---|---:|---:|---:|
-| `wood` | 253 854 | 75.8% | 40 yr |
-| `bio` | 74 574 | 22.3% | 50 yr |
-| `wil`, `Wil_est` | 14 022 | 4.2% | 5 yr |
-| `cot`, `cot_est` | 10 161 | 3.0% | 5 yr |
+| `wood` | 253 134 | 74.9% | 40 yr |
+| `bio` | 74 574 | 22.1% | 50 yr |
+| `Generic`, `Generic_est` | 13 599 each | 4.0% | 50 yr |
+| `wil`, `Wil_est` | 12 762 each | 3.8% | 5 yr |
+| `cot`, `cot_est` | 10 755 each | 3.2% | 5 yr |
+| `box`, `Box_est` | 6 237 each | 1.8% | 3.27 yr |
+| `gravin` | 2 538 | 0.8% | 50 yr |
+| `whi`, `Whi_est` | 2 286 each | 0.7% | 50 yr |
+| `sidech` | 2 097 | 0.6% | 50 yr |
+| `backwt` | 1 251 | 0.4% | 1 yr |
+| `grade` | 63 | 0.0% | 20 yr |
 
-Total mapped: 334 791 sqft. The shares add to more than 100% because **ties are kept**: a
+Total mapped: 337 806 sqft. The shares add to more than 100% because **ties are kept**: a
 cell where two features both reach the maximum appears in both layers. That is deliberate,
 and it is what the original did - it tells the planner the choice is theirs. Each winner is
 also polygonised into a GeoPackage, ready to draw as action areas.
@@ -338,12 +350,12 @@ result = RecruitmentPotential(
 | Layer | Area (sqft) |
 |---|---:|
 | Crop area (where recruitment is possible at all) | 71 802 |
-| Full recruitment potential | 17 361 |
-| Partial potential | 24 912 |
-| Bed preparation = 1 | 17 559 |
+| Full recruitment potential | 31 977 |
+| Partial potential | 5 868 |
+| Bed preparation = 1 | 32 292 |
 | Desiccation survival = 1 | 71 748 |
 | Inundation survival = 1 | 71 451 |
-| Scour survival = 1 | 71 775 |
+| Scour survival = 1 | 71 739 |
 
 Bed preparation is the limiting objective: it alone accounts for almost all of the difference
 between the crop area and the recruitment area.
