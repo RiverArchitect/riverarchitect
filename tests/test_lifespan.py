@@ -295,8 +295,9 @@ def test_taux_failure_period_matches_the_closed_form(project):
     assert np.all(lifespan == expected)
 
 
-def test_run_feature_writes_the_shear_diagnostics(project, tmp_path):
-    """Every taux run leaves hks<token> and regime<token> beside the lifespan maps."""
+def test_run_feature_writes_the_shear_rasters(project, tmp_path):
+    """Every taux run leaves ts/tb/hks/regime beside the lifespan maps, named as
+    preprocessing.bed_shear_stress names them in the condition folder."""
     import rasterio
 
     analysis = LifespanDesign("synthetic", unit="si")
@@ -305,7 +306,8 @@ def test_run_feature_writes_the_shear_diagnostics(project, tmp_path):
     result = analysis.run(["t"], output_dir=str(output))
     assert result
     for token in ("001000", "002000", "003000", "004000"):
-        assert (output / ("hks%s.tif" % token)).is_file()
+        for prefix in ("ts", "tb", "hks"):
+            assert (output / ("%s%s.tif" % (prefix, token))).is_file()
         regime_path = output / ("regime%s.tif" % token)
         assert regime_path.is_file()
         with rasterio.open(str(regime_path)) as src:

@@ -145,10 +145,14 @@ results = LifespanDesign("2100_sample", unit="us").run()
 | Angular boulders (`rocks`) | 18 | 40.0 |
 | Gravel: Out (`gravou`), fine sediment (`fines`) | 0 | - |
 
-Alongside the maps, each discharge leaves a `hks<Q>.tif` (relative submergence h/k_s) and a
-`regime<Q>.tif` (which bed-resistance closure the Shields stress used: 1 Rickenmann-Recking,
-2 blended, 3 Keulegan-Einstein, 0 invalid). On this reach about 95 % of wet cells fall in
-regime 1 - see [the migration notes](arcpy_migration.md) for why that matters.
+Alongside the maps, each discharge leaves four bed-shear rasters: `ts<Q>.tif` (the
+dimensionless Shields stress the thresholds are compared against), `tb<Q>.tif` (u*²),
+`hks<Q>.tif` (relative submergence h/k_s) and `regime<Q>.tif` (which closure applied:
+1 Rickenmann-Recking, 2 blended, 3 Keulegan-Einstein, 0 invalid). On this reach about 95 %
+of wet cells fall in regime 1 - see [the migration notes](arcpy_migration.md) for why that
+matters. To produce the same four for a whole condition without running a lifespan analysis,
+use **Get Started ▸ dimensionless bed shear stress (taux)**, which writes them into the
+condition folder beside `h<Q>.tif` and `u<Q>.tif`.
 
 Three of those rows repay a second look.
 

@@ -40,9 +40,6 @@ try:
 except ImportError:  # pragma: no cover - exercised only without the geospatial stack
     config = raster = shear = None
 
-#: Gravitational acceleration per unit system, matching the analysis modules.
-GRAVITY = {"si": 9.81, "us": 9.81 / 0.3048}
-
 
 def dependencies_available():
     """True when the geospatial stack this tool needs could be imported."""
@@ -81,7 +78,7 @@ def compute(velocity_path, depth_path, grains_path, output_prefix, grain_kind="d
     grain = raster.align(grain, grain_profile, reference)
 
     result = shear.calculate_taux(velocity, depth, shear.d84_of(grain, grain_kind),
-                                  gravity=GRAVITY[unit], **kwargs)
+                                  gravity=shear.gravity_of(unit), **kwargs)
 
     directory = os.path.dirname(os.path.abspath(output_prefix))
     if directory:

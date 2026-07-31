@@ -172,12 +172,33 @@ Primary sources: [Keulegan (1938)](https://nvlpubs.nist.gov/nistpubs/jres/21/jre
 modules cannot drift apart. It is pure numpy and takes plain arrays, so it can be used
 directly on any aligned depth, velocity and $D_{84}$ rasters.
 
-Every run writes two diagnostic rasters per discharge beside its maps:
+Four rasters per discharge come out of it, named after the discharge exactly as the
+hydraulic rasters they derive from are:
 
 | Raster | Content |
 |---|---|
+| `ts<Q>.tif` | dimensionless bed shear stress $\theta_{84}$ - the quantity the $\tau_{*,cr}$ thresholds are compared against |
+| `tb<Q>.tif` | squared shear velocity $u_*^2$, in the condition's units |
 | `hks<Q>.tif` | relative submergence $\chi=h/k_s$ |
 | `regime<Q>.tif` | 0 invalid, 1 Rickenmann--Recking, 2 blended, 3 Keulegan--Einstein |
+
+`ts` and `tb` keep the prefixes River Architect 1.x used, and `ts` keeps its meaning. `tb`
+does not: 1.x wrote $u_*^2$ into a raster named for the dimensional stress
+$\rho_w u_*^2$, having cancelled the density again when forming `ts`. The quantity here is
+the one 1.x actually stored, documented rather than mislabelled.
+
+They are written in two places, and both write the same numbers:
+
+* **into the condition folder**, by
+  {func}`riverarchitect.preprocessing.bed_shear_stress` - reachable as **Get Started ▸
+  dimensionless bed shear stress (taux)**, and the counterpart of 1.x's
+  `LifespanDesign/helper.py`, which wrote `ts/` and `tb/` subfolders there. This is the
+  standalone stress map for a whole condition;
+* **into the output folder**, by Lifespan Design and Riparian Recruitment, for the
+  discharges each actually used.
+
+Nothing *reads* them back: both analyses recompute the stress from depth, velocity and
+grain size, so a stale or hand-edited `ts<Q>.tif` cannot quietly change a result.
 
 Read `regime<Q>.tif` before trusting a stress map. On the bundled sample reach about 95 % of
 wet cells are regime 1, meaning the original program's single logarithmic law was applied

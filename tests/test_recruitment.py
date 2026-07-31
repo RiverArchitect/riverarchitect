@@ -246,15 +246,16 @@ def test_run_writes_one_raster_per_objective(floodplain, tmp_path):
         assert os.path.isfile(path)
 
 
-def test_run_writes_the_shear_diagnostics(floodplain, tmp_path):
-    """h/ks and regime rasters land beside the objectives, one pair per discharge."""
+def test_run_writes_the_shear_rasters(floodplain, tmp_path):
+    """ts/tb/hks/regime land beside the objectives, four per discharge, named as
+    preprocessing.bed_shear_stress names them in the condition folder."""
     import rasterio
 
     analysis = RecruitmentPotential("bench", season(2020))
     result = analysis.run(output_dir=str(tmp_path / "out"))
     for token in ("000100", "005000"):
-        assert "hks%s" % token in result["rasters"]
-        assert "regime%s" % token in result["rasters"]
+        for prefix in ("ts", "tb", "hks", "regime"):
+            assert "%s%s" % (prefix, token) in result["rasters"]
         with rasterio.open(result["rasters"]["regime%s" % token]) as src:
             assert src.dtypes[0] == "uint8"
             assert src.nodata == 0

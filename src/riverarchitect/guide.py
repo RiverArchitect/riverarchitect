@@ -176,7 +176,15 @@ STEPS = (
         what you build against them. They agree closely (r = 0.99); the small constant
         offset is the different reference discharge, not an error.
 
-        Build the fourth product too: analyze flows. Point it at
+        Then build the bed shear stress. Unlike the three above it needs no reference
+        discharge - it runs over every modelled discharge and writes four rasters for each:
+        ts (the dimensionless Shields stress, the quantity the feature thresholds are
+        compared against), tb (u*^2), hks (relative submergence) and regime. Open a regime
+        raster before trusting a stress map: it says which resistance law applied in each
+        cell, and on this reach about 95 % of wet cells fall in the Rickenmann-Recking
+        branch, where the single logarithmic law of the ArcGIS version did not apply.
+
+        Build the fifth product too: analyze flows. Point it at
         00_Flows/2100_sample/flow_series_2020.csv and it writes one seasonal flow duration
         curve per species and lifestage. Habitat area is integrated over that curve, so
         without it step 5 can report usable areas but not SHArea - the single number the
@@ -187,14 +195,17 @@ STEPS = (
                   ("Interpolation", "nearest"),
                   ("Daily flow record", "00_Flows/2100_sample/flow_series_2020.csv"),
                   ("Products", "detrended DEM; water surface, depth and depth to water "
-                               "table; morphological units; analyze flows")),
+                               "table; morphological units; dimensionless bed shear "
+                               "stress (taux); analyze flows")),
         expect="Roughly 11 000 thalweg cells are reported, eight morphological unit types "
-               "are found in the wetted area, and 14 flow duration workbooks are written.",
+               "are found in the wetted area, taux is written for all 60 discharges, and "
+               "14 flow duration workbooks are written.",
         writes=("01_Conditions/2100_sample/dem_detrend.tif",
                 "01_Conditions/2100_sample/wle.tif",
                 "01_Conditions/2100_sample/h_interp.tif",
                 "01_Conditions/2100_sample/d2w.tif",
                 "01_Conditions/2100_sample/mu.tif",
+                "01_Conditions/2100_sample/{ts,tb,hks,regime}<Q>.tif",
                 "00_Flows/2100_sample/flow_duration_<code>.xlsx"),
     ),
     GuideStep(

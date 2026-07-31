@@ -38,7 +38,7 @@ import os
 import numpy as np
 
 from . import config, raster, shear
-from .condition import Condition, discharge_token
+from .condition import Condition
 # Reading a daily flow record lives in `flows`; it is re-exported here because this module
 # was the first to need one and callers import it from here. One implementation, not two.
 from .flows import read_flow_series
@@ -172,7 +172,7 @@ class RecruitmentPotential:
         self.parameters = parameters or RecruitmentParameters()
         self.unit = str(unit).lower()
         self.n = manning_n / 1.49 if self.unit == "us" else manning_n
-        self.g = 9.81 / config.FT2M if self.unit == "us" else 9.81
+        self.g = shear.gravity_of(self.unit)
         self.cm_per_length = CM_PER_FOOT if self.unit == "us" else CM_PER_METRE
         self.existing_vegetation = existing_vegetation
         self.grading_extent = grading_extent
@@ -266,7 +266,7 @@ class RecruitmentPotential:
         result = shear.calculate_taux(velocity, depth, shear.d84_of(grain),
                                       gravity=self.g)
         if token is not None:
-            self._shear_diagnostics[token] = (result.h_over_ks, result.regime)
+            self._shear_diagnostics[token] = result
             self.logger.info("   >> taux %s: %s", token,
                              ", ".join("%s %d" % (label, count) for label, count
                                        in shear.regime_summary(result.regime).items()))
@@ -296,7 +296,7 @@ class RecruitmentPotential:
 
         per_discharge = []
         for discharge in self.discharges:
-            token = discharge_token(discharge)
+            token = self.condition.token_for(discharge)
             taux = self._taux_cache.get(token)
             if taux is None:
                 depth, depth_profile = raster.read(self._depth[discharge])
@@ -309,7 +309,7 @@ class RecruitmentPotential:
             per_discharge.append(raster.con(taux >= tau_cr, float(discharge)))
 
         if self._shear_diagnostics and not any(
-                regime.any() for _hks, regime in self._shear_diagnostics.values()):
+                result.regime.any() for result in self._shear_diagnostics.values()):
             raise ValueError(
                 "the dimensionless bed shear stress is NoData everywhere, at every "
                 "discharge. Check that the grain raster %r holds grain diameters in the "
@@ -546,14 +546,14 @@ class RecruitmentPotential:
                 path = os.path.join(output_dir, "%s.tif" % name)
                 raster.write(path, array, self._reference)
                 written[name] = path
-            # Shear diagnostics: which resistance closure the Shields stress used where.
-            for token, (h_over_ks, regime) in self._shear_diagnostics.items():
-                path = os.path.join(output_dir, "hks%s.tif" % token)
-                raster.write(path, h_over_ks, self._reference)
-                written["hks%s" % token] = path
-                path = os.path.join(output_dir, "regime%s.tif" % token)
-                raster.write(path, regime, self._reference, dtype="uint8", nodata=0)
-                written["regime%s" % token] = path
+            # The bed shear stress behind the bed-preparation and scour objectives, named
+            # as preprocessing.bed_shear_stress names it in the condition folder.
+            from .preprocessing import SHEAR_PREFIXES, write_shear_rasters
+
+            for token, result in self._shear_diagnostics.items():
+                for quantity, path in write_shear_rasters(
+                        result, self._reference, output_dir, token).items():
+                    written["%s%s" % (SHEAR_PREFIXES[quantity], token)] = path
 
         def area_of(array, low, high=None):
             with np.errstate(invalid="ignore"):

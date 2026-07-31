@@ -31,12 +31,12 @@ import re
 
 import numpy as np
 
-from . import config, raster
+from . import config, raster, shear
 
 __all__ = ["detrended_dem", "water_level_elevation", "interpolated_depth",
            "depth_to_water_table", "morphological_units", "MorphologicalUnits",
-           "write_input_definitions", "align_condition", "build_product",
-           "INTERPOLATION_METHODS", "MU_ALIASES", "PRODUCTS"]
+           "bed_shear_stress", "write_input_definitions", "align_condition",
+           "build_product", "INTERPOLATION_METHODS", "MU_ALIASES", "PRODUCTS"]
 
 logger = logging.getLogger("riverarchitect")
 
@@ -321,6 +321,137 @@ def morphological_units(depth_path, velocity_path, output_path=None, table=None,
     return mu, profile, table
 
 
+# -------------------------------------------------------------- bed shear stress
+
+#: File-name prefixes of the rasters :func:`bed_shear_stress` writes, per quantity.
+SHEAR_PREFIXES = {"theta84": "ts", "ustar2": "tb", "h_over_ks": "hks", "regime": "regime"}
+
+
+def write_shear_rasters(result, profile, output_dir, token):
+    """Write one discharge's shear rasters, named ``<prefix><token>.tif``.
+
+    The single writer behind :func:`bed_shear_stress` and the per-discharge output of
+    Lifespan Design and Riparian Recruitment, so the four file names mean the same thing
+    wherever they appear.
+
+    Args:
+        result (shear.ShearResult): what :func:`riverarchitect.shear.calculate_taux` returned.
+        profile (dict): the grid to write on.
+        output_dir (str): destination folder.
+        token (str): the discharge in file-name form; see :meth:`Condition.token_for`.
+
+    Returns:
+        dict: quantity name -> path written.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    written = {}
+    for quantity, prefix in SHEAR_PREFIXES.items():
+        path = os.path.join(output_dir, "%s%s.tif" % (prefix, token))
+        array = getattr(result, quantity)
+        if quantity == "regime":
+            # uint8 with an explicit 0: the default -999 would wrap into the value range.
+            raster.write(path, array, profile, dtype="uint8", nodata=0)
+        else:
+            raster.write(path, array, profile)
+        written[quantity] = path
+    return written
+
+
+def bed_shear_stress(condition, unit="us", discharges=None, output_dir=None,
+                     grain_kind="dmean"):
+    """Write the bed shear stress of every modelled discharge into the condition folder.
+
+    The counterpart of the original's ``LifespanDesign/helper.py``, which wrote ``ts<Q>.tif``
+    and ``tb<Q>.tif`` into ``01_Conditions/<condition>/ts/`` and ``.../tb/``. Here they go
+    beside the hydraulic rasters they derive from, named the same way (``ts000550.tif``
+    accompanies ``h000550.tif`` and ``u000550.tif``), because a subfolder per quantity split
+    one discharge's rasters across three places.
+
+    Four rasters per discharge, from :func:`riverarchitect.shear.calculate_taux`:
+
+    ==============  ====================================================================
+    ``ts<Q>.tif``   dimensionless bed shear stress (Shields stress) referenced to ``D84``
+    ``tb<Q>.tif``   squared shear velocity ``u*^2``, in the condition's units
+    ``hks<Q>.tif``  relative submergence ``h/ks``
+    ``regime<Q>``   which resistance closure applied; see :data:`shear.REGIME_LABELS`
+    ==============  ====================================================================
+
+    ``tb`` keeps the original's prefix but **not** its content: 1.x wrote ``u*^2`` into a
+    raster named for the dimensional stress ``rho_w u*^2``, having cancelled the density
+    again when forming ``ts``. The quantity here is the one 1.x actually stored, under a
+    docstring that says so rather than a name that does not.
+
+    Args:
+        condition (Condition or str): the condition, or its name.
+        unit (str): ``"us"`` or ``"si"``; selects the gravitational acceleration.
+        discharges (list): which discharges to compute. Defaults to every one whose depth
+            and velocity raster are both on disk.
+        output_dir (str): where to write. Defaults to the condition folder.
+        grain_kind (str): what the grain raster holds; see
+            :func:`riverarchitect.shear.d84_of`.
+
+    Returns:
+        list: one dict per discharge, with its ``discharge``, the ``rasters`` written and
+        the ``regime`` cell counts.
+    """
+    from .condition import Condition, discharge_token
+
+    condition = condition if isinstance(condition, Condition) else Condition(condition)
+    target = output_dir or condition.directory
+    gravity = shear.gravity_of(unit)
+
+    grain_path = condition.path(condition.grain_raster)
+    if not grain_path or not os.path.isfile(grain_path):
+        raise FileNotFoundError(
+            "condition %r has no grain size raster, so no bed shear stress can be "
+            "computed.\n\n%s" % (condition.name, condition.describe()))
+
+    if discharges is None:
+        depth_q = {condition.discharge_of(name) for name in condition.all_depth_rasters()}
+        velocity_q = {condition.discharge_of(name)
+                      for name in condition.all_velocity_rasters()}
+        discharges = sorted((depth_q & velocity_q) - {None})
+    if not discharges:
+        raise ValueError("condition %r has no paired depth and velocity rasters.\n\n%s"
+                         % (condition.name, condition.describe()))
+
+    grain, reference = raster.read(grain_path)
+    d84 = shear.d84_of(grain, grain_kind)
+
+    results = []
+    for discharge in discharges:
+        depth_name = condition.depth_raster_for(discharge)
+        velocity_name = condition.velocity_raster_for(discharge)
+        if not (depth_name and velocity_name):
+            logger.info("   >> no depth/velocity pair at %s - skipped",
+                        discharge_token(discharge))
+            continue
+
+        depth, depth_profile = raster.read(condition.path(depth_name))
+        velocity, velocity_profile = raster.read(condition.path(velocity_name))
+        depth = raster.align(depth, depth_profile, reference)
+        velocity = raster.align(velocity, velocity_profile, reference)
+        # Dry cells are NoData, never zero: a depth of zero is not a shallow flow.
+        depth = np.where(depth > 0, depth, np.nan)
+
+        result = shear.calculate_taux(velocity, depth, d84, gravity=gravity)
+        token = condition.token_for(discharge)
+        written = write_shear_rasters(result, reference, target, token)
+
+        summary = shear.regime_summary(result.regime)
+        logger.info("   >> taux %s: %s", token,
+                    ", ".join("%s %d" % item for item in summary.items()))
+        results.append({"discharge": discharge, "rasters": written, "regime": summary})
+
+    if results and not any(entry["regime"]["invalid"] < sum(entry["regime"].values())
+                           for entry in results):
+        raise ValueError(
+            "the bed shear stress is NoData everywhere, at every discharge. Check that the "
+            "grain raster %r holds grain diameters in the condition's length unit and "
+            "shares the extent of the hydraulic rasters." % condition.grain_raster)
+    return results
+
+
 # ------------------------------------------------------------------ condition setup
 
 def write_input_definitions(condition_dir, return_periods=None, discharges=None,
@@ -450,6 +581,7 @@ PRODUCTS = (
     ("detrended DEM", "detrended"),
     ("water surface, depth and depth to water table", "water"),
     ("morphological units", "mu"),
+    ("dimensionless bed shear stress (taux)", "taux"),
     ("analyze flows: seasonal flow duration curves", "flows"),
     ("input_definitions.inp", "inp"),
     ("align every raster onto one grid", "align"),
@@ -463,6 +595,9 @@ PRODUCT_NOTES = {
              "h_interp.tif and d2w.tif.",
     "mu": "Classifies the wetted area into pools, riffles, runs and the rest from depth "
           "and velocity. Writes mu.tif.",
+    "taux": "Bed shear stress at every modelled discharge, from depth, velocity and grain "
+            "size. Writes ts<Q>.tif (Shields stress), tb<Q>.tif (u*^2), hks<Q>.tif "
+            "(relative submergence) and regime<Q>.tif (which resistance law applied).",
     "flows": "Turns a daily flow record into one seasonal flow duration curve per species "
              "and lifestage, which is what SHArea is integrated over. Needs a flow series "
              "file; writes 00_Flows/<condition>/flow_duration_<code>.xlsx.",
@@ -530,6 +665,20 @@ def build_product(condition_name, key, discharge=None, method="nearest", unit="u
                      "also holds %d floodplain units for lifespan mapping)"
                      % (path, len(table.classifiable()),
                         len(table) - len(table.classifiable())))
+    elif key == "taux":
+        results = bed_shear_stress(condition, unit=unit, output_dir=output_dir)
+        for entry in results:
+            counts = entry["regime"]
+            token = condition.token_for(entry["discharge"])
+            lines.append("wrote ts%s.tif, tb%s.tif, hks%s.tif, regime%s.tif "
+                         "(%d cell(s) Rickenmann-Recking, %d blended, %d Keulegan)"
+                         % (token, token, token, token,
+                            counts["Rickenmann-Recking"], counts["blended"],
+                            counts["Keulegan-Einstein"]))
+        lines.append("")
+        lines.append("%d discharge(s) processed. regime<Q>.tif shows which resistance law "
+                     "applied in each cell; read it before trusting a stress map."
+                     % len(results))
     elif key == "flows":
         from .flows import seasonal_flow_duration
 

@@ -29,10 +29,23 @@ These are not cosmetic. The modules find rasters by name.
 | `scour.tif`, `fill.tif` | DEM of difference: annual erosion and deposition |
 | `h<Q>.tif` | flow depth at discharge `Q` |
 | `u<Q>.tif` | flow velocity at the same discharge |
+| `ts<Q>.tif` | dimensionless bed shear stress (Shields stress) at that discharge |
+| `tb<Q>.tif` | squared shear velocity `u*^2` at that discharge |
+| `hks<Q>.tif` | relative submergence `h/ks` at that discharge |
+| `regime<Q>.tif` | which bed-resistance law applied: 1 Rickenmann-Recking, 2 blended, 3 Keulegan-Einstein, 0 invalid |
 
 `<Q>` is the discharge as a **six-digit, zero-padded** integer, so 1000 cfs is `h001000.tif`.
 That is how {class}`riverarchitect.condition.Condition` recovers the discharge from a file
-name, and how depth is paired with velocity.
+name, and how depth is paired with velocity. Conditions written by River Architect 1.x
+instead spell a fractional discharge with `_` for the decimal point
+(`h000001_060.tif` is 1.06); both forms are read, and a derived raster keeps the spelling of
+the hydraulic rasters it came from.
+
+The last four are written by **Get Started ▸ dimensionless bed shear stress (taux)** - see
+{func}`riverarchitect.preprocessing.bed_shear_stress`. They are outputs, not inputs: nothing
+requires them, and Lifespan Design and Riparian Recruitment recompute the stress internally
+rather than reading them, so an edited or stale `ts<Q>.tif` cannot silently change an
+analysis.
 
 ```{admonition} Units are in the data, not in the name
 :class: warning

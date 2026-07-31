@@ -39,10 +39,13 @@ from typing import NamedTuple
 
 import numpy as np
 
-__all__ = ["RHO_RATIO", "D84_FACTOR", "KS_FACTOR", "LOW_LIMIT", "HIGH_LIMIT",
-           "REGIME_LABELS", "ShearResult", "rickenmann_recking_velocity_ratio",
+__all__ = ["G_SI", "RHO_RATIO", "D84_FACTOR", "KS_FACTOR", "LOW_LIMIT", "HIGH_LIMIT",
+           "REGIME_LABELS", "ShearResult", "gravity_of", "rickenmann_recking_velocity_ratio",
            "keulegan_velocity_ratio", "smoothstep_weight", "d84_of", "calculate_taux",
            "regime_summary"]
+
+#: Gravitational acceleration in m/s^2.
+G_SI = 9.81
 
 #: Relative grain density (ratio of sediment and water density).
 RHO_RATIO = 2.68
@@ -78,6 +81,20 @@ class ShearResult(NamedTuple):
     theta84: np.ndarray
     h_over_ks: np.ndarray
     regime: np.ndarray
+
+
+def gravity_of(unit):
+    """Gravitational acceleration in the length unit of ``unit``.
+
+    Args:
+        unit (str): ``"us"`` (ft/s^2) or ``"si"`` (m/s^2).
+
+    Returns:
+        float: the value to pass as ``gravity`` to :func:`calculate_taux`.
+    """
+    from . import config
+
+    return G_SI / config.FT2M if str(unit).lower() == "us" else G_SI
 
 
 def rickenmann_recking_velocity_ratio(relative_depth):

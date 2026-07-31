@@ -179,6 +179,105 @@ def test_write_input_definitions_round_trips(tmp_path):
     assert values["dem_raster"] == "dem"
 
 
+def make_shear_condition(tmp_path, tokens=("000100", "000500")):
+    """A condition with a grain raster and paired hydraulics at each token."""
+    directory = tmp_path / "01_Conditions" / "shearbench"
+    directory.mkdir(parents=True)
+    profile = make_profile(width=4, height=1)
+    # h/ks = h / (2 * 2.2 * 0.01) = h / 0.044: 0.2 -> 4.5 (RR), 2.2 -> 50 (Keulegan)
+    raster.write(str(directory / "dmean.tif"), np.full((1, 4), 0.01), profile)
+    raster.write(str(directory / "dem.tif"), np.zeros((1, 4)), profile)
+    for token in tokens:
+        raster.write(str(directory / ("h%s.tif" % token)),
+                     np.array([[0.2, 2.2, 2.2, 0.0]]), profile)
+        raster.write(str(directory / ("u%s.tif" % token)), np.full((1, 4), 1.0), profile)
+    return directory
+
+
+def test_bed_shear_stress_writes_into_the_condition_folder(tmp_path, monkeypatch):
+    """ts/tb/hks/regime land beside the h/u rasters they derive from."""
+    import rasterio
+
+    from riverarchitect.condition import Condition
+
+    directory = make_shear_condition(tmp_path)
+    monkeypatch.setenv("RIVERARCHITECT_HOME", str(tmp_path))
+    config.set_project_home(str(tmp_path))
+    try:
+        results = pre.bed_shear_stress("shearbench", unit="si")
+    finally:
+        config.set_project_home(None)
+
+    assert [entry["discharge"] for entry in results] == [100.0, 500.0]
+    for token in ("000100", "000500"):
+        for prefix in ("ts", "tb", "hks", "regime"):
+            assert (directory / ("%s%s.tif" % (prefix, token))).is_file()
+
+    # The dry cell is invalid; the shallow one is Rickenmann-Recking, the deep two Keulegan.
+    with rasterio.open(str(directory / "regime000100.tif")) as src:
+        assert src.dtypes[0] == "uint8" and src.nodata == 0
+        assert src.read(1).tolist() == [[1, 3, 3, 0]]
+
+    assert results[0]["regime"] == {"invalid": 1, "Rickenmann-Recking": 1, "blended": 0,
+                                    "Keulegan-Einstein": 2}
+
+    # ts must be the Shields stress and tb the squared shear velocity behind it.
+    from riverarchitect import shear
+    ts, _profile = raster.read(str(directory / "ts000100.tif"))
+    tb, _profile = raster.read(str(directory / "tb000100.tif"))
+    expected = shear.calculate_taux(np.full((1, 4), 1.0), np.array([[0.2, 2.2, 2.2, np.nan]]),
+                                    shear.d84_of(np.full((1, 4), 0.01)), gravity=9.81)
+    assert np.allclose(ts, expected.theta84, rtol=1e-6, equal_nan=True)
+    assert np.allclose(tb, expected.ustar2, rtol=1e-6, equal_nan=True)
+
+    # ...and the whole set must be readable back as a condition's own rasters.
+    assert Condition("shearbench", directory=str(directory)).exists("ts000100")
+
+
+def test_shear_rasters_follow_the_condition_s_own_discharge_spelling(tmp_path, monkeypatch):
+    """A 1.x condition spelling 293 as u000293_000.tif gets ts000293_000.tif, not ts000293."""
+    directory = make_shear_condition(tmp_path, tokens=("000293_000",))
+    monkeypatch.setenv("RIVERARCHITECT_HOME", str(tmp_path))
+    config.set_project_home(str(tmp_path))
+    try:
+        pre.bed_shear_stress("shearbench", unit="si")
+    finally:
+        config.set_project_home(None)
+
+    assert (directory / "ts000293_000.tif").is_file()
+    assert not (directory / "ts000293.tif").exists()
+
+
+def test_bed_shear_stress_without_a_grain_raster_explains_itself(tmp_path, monkeypatch):
+    from riverarchitect.condition import Condition
+
+    directory = make_shear_condition(tmp_path)
+    (directory / "dmean.tif").unlink()
+    monkeypatch.setenv("RIVERARCHITECT_HOME", str(tmp_path))
+    config.set_project_home(str(tmp_path))
+    try:
+        with pytest.raises(FileNotFoundError) as excinfo:
+            pre.bed_shear_stress("shearbench", unit="si")
+        assert "grain size" in str(excinfo.value)
+    finally:
+        config.set_project_home(None)
+
+
+def test_taux_is_a_product_both_front_ends_offer(tmp_path, monkeypatch):
+    assert ("dimensionless bed shear stress (taux)", "taux") in pre.PRODUCTS
+    assert "taux" in pre.PRODUCT_NOTES
+
+    directory = make_shear_condition(tmp_path)
+    monkeypatch.setenv("RIVERARCHITECT_HOME", str(tmp_path))
+    config.set_project_home(str(tmp_path))
+    try:
+        lines = pre.build_product("shearbench", "taux", unit="si")
+    finally:
+        config.set_project_home(None)
+    assert any("ts000100.tif" in line for line in lines)
+    assert (directory / "ts000500.tif").is_file()
+
+
 def test_write_input_definitions_keeps_decimal_discharge_names(tmp_path):
     profile = make_profile(width=2, height=1)
     for token in ("000001_060", "000293_000"):

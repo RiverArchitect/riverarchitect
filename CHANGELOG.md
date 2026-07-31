@@ -40,10 +40,20 @@ invisible to the whole package; they now work. The interface gains an applicatio
 - `riverarchitect.shear` - the single implementation of the Shields stress, pure numpy and
   usable on any aligned rasters. `lifespan` and `recruitment` both call it, so the two
   cannot drift apart.
-- **Shear diagnostics.** Lifespan Design and Riparian Recruitment write `hks<Q>.tif`
-  (relative submergence) and `regime<Q>.tif` (0 invalid, 1 Rickenmann-Recking, 2 blended,
-  3 Keulegan-Einstein) per discharge, so which closure applied where is visible rather than
-  implicit.
+- **The bed shear stress is written out, not just used.** Four rasters per discharge:
+  `ts<Q>.tif` (the dimensionless Shields stress the thresholds are compared against),
+  `tb<Q>.tif` (`u*^2`), `hks<Q>.tif` (relative submergence) and `regime<Q>.tif`
+  (0 invalid, 1 Rickenmann-Recking, 2 blended, 3 Keulegan-Einstein), so both the stress and
+  the closure used to reach it are visible rather than implicit. Lifespan Design and
+  Riparian Recruitment write them into their output folder for the discharges they used.
+- `preprocessing.bed_shear_stress`, reachable as the Get Started product **dimensionless
+  bed shear stress (taux)**, writes the same four into the **condition folder** for every
+  modelled discharge - the counterpart of 1.x's `LifespanDesign/helper.py`, which wrote
+  `ts/` and `tb/` subfolders there. They go beside `h<Q>.tif` and `u<Q>.tif` instead, since
+  a subfolder per quantity split one discharge's rasters across three places. `tb` keeps
+  the 1.x prefix but is documented as what 1.x actually stored there: `u*^2`, not the
+  `rho_w u*^2` its name claims. Nothing reads these back - both analyses recompute the
+  stress - so a stale or hand-edited `ts<Q>.tif` cannot quietly change a result.
 - `Condition.describe()` and `Condition.validate()` - what a condition folder provides, what
   it lacks, and the raster naming discovery expects. Analyses that cannot start now embed
   that report in the error instead of only saying what was missing.
@@ -68,7 +78,11 @@ invisible to the whole package; they now work. The interface gains an applicatio
   Such a condition reported "no paired depth and velocity rasters" however complete it was.
   Both naming forms are now read, sorted numerically, and round-tripped through the new
   `condition.discharge_token`; output file names, `input_definitions.inp` writing and the
-  discharge lists in both front ends follow.
+  discharge lists in both front ends follow. A raster derived from a discharge keeps the
+  spelling of the hydraulic rasters it came from (`Condition.token_for`), so
+  `u000293_000.tif` yields `ts000293_000.tif` rather than the canonical `ts000293.tif` -
+  both parse back to 293, but only the first keeps a discharge's rasters together in a
+  sorted listing.
 
 ## [2.2.0] - 2026-07-30
 

@@ -187,6 +187,23 @@ class Condition:
                 return name
         return None
 
+    def token_for(self, discharge):
+        """Discharge token spelled as *this condition's own* file names spell it.
+
+        A raster derived from a discharge should be named after the rasters it came from:
+        ``h000293_000.tif`` and ``u000293_000.tif`` yield ``ts000293_000.tif``, not the
+        canonical ``ts000293.tif`` that :func:`discharge_token` would produce for 293.0.
+        Both parse back to the same discharge, but only the first keeps a discharge's
+        rasters together in a sorted file listing.
+
+        Falls back to :func:`discharge_token` when the condition has no depth raster at
+        that discharge.
+        """
+        name = self.depth_raster_for(discharge) or self.velocity_raster_for(discharge)
+        if name:
+            return re.sub(r"^[a-zA-Z_]+", "", os.path.splitext(name)[0])
+        return discharge_token(discharge)
+
     def hydraulic_pairs(self):
         """Yield ``(return_period, depth_path, velocity_path)`` for each modelled discharge.
 

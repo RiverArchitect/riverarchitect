@@ -43,7 +43,7 @@ import os
 import numpy as np
 
 from . import config, raster, shear
-from .condition import Condition, discharge_token
+from .condition import Condition
 
 __all__ = ["Feature", "FEATURES", "LifespanDesign", "load_threshold_workbook",
            "feature_groups"]
@@ -55,7 +55,7 @@ RHO_RATIO = shear.RHO_RATIO
 #: Default Manning's n in s/m^(1/3). Divided by 1.49 for U.S. customary units.
 MANNING_N = 0.0473934
 #: Gravitational acceleration in m/s^2.
-G_SI = 9.81
+G_SI = shear.G_SI
 
 
 class Feature:
@@ -279,12 +279,8 @@ class LifespanDesign:
         self.error = False
         self.logger = logger
 
-        if self.unit == "us":
-            self.n = manning_n / 1.49          # s/ft^(1/3)
-            self.g = G_SI / config.FT2M        # ft/s^2
-        else:
-            self.n = manning_n
-            self.g = G_SI
+        self.n = manning_n / 1.49 if self.unit == "us" else manning_n  # s/ft^(1/3)
+        self.g = shear.gravity_of(self.unit)
 
         self._reference = None                 # profile every raster is aligned onto
         self._taux_cache = {}                  # discharge token -> theta84
@@ -324,7 +320,7 @@ class LifespanDesign:
         """
         for period, depth_path, velocity_path in self.condition.hydraulic_pairs():
             discharge = self.condition.discharge_of(depth_path)
-            token = discharge_token(discharge) if discharge is not None \
+            token = self.condition.token_for(discharge) if discharge is not None \
                 else os.path.splitext(os.path.basename(depth_path))[0]
             depth, depth_profile = raster.read(depth_path)
             velocity, velocity_profile = raster.read(velocity_path)
@@ -365,9 +361,9 @@ class LifespanDesign:
                                       gravity=self.g)
         if token is not None:
             # theta84 does not depend on the feature, so one computation per discharge
-            # serves every taux feature; the diagnostics are kept for writing once.
+            # serves every taux feature; the result is kept for writing once.
             self._taux_cache[token] = result.theta84
-            self._shear_diagnostics[token] = (result.h_over_ks, result.regime)
+            self._shear_diagnostics[token] = result
             self.logger.info("      * taux %s: %s", token,
                              ", ".join("%s %d" % (label, count) for label, count
                                        in shear.regime_summary(result.regime).items()))
@@ -592,22 +588,19 @@ class LifespanDesign:
         return result
 
     def write_shear_diagnostics(self, output_dir):
-        """Write the relative submergence and resistance-regime rasters of each discharge.
+        """Write the bed shear stress rasters of each discharge beside the lifespan maps.
 
-        For every discharge whose Shields stress has been computed, ``hks<token>.tif``
-        (relative submergence ``h/ks``) and ``regime<token>.tif`` (uint8 code per
-        :data:`riverarchitect.shear.REGIME_LABELS`) land beside the lifespan maps, so
-        users can see which resistance closure applied where. Idempotent per output
-        directory and per run.
+        Four per discharge - ``ts`` (Shields stress), ``tb`` (``u*^2``), ``hks`` (relative
+        submergence) and ``regime`` (which resistance closure applied) - named exactly as
+        :func:`riverarchitect.preprocessing.bed_shear_stress` names them in the condition
+        folder. Idempotent per output directory and per run.
         """
         if not self._shear_diagnostics or output_dir in self._diagnostics_written:
             return
-        os.makedirs(output_dir, exist_ok=True)
-        for token, (h_over_ks, regime) in self._shear_diagnostics.items():
-            raster.write(os.path.join(output_dir, "hks%s.tif" % token),
-                         h_over_ks, self._reference)
-            raster.write(os.path.join(output_dir, "regime%s.tif" % token),
-                         regime, self._reference, dtype="uint8", nodata=0)
+        from .preprocessing import write_shear_rasters
+
+        for token, result in self._shear_diagnostics.items():
+            write_shear_rasters(result, self._reference, output_dir, token)
         self._diagnostics_written.add(output_dir)
 
     def _design_raster(self, feature, lifespan, grain):

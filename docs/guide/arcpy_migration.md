@@ -676,8 +676,17 @@ recruitment analyses look.
 
 {mod}`riverarchitect.shear` therefore switches to Rickenmann--Recking (2011) below
 $h/k_s=7$, keeps Keulegan--Einstein above 20, blends the stress coefficient smoothly between
-them, and references the result to $D_{84}$. Every run writes `hks<Q>.tif` and
-`regime<Q>.tif` so the closure used in each cell is visible rather than implicit.
+them, and references the result to $D_{84}$. Every run writes `ts<Q>.tif`, `tb<Q>.tif`,
+`hks<Q>.tif` and `regime<Q>.tif`, so both the stress and the closure used to reach it are
+visible rather than implicit.
+
+Those four also replace `LifespanDesign/helper.py`, the standalone script that wrote 1.x's
+stress rasters into `01_Conditions/<condition>/ts/` and `.../tb/`. The equivalent is
+{func}`riverarchitect.preprocessing.bed_shear_stress`, a Get Started product; it writes
+beside the hydraulic rasters rather than into a subfolder per quantity, which had split one
+discharge's rasters across three places. `tb` keeps the 1.x prefix but is documented as
+what 1.x actually stored there - $u_*^2$, not the $\rho_w u_*^2$ its name claims, the
+density having been cancelled again when forming `ts`.
 
 The results move, and they move in both directions: the median stress on the sample reach
 falls (the $D_{84}$ reference alone divides the deep-water value by 2.2) while the shallow
