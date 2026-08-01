@@ -4,6 +4,51 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2026-08-01
+
+**The bed shear stress is written out, and depth is called by its right name.** 2.3.0 made
+the Shields stress correct but left it in memory: only the two diagnostic rasters reached
+disk, and nothing reached the condition folder. Both are fixed here. Separately, "flow
+depth" is replaced by the hydraulically correct "water depth" throughout.
+
+### Added
+
+- `preprocessing.bed_shear_stress`, reachable as the Get Started product **dimensionless
+  bed shear stress (taux)**, writes the stress of every modelled discharge into the
+  **condition folder**. It is the counterpart of 1.x's `LifespanDesign/helper.py`, which
+  wrote `ts/` and `tb/` subfolders there; these go beside `h<Q>.tif` and `u<Q>.tif`
+  instead, since a subfolder per quantity split one discharge's rasters across three
+  places.
+- **`ts<Q>.tif` and `tb<Q>.tif`**, joining the `hks` and `regime` diagnostics of 2.3.0.
+  `ts` is the dimensionless Shields stress the `tau_cr` thresholds are actually compared
+  against - the quantity the whole calculation exists to produce, which no output carried
+  until now. `tb` is `u*^2`; it keeps the 1.x prefix but is documented as what 1.x really
+  stored there, since 1.x named that raster for the dimensional stress `rho_w u*^2` while
+  writing `u*^2` into it, the density having been cancelled again when forming `ts`.
+  Lifespan Design and Riparian Recruitment write all four for the discharges they used,
+  through the same writer as the condition-folder product, so the names cannot drift apart.
+  Nothing reads them back - both analyses recompute the stress - so a stale or hand-edited
+  `ts<Q>.tif` cannot quietly change a result.
+
+### Changed
+
+- **"Water depth" replaces "flow depth" throughout.** Depth is a property of the water
+  column, not of the flow, so the term the ArcGIS version used was wrong. The
+  documentation, the docstrings and the interface now say water depth, and
+  `write_input_definitions` writes `Water depth (h) = ...` into new
+  `input_definitions.inp` files. **Existing conditions keep working**: the parser reads
+  both spellings, and 1.x is unaffected because it reads that file by line position rather
+  than by key. Two strings deliberately keep the old wording because they are literal
+  identifiers of the ArcGIS version rather than prose - the `Flow depth` row label in
+  `threshold_values.xlsx`, which 1.x matches exactly, and the `WARNING: Could not get
+  minimum flow depth` message quoted on the troubleshooting page.
+- A raster derived from a discharge now keeps the spelling of the hydraulic rasters it came
+  from (`Condition.token_for`), so a 1.x condition holding `u000293_000.tif` yields
+  `ts000293_000.tif` rather than the canonical `ts000293.tif`. Both parse back to 293, but
+  only the first keeps a discharge's rasters together in a sorted listing.
+- `shear.gravity_of` replaces the three separate unit-to-gravity conversions that had
+  accumulated in `lifespan`, `recruitment` and the `taux` tool.
+
 ## [2.3.0] - 2026-07-31
 
 **Corrected bed shear stress, and conditions from River Architect 1.x are readable again.**
@@ -40,30 +85,10 @@ invisible to the whole package; they now work. The interface gains an applicatio
 - `riverarchitect.shear` - the single implementation of the Shields stress, pure numpy and
   usable on any aligned rasters. `lifespan` and `recruitment` both call it, so the two
   cannot drift apart.
-- **The bed shear stress is written out, not just used.** Four rasters per discharge:
-  `ts<Q>.tif` (the dimensionless Shields stress the thresholds are compared against),
-  `tb<Q>.tif` (`u*^2`), `hks<Q>.tif` (relative submergence) and `regime<Q>.tif`
-  (0 invalid, 1 Rickenmann-Recking, 2 blended, 3 Keulegan-Einstein), so both the stress and
-  the closure used to reach it are visible rather than implicit. Lifespan Design and
-  Riparian Recruitment write them into their output folder for the discharges they used.
-- `preprocessing.bed_shear_stress`, reachable as the Get Started product **dimensionless
-  bed shear stress (taux)**, writes the same four into the **condition folder** for every
-  modelled discharge - the counterpart of 1.x's `LifespanDesign/helper.py`, which wrote
-  `ts/` and `tb/` subfolders there. They go beside `h<Q>.tif` and `u<Q>.tif` instead, since
-  a subfolder per quantity split one discharge's rasters across three places. `tb` keeps
-  the 1.x prefix but is documented as what 1.x actually stored there: `u*^2`, not the
-  `rho_w u*^2` its name claims. Nothing reads these back - both analyses recompute the
-  stress - so a stale or hand-edited `ts<Q>.tif` cannot quietly change a result.
-- **"Water depth" replaces "flow depth" throughout.** Depth is a property of the water
-  column, not of the flow, so the term the ArcGIS version used was wrong. The
-  documentation, the docstrings and the interface now say water depth, and
-  `write_input_definitions` writes `Water depth (h) = ...` into new
-  `input_definitions.inp` files. **Existing conditions keep working**: the parser reads
-  both spellings, and 1.x is unaffected because it reads that file by line position rather
-  than by key. Two strings deliberately keep the old wording because they are literal
-  identifiers of the ArcGIS version rather than prose - the `Flow depth` row label in
-  `threshold_values.xlsx`, which 1.x matches exactly, and the `WARNING: Could not get
-  minimum flow depth` message quoted on the troubleshooting page.
+- **Shear diagnostics.** Lifespan Design and Riparian Recruitment write `hks<Q>.tif`
+  (relative submergence) and `regime<Q>.tif` (0 invalid, 1 Rickenmann-Recking, 2 blended,
+  3 Keulegan-Einstein) per discharge, so which closure applied where is visible rather than
+  implicit.
 - `Condition.describe()` and `Condition.validate()` - what a condition folder provides, what
   it lacks, and the raster naming discovery expects. Analyses that cannot start now embed
   that report in the error instead of only saying what was missing.
@@ -88,11 +113,7 @@ invisible to the whole package; they now work. The interface gains an applicatio
   Such a condition reported "no paired depth and velocity rasters" however complete it was.
   Both naming forms are now read, sorted numerically, and round-tripped through the new
   `condition.discharge_token`; output file names, `input_definitions.inp` writing and the
-  discharge lists in both front ends follow. A raster derived from a discharge keeps the
-  spelling of the hydraulic rasters it came from (`Condition.token_for`), so
-  `u000293_000.tif` yields `ts000293_000.tif` rather than the canonical `ts000293.tif` -
-  both parse back to 293, but only the first keeps a discharge's rasters together in a
-  sorted listing.
+  discharge lists in both front ends follow.
 
 ## [2.2.0] - 2026-07-30
 
