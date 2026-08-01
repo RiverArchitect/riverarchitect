@@ -18,6 +18,21 @@ exception is the Maps tab, which needs the QGIS Python bindings - see
 {doc}`../modules/maps`.
 ```
 
+```{toctree}
+:maxdepth: 2
+:caption: In this section
+
+../guide/installation
+../guide/installation_detailed
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Reference
+
+Program file structure, requirements and logfiles (legacy) <../wiki/Installation>
+```
+
 ## The short version
 
 ```bash
@@ -31,22 +46,6 @@ pip install -e ".[all]"
 
 The launcher opens the interface on the bundled sample data. Open **Help ▸ Live Guide:
 Example** and work through {doc}`../guide/example_walkthrough`.
-
-## In this section
-
-```{toctree}
-:maxdepth: 2
-
-../guide/installation
-../guide/installation_detailed
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Reference
-
-Program file structure, requirements and logfiles (legacy) <../wiki/Installation>
-```
 
 ## Requirements at a glance
 

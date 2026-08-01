@@ -5,6 +5,13 @@
 The last step of the chain, and the only one that produces a number a funding body
 recognises: what the works cost, what they buy in habitat, and the ratio between them.
 
+```{toctree}
+:maxdepth: 1
+:caption: In this section
+
+Project Maker: method, cost quantities and SHArea benefit (legacy) <../wiki/ProjectMaker>
+```
+
 ## The two halves
 
 **Cost** is a bill of quantities. Every task in
@@ -89,14 +96,6 @@ reads like a bargain.
 Comparing a condition that has no flow duration curve raises rather than returning a
 half-comparison: build one first with **Get Started ▸ analyze flows**
 ({doc}`../getstarted/index`).
-
-## In this section
-
-```{toctree}
-:maxdepth: 1
-
-Project Maker: method, cost quantities and SHArea benefit (legacy) <../wiki/ProjectMaker>
-```
 
 ```{eval-rst}
 .. seealso::

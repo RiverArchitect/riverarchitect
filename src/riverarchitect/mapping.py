@@ -27,6 +27,8 @@ Running headless requires QT_QPA_PLATFORM=offscreen, which this module sets itse
 import glob
 import logging
 import os
+import re
+import shutil
 import sys
 
 from . import config
@@ -79,8 +81,12 @@ QGIS_LAYOUTS = {
     ),
 }
 
-#: Directories that held a ``qgis`` package but could not be imported, for the message.
+#: Directories that held a ``qgis`` package but could not be imported, as
+#: ``(directory, reason)`` pairs, for the message.
 _qgis_rejected = []
+#: Python versions, as ``(major, minor)``, that rejected bindings were built for. Empty
+#: unless an ABI mismatch was the reason, which is the usual one on Linux.
+_qgis_abi_wanted = set()
 #: The directory the bindings were found in, when they were not already importable.
 QGIS_BINDINGS_PATH = None
 #: The QGIS prefix that goes to ``QgsApplication.setPrefixPath``. ``None`` means the
@@ -104,23 +110,117 @@ def qgis_candidates():
     :envvar:`QGIS_PREFIX_PATH` come first, so a non-standard installation can be pointed at
     explicitly and nothing needs guessing.
     """
+    seen = set()
+
+    def fresh(bindings):
+        """Whether this directory has not been yielded already.
+
+        Several patterns resolve to the same place - ``/usr/lib/python3/dist-packages``
+        matches both the literal Debian entry and the ``python3*`` glob - and a directory
+        tried twice is also *reported* twice when it fails, which reads as two separate
+        installations rather than one.
+        """
+        key = os.path.normcase(os.path.normpath(bindings))
+        if key in seen:
+            return False
+        seen.add(key)
+        return True
+
     explicit = os.environ.get("RIVERARCHITECT_QGIS_PATH")
-    if explicit:
+    if explicit and fresh(explicit):
         yield explicit, os.environ.get("QGIS_PREFIX_PATH"), ()
 
     prefix = os.environ.get("QGIS_PREFIX_PATH")
     if prefix:
         for relative in ("python", os.path.join("share", "qgis", "python"),
                          os.path.join("..", "Resources", "python")):
-            yield os.path.join(prefix, relative), prefix, (os.path.join(prefix, "bin"),)
+            candidate = os.path.join(prefix, relative)
+            if fresh(candidate):
+                yield candidate, prefix, (os.path.join(prefix, "bin"),)
 
     for pattern, prefix_template, dll_patterns in QGIS_LAYOUTS[_qgis_platform()]:
         # sorted(reverse=True) puts the highest version first when a glob matches several
         # installations, which is what a user with 3.34 and 3.40 side by side expects.
         for bindings in sorted(glob.glob(pattern), reverse=True):
+            if not fresh(bindings):
+                continue
             resolved_prefix = os.path.normpath(prefix_template.format(b=bindings))
             dll_dirs = tuple(os.path.normpath(p.format(b=bindings)) for p in dll_patterns)
             yield bindings, resolved_prefix, dll_dirs
+
+
+def bindings_python_version(bindings):
+    """The Python version a directory's QGIS bindings were compiled for.
+
+    The extension modules carry the ABI tag in their file name -
+    ``qgis/_core.cpython-311-x86_64-linux-gnu.so`` on Linux,
+    ``qgis/_core.cp311-win_amd64.pyd`` on Windows - so the mismatch that stops a conda
+    environment from using a distribution's QGIS can be *named* before the import is
+    attempted. Left to fail on its own it surfaces as ``No module named 'PyQt5.sip'``,
+    which reads like a missing package rather than the wrong Python: ``PyQt5`` is found,
+    its ``sip`` extension carries the same foreign ABI tag, and that is the module the
+    error names.
+
+    Args:
+        bindings (str): directory holding the ``qgis`` package.
+
+    Returns:
+        tuple or None: ``(major, minor)``, or ``None`` when no tagged extension module was
+        found. ``None`` means "cannot tell", not "incompatible" - the import is then tried
+        and allowed to speak for itself.
+    """
+    for pattern in ("_core.*.so", "_core.*.pyd", "_core.*.dylib"):
+        for path in sorted(glob.glob(os.path.join(bindings, "qgis", pattern))):
+            match = re.search(r"\.(?:cpython-|cp)(\d)(\d+)", os.path.basename(path))
+            if match:
+                return int(match.group(1)), int(match.group(2))
+    return None
+
+
+def qgis_interpreter():
+    """An installed interpreter the rejected bindings would load in, or ``None``.
+
+    Only the presence of the executable is checked; no subprocess is started, because this
+    runs while a GUI tab is being built. The bindings declare the version they need, so an
+    interpreter of that version is the one to start River Architect with.
+
+    Returns:
+        str or None: path to e.g. ``/usr/bin/python3.11``.
+    """
+    for version in sorted(_qgis_abi_wanted, reverse=True):
+        path = shutil.which("python%d.%d" % version)
+        if path and os.path.realpath(path) != os.path.realpath(sys.executable):
+            return path
+    return None
+
+
+def qgis_launcher_warning(launcher="./runRiverArchitectLinux.sh"):
+    """What the start-up script should print about QGIS, or ``""`` when nothing is wrong.
+
+    "QGIS is installed, but the Maps tab is disabled" is the most confusing state this
+    program has, and it is worth naming before a window opens rather than leaving it to be
+    found. Nothing is said when no QGIS was found at all - that is an ordinary optional
+    dependency, and the Maps tab explains itself.
+
+    Args:
+        launcher (str): how to invoke the start-up script, for the example command.
+
+    Returns:
+        str: a multi-line message, already indented for a console.
+    """
+    if QGIS_AVAILABLE or not _qgis_abi_wanted:
+        return ""
+    path, reason = _qgis_rejected[0]
+    return "\n".join([
+        "WARNING: QGIS was found in %s," % path,
+        "         but it is %s," % reason,
+        "         so the Maps tab will be disabled. Either install QGIS into this",
+        "         environment:",
+        "             mamba install -c conda-forge qgis",
+        "         or start with the interpreter it was built for:",
+        "             RA_PYTHON=%s %s" % (qgis_interpreter() or "/usr/bin/python3",
+                                          launcher),
+    ])
 
 
 def _locate_qgis_bindings():
@@ -144,6 +244,19 @@ def _locate_qgis_bindings():
     for bindings, prefix, dll_dirs in qgis_candidates():
         bindings = os.path.normpath(bindings)
         if not os.path.isdir(os.path.join(bindings, "qgis")):
+            continue
+
+        # Ask the bindings which Python they are for before importing them. Importing them
+        # anyway would work - it fails either way - but the exception names whichever
+        # extension module happened to be loaded first, which sends people looking for a
+        # missing package that is not missing.
+        wanted = bindings_python_version(bindings)
+        if wanted is not None and wanted != sys.version_info[:2]:
+            _qgis_abi_wanted.add(wanted)
+            _qgis_rejected.append((
+                bindings,
+                "built for Python %d.%d, this interpreter is %d.%d"
+                % (wanted + sys.version_info[:2])))
             continue
 
         # Windows resolves a extension module's dependent DLLs through an explicit list
@@ -199,10 +312,12 @@ except ImportError:
     # QGIS_AVAILABLE is a normal thing to do, and the GUI does exactly that before it
     # decides what to show. Log it instead, so callers choose whether it is visible.
     if _qgis_rejected:
-        _detail = ("Found QGIS bindings but could not load them, most often because they "
-                   "are built for a different Python than this one (%d.%d): %s"
-                   % (sys.version_info[0], sys.version_info[1],
-                      "; ".join("%s (%s)" % pair for pair in _qgis_rejected)))
+        _detail = ("Found QGIS bindings but could not load them: %s"
+                   % "; ".join("%s (%s)" % pair for pair in _qgis_rejected))
+        if _qgis_abi_wanted:
+            _detail += (". Start River Architect with %s instead."
+                        % (qgis_interpreter()
+                           or "the interpreter QGIS was installed for"))
     else:
         _install = {
             "linux": "sudo apt install qgis python3-qgis  (Debian, Ubuntu)",
@@ -217,7 +332,8 @@ except ImportError:
         "QGIS (qgis.core) is not available - mapping is disabled. %s", _detail)
 
 __all__ = ["QGIS_AVAILABLE", "QGIS_BINDINGS_PATH", "QGIS_PREFIX", "QGIS_LAYOUTS",
-           "qgis_candidates", "qgis_status", "QgisSession", "Mapper"]
+           "qgis_candidates", "qgis_status", "bindings_python_version", "qgis_interpreter",
+           "qgis_launcher_warning", "QgisSession", "Mapper"]
 
 # Page geometry defaults, in millimetres. ANSI E landscape reproduces the former arcpy layout.
 ANSI_E_LANDSCAPE = (1117.6, 863.6)
@@ -258,17 +374,45 @@ def qgis_status():
         "",
     ]
     if _qgis_rejected:
-        lines.append("QGIS bindings were found but could not be loaded. That almost always")
-        lines.append("means they are built for a different Python than this one (%d.%d):"
-                     % (sys.version_info[0], sys.version_info[1]))
+        lines.append("A QGIS installation was found, but its Python bindings could not be")
+        lines.append("loaded into this interpreter (Python %d.%d, %s):"
+                     % (sys.version_info[0], sys.version_info[1], sys.executable))
         lines.append("")
         for path, error in _qgis_rejected:
             lines.append("    %s" % path)
             lines.append("        %s" % error)
         lines.append("")
-        lines.append("Start River Architect with the interpreter QGIS was installed for:")
-        lines.append("")
-        lines.append("    RA_PYTHON=/usr/bin/python3 ./runRiverArchitectLinux.sh")
+        if _qgis_abi_wanted:
+            lines.append("Bindings are compiled extension modules: they load only in the")
+            lines.append("Python minor version they were built for, and no amount of "
+                         "searching")
+            lines.append("changes that. This is not a missing package, and reinstalling "
+                         "QGIS")
+            lines.append("will not help - the distribution builds them for the system")
+            lines.append("interpreter, which is a different version from this environment.")
+            lines.append("")
+            lines.append("Two ways out. Install QGIS into this environment, so that one")
+            lines.append("interpreter does everything - conda-forge builds it for the")
+            lines.append("environment's own Python:")
+            lines.append("")
+            lines.append("    mamba install -n %s -c conda-forge qgis"
+                         % os.path.basename(os.path.dirname(
+                             os.path.dirname(sys.executable))))
+            lines.append("")
+            lines.append("Or start River Architect with the interpreter QGIS was built "
+                         "for:")
+            lines.append("")
+            lines.append("    RA_PYTHON=%s ./runRiverArchitectLinux.sh"
+                         % (qgis_interpreter() or "/usr/bin/python3"))
+            lines.append("")
+            lines.append("That one usually has no rasterio, so the analysis tabs disable")
+            lines.append("themselves there - the analyses run in this environment and the")
+            lines.append("maps in that one.")
+        else:
+            lines.append("Start River Architect with the interpreter QGIS was installed "
+                         "for:")
+            lines.append("")
+            lines.append("    RA_PYTHON=/usr/bin/python3 ./runRiverArchitectLinux.sh")
     else:
         lines.append("No QGIS installation was found in any of the usual places. Install "
                      "QGIS:")

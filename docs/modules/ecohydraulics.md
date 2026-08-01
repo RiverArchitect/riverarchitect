@@ -4,6 +4,17 @@ What the design is worth ecologically. Three independent analyses; all of them n
 prepared condition, and habitat area additionally needs a flow duration curve from
 {doc}`../getstarted/index`.
 
+```{toctree}
+:maxdepth: 1
+:caption: In this section
+
+SHArC: introduction and quick guide <../wiki/SHArC>
+SHArC: working principles <../wiki/SHArC-working-principles>
+Edit the Fish (physical habitats) template <../wiki/aqua-modification>
+Stranding Risk <../wiki/StrandingRisk>
+Riparian Seedling Recruitment <../wiki/RSR>
+```
+
 ## Habitat Area (SHArC)
 
 {mod}`riverarchitect.sharc` - the **Ecohydraulics ▸ Habitat Area (SHArC)** tab.
@@ -227,18 +238,6 @@ Three details decide the result, and all three follow the original:
 * the inundation objective uses the longest run of **consecutive** submerged days, not their
   total. Fourteen days under water in one stretch drowns a seedling; fourteen days spread
   over a season does not.
-
-## In this section
-
-```{toctree}
-:maxdepth: 1
-
-SHArC: introduction and quick guide <../wiki/SHArC>
-SHArC: working principles <../wiki/SHArC-working-principles>
-Edit the Fish (physical habitats) template <../wiki/aqua-modification>
-Stranding Risk <../wiki/StrandingRisk>
-Riparian Seedling Recruitment <../wiki/RSR>
-```
 
 ```{eval-rst}
 .. seealso::

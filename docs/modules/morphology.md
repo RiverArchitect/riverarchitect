@@ -3,6 +3,17 @@
 Changing the terrain, and quantifying the change. Three modules: two that produce a terrain
 and one that measures the difference between two of them.
 
+```{toctree}
+:maxdepth: 1
+:caption: In this section
+
+../guide/volumes
+Modify Terrain: working principles (legacy) <../wiki/ModifyTerrain>
+River Builder: parameters and background (legacy) <../wiki/RiverBuilder>
+Volume Assessment: working principles (legacy) <../wiki/VolumeAssessment>
+River reach definitions <../wiki/RiverReaches>
+```
+
 ## Terraforming
 
 {mod}`riverarchitect.terraforming` - the **Morphology ▸ Terraforming** tab.
@@ -138,20 +149,8 @@ matches the original software and the one a contractor will recognise.
 
 Terraforming and Volume Assessment can be limited to a **reach**: a named stretch of river with its own extent, so
 that a long project can be planned and reported in pieces. Reach definitions are described
-in the legacy page below; this release applies extents through the raster mask and the QGIS
-layout rather than through the original's reach workbook.
-
-## In this section
-
-```{toctree}
-:maxdepth: 1
-
-../guide/volumes
-Modify Terrain: working principles (legacy) <../wiki/ModifyTerrain>
-River Builder: parameters and background (legacy) <../wiki/RiverBuilder>
-Volume Assessment: working principles (legacy) <../wiki/VolumeAssessment>
-River reach definitions <../wiki/RiverReaches>
-```
+in {doc}`../wiki/RiverReaches`; this release applies extents through the raster mask and the
+QGIS layout rather than through the original's reach workbook.
 
 ```{eval-rst}
 .. seealso::

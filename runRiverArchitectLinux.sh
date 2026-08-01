@@ -113,6 +113,18 @@ if ! "${PYTHON}" -c "import rasterio" >/dev/null 2>&1; then
     printf '         The analysis tabs will be disabled; mapping is unaffected.\n' >&2
 fi
 
+# Likewise for QGIS. A distribution's bindings are compiled for the system interpreter and
+# load in no other, so "QGIS is installed but the Maps tab is disabled" is the single most
+# confusing state this program has. Say it here rather than leaving it to be discovered.
+if ! "${PYTHON}" -c "import qgis.core" >/dev/null 2>&1; then
+    QGIS_NOTE="$("${PYTHON}" -c \
+        'from riverarchitect.mapping import qgis_launcher_warning
+print(qgis_launcher_warning("./runRiverArchitectLinux.sh"), end="")' 2>/dev/null || true)"
+    if [ -n "${QGIS_NOTE}" ]; then
+        printf '%s\n' "${QGIS_NOTE}" >&2
+    fi
+fi
+
 printf 'River Architect\n'
 printf '  interpreter : %s\n' "${PYTHON}"
 printf '  project     : %s\n' "${PROJECT}"

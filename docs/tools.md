@@ -8,6 +8,13 @@ In the original these were loose console scripts under `RiverArchitect/Tools/`, 
 are **importable modules with console-script entry points**, and the ones that were really
 part of an analysis have moved into it.
 
+```{toctree}
+:maxdepth: 1
+:caption: In this section
+
+River Architect Tools (legacy) <wiki/Tools>
+```
+
 ## Available now
 
 ### Reconcile NoData
@@ -88,19 +95,11 @@ the job without a bespoke script.
 
 **`morphology_designer.py`** (with `cHydraulic.py` and `cPoolRiffle.py`) produced design
 tables for self-sustaining pool-riffle channels from cross-section-averaged hydraulics. It
-is independent of the raster analysis and of `arcpy`, and has not been rewritten. The legacy
-page below describes it.
+is independent of the raster analysis and of `arcpy`, and has not been rewritten.
+{doc}`wiki/Tools` describes it.
 
 For a synthetic channel *geometry* rather than a design table, see **River Builder** in
 {doc}`modules/morphology`, which is ported.
-
-## In this section
-
-```{toctree}
-:maxdepth: 1
-
-River Architect Tools (legacy) <wiki/Tools>
-```
 
 ```{eval-rst}
 .. seealso::

@@ -1,6 +1,12 @@
 # Development
 
+```{toctree}
+:maxdepth: 2
+:caption: In this section
 
+../guide/arcpy_migration
+../api/index
+```
 
 ## Principles
 
@@ -176,13 +182,4 @@ Before opening a pull request:
 ```bash
 pytest                                            # the full suite
 python -m sphinx -b html -W docs docs/_build/html # zero warnings
-```
-
-## In this section
-
-```{toctree}
-:maxdepth: 2
-
-../guide/arcpy_migration
-../api/index
 ```

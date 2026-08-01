@@ -145,6 +145,14 @@ if errorlevel 1 (
     echo          The analysis tabs will be disabled; mapping is unaffected.
 )
 
+rem Likewise for QGIS. Its bindings are compiled for one Python minor version and load in no
+rem other, so "QGIS is installed but the Maps tab is disabled" is the single most confusing
+rem state this program has. Say it here rather than leaving it to be discovered.
+"%PYTHON%" -c "import qgis.core" >nul 2>&1
+if errorlevel 1 (
+    "%PYTHON%" -c "from riverarchitect.mapping import qgis_launcher_warning; print(qgis_launcher_warning('runRiverArchitectWin.bat'), end='')" 2>nul
+)
+
 echo River Architect
 echo   interpreter : %PYTHON%
 echo   project     : %PROJECT%

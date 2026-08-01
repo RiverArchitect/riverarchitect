@@ -164,6 +164,126 @@ def test_the_environment_variables_win(tmp_path, monkeypatch):
     assert any(same_path(c[0], str(tmp_path / "prefix" / "python")) for c in candidates[1:])
 
 
+def test_candidates_are_not_repeated(tmp_path, monkeypatch):
+    """Two patterns matching one directory must yield it once.
+
+    On Debian both the literal ``/usr/lib/python3/dist-packages`` entry and the
+    ``/usr/lib/python3*/dist-packages`` glob resolve to the same place, and a directory
+    tried twice is reported twice on failure - which reads as two broken installations
+    rather than one.
+    """
+    shared, = touch_tree(tmp_path, "lib/python3/dist-packages")
+    base = str(tmp_path).replace(os.sep, "/")
+    monkeypatch.setattr(mapping, "_qgis_platform", lambda: "linux")
+    monkeypatch.setitem(mapping.QGIS_LAYOUTS, "linux",
+                        ((base + "/lib/python3/dist-packages", "/usr", ()),
+                         (base + "/lib/python3*/dist-packages", "/usr", ())))
+    monkeypatch.delenv("RIVERARCHITECT_QGIS_PATH", raising=False)
+    monkeypatch.delenv("QGIS_PREFIX_PATH", raising=False)
+
+    found = [c[0] for c in mapping.qgis_candidates() if same_path(c[0], shared)]
+    assert len(found) == 1
+
+
+# ------------------------------------------------------------------------ ABI tags
+
+def test_the_abi_tag_names_the_python_the_bindings_need(tmp_path):
+    """`_core.cpython-311-...so` means Python 3.11, whatever this interpreter is."""
+    bindings, = touch_tree(tmp_path, "dist-packages")
+    open(os.path.join(bindings, "qgis",
+                      "_core.cpython-311-x86_64-linux-gnu.so"), "w").close()
+    assert mapping.bindings_python_version(bindings) == (3, 11)
+
+
+def test_the_windows_abi_tag_is_read_too(tmp_path):
+    """Windows tags extension modules `cp313`, not `cpython-313`."""
+    bindings, = touch_tree(tmp_path, "python")
+    open(os.path.join(bindings, "qgis", "_core.cp313-win_amd64.pyd"), "w").close()
+    assert mapping.bindings_python_version(bindings) == (3, 13)
+
+
+def test_an_untagged_directory_reports_nothing_rather_than_guessing(tmp_path):
+    """`None` means "cannot tell", which must not be read as "incompatible"."""
+    bindings, = touch_tree(tmp_path, "python")
+    assert mapping.bindings_python_version(bindings) is None
+
+
+def test_bindings_for_another_python_are_rejected_without_touching_sys_path(
+        tmp_path, monkeypatch):
+    """The ABI check happens before the import, so nothing is added and removed again.
+
+    It also has to produce a reason a user can act on. Importing anyway raises
+    ``No module named 'PyQt5.sip'``, which sends people looking for a package that is not
+    missing: PyQt5 *is* there, its sip extension simply carries the same foreign tag.
+    """
+    bindings, = touch_tree(tmp_path, "dist-packages")
+    foreign = (3, sys.version_info[1] + 1)
+    open(os.path.join(bindings, "qgis",
+                      "_core.cpython-%d%d-x86_64-linux-gnu.so" % foreign), "w").close()
+
+    base = str(tmp_path).replace(os.sep, "/")
+    monkeypatch.setattr(mapping, "_qgis_platform", lambda: "linux")
+    monkeypatch.setitem(mapping.QGIS_LAYOUTS, "linux",
+                        ((base + "/dist-packages", "/usr", ()),))
+    monkeypatch.delenv("RIVERARCHITECT_QGIS_PATH", raising=False)
+    monkeypatch.delenv("QGIS_PREFIX_PATH", raising=False)
+    monkeypatch.setattr(mapping, "_qgis_rejected", [])
+    monkeypatch.setattr(mapping, "_qgis_abi_wanted", set())
+    monkeypatch.setattr(sys, "path", list(sys.path))
+
+    assert mapping._locate_qgis_bindings() is None
+    assert not any(same_path(p, bindings) for p in sys.path)
+    assert mapping._qgis_abi_wanted == {foreign}
+    (path, reason), = mapping._qgis_rejected
+    assert same_path(path, bindings)
+    assert "built for Python %d.%d" % foreign in reason
+    assert "this interpreter is %d.%d" % sys.version_info[:2] in reason
+
+
+def test_the_status_message_explains_a_version_mismatch(monkeypatch):
+    """The Maps tab must say it is a wrong-Python problem, not a missing-package one."""
+    monkeypatch.setattr(mapping, "QGIS_AVAILABLE", False)
+    monkeypatch.setattr(mapping, "_qgis_abi_wanted", {(3, 11)})
+    monkeypatch.setattr(mapping, "_qgis_rejected",
+                        [("/usr/lib/python3/dist-packages",
+                          "built for Python 3.11, this interpreter is 3.12")])
+
+    available, message = mapping.qgis_status()
+    assert not available
+    assert "/usr/lib/python3/dist-packages" in message
+    assert "built for Python 3.11" in message
+    # both ways out, so nobody concludes that QGIS is simply not installed
+    assert "conda-forge qgis" in message
+    assert "RA_PYTHON=" in message
+
+
+def test_the_launcher_warns_only_about_a_version_mismatch(monkeypatch):
+    """A missing QGIS is an ordinary optional dependency and must not warn at start-up.
+
+    The Maps tab already explains that case. What deserves a warning before a window opens
+    is the one that looks like a River Architect bug: QGIS installed, and mapping off.
+    """
+    monkeypatch.setattr(mapping, "QGIS_AVAILABLE", False)
+    monkeypatch.setattr(mapping, "_qgis_abi_wanted", set())
+    monkeypatch.setattr(mapping, "_qgis_rejected", [])
+    assert mapping.qgis_launcher_warning() == ""
+
+    monkeypatch.setattr(mapping, "_qgis_abi_wanted", {(3, 11)})
+    monkeypatch.setattr(mapping, "_qgis_rejected",
+                        [("/usr/lib/python3/dist-packages",
+                          "built for Python 3.11, this interpreter is 3.12")])
+    warning = mapping.qgis_launcher_warning("runRiverArchitectWin.bat")
+    assert warning.startswith("WARNING: ")
+    assert "/usr/lib/python3/dist-packages" in warning
+    assert "runRiverArchitectWin.bat" in warning
+
+
+def test_no_warning_when_mapping_works(monkeypatch):
+    monkeypatch.setattr(mapping, "QGIS_AVAILABLE", True)
+    monkeypatch.setattr(mapping, "_qgis_abi_wanted", {(3, 11)})
+    assert mapping.qgis_launcher_warning() == ""
+
+
 # --------------------------------------------------------------------- behaviour
 
 def test_the_module_reports_what_it_found():

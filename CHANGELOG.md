@@ -4,6 +4,34 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **"QGIS is installed but the Maps tab is disabled" now says why.** The bindings are
+  compiled extension modules and load only in the Python minor version they were built for;
+  a distribution builds them for the system interpreter, which is rarely the version a conda
+  environment has. Debian 12 ships QGIS for Python 3.11 while `ra-env` is 3.12, and the
+  import failed with `No module named 'PyQt5.sip'` - which reads as a missing package, so
+  the fix people reached for was reinstalling QGIS, which cannot help. `mapping` now reads
+  the ABI tag off `qgis/_core.cpython-3XX-*.so` *before* importing anything and reports the
+  version mismatch directly, with both ways out: `mamba install -c conda-forge qgis` for a
+  build against the environment's own Python, or `RA_PYTHON=` pointing at the interpreter
+  QGIS was built for. Both launchers print the same warning before opening a window.
+- Duplicate discovery reports. `/usr/lib/python3/dist-packages` matches both the literal
+  Debian entry and the `python3*` glob, so one failing installation was named twice and read
+  as two.
+- Sub-pages no longer hang off an **In this section** node in the documentation menu. The
+  heading put the `toctree` inside a section, so every child page was nested one level too
+  deep, under an entry that was not a page. The toctrees now carry the text as a caption
+  instead, which renders the same in the body and leaves the child pages attached directly to
+  their parent - the structure the original wiki had.
+
+### Added
+
+- `mapping.bindings_python_version`, `mapping.qgis_interpreter` and
+  `mapping.qgis_launcher_warning`, so both start-up scripts share one diagnosis.
+
 ## [2.4.0] - 2026-08-01
 
 **Fish escape routes are found with Dijkstra's algorithm again, and the velocity criterion

@@ -6,6 +6,14 @@ Renders any result raster into a publication-quality PDF through a **QGIS print 
 with multi-page reach series driven by a QGIS atlas. It replaces the original's ArcGIS
 layout templates and `.lyr` symbology.
 
+```{toctree}
+:maxdepth: 1
+:caption: In this section
+
+../guide/qgis_mapping
+Mapping with River Architect (legacy) <../wiki/Mapping>
+```
+
 ## Finding QGIS
 
 QGIS's Python bindings cannot be installed from PyPI. A distribution installs them for the
@@ -57,35 +65,41 @@ River Architect appends instead, so the environment's own packages keep priority
 the modules it genuinely does not have - `qgis` and its `PyQt5` - come from the system.
 ````
 
-````{admonition} If the bindings are built for a different Python
+````{admonition} "QGIS is installed, but the Maps tab is disabled"
 :class: note
 
-Discovery only succeeds when the bindings are ABI-compatible with the running interpreter -
-in practice, the same Python minor version. Ubuntu 24.04 ships Python 3.12 and the `ra-env`
-environment is Python 3.12, so they match. When they do not, the Maps tab says so and names
-the directory it rejected, and the fallback is to start River Architect with the interpreter
-QGIS was installed for:
+This is the single most confusing state the program has, and it has one cause: the bindings
+are **compiled extension modules**, so they load only in the Python minor version they were
+built for. A distribution builds them for its *system* interpreter, and a conda environment
+is usually a different version. Debian 12 ships QGIS for Python 3.11, for instance, while
+`ra-env` is Python 3.12.
+
+River Architect reads the ABI tag off `qgis/_core.cpython-311-*.so` before importing
+anything, so the Maps tab names the version it needs rather than reporting the import error
+that would otherwise surface - `No module named 'PyQt5.sip'`, which sends people looking for
+a package that is not missing. Reinstalling QGIS does not help, and neither does any amount
+of searching. There are two ways out.
+
+**Install QGIS into the environment.** conda-forge builds it against the environment's own
+Python, so one interpreter then does everything:
 
 ```bash
-RA_PYTHON=/usr/bin/python3 ./runRiverArchitectLinux.sh
+mamba install -n ra-env -c conda-forge qgis
 ```
 
-That interpreter usually has no rasterio, so the analysis tabs disable themselves instead -
-which is why matching versions is much the better outcome.
+**Or run the maps from the interpreter QGIS was built for**, and the analyses from `ra-env`:
+
+```bash
+RA_PYTHON=/usr/bin/python3.11 ./runRiverArchitectLinux.sh
+```
+
+That interpreter usually has no rasterio, so the analysis tabs disable themselves there. The
+launcher warns about both situations before it opens a window.
 ````
 
 Layer styles ship as QGIS `.qml` files under the package's `templates/symbology/`. The
 `riverarchitect-lyrx2qml` console script converts an ArcGIS Pro `.lyrx` to `.qml`, so a
 project that has already invested in symbology does not have to redo it.
-
-## In this section
-
-```{toctree}
-:maxdepth: 1
-
-../guide/qgis_mapping
-Mapping with River Architect (legacy) <../wiki/Mapping>
-```
 
 ```{eval-rst}
 .. seealso::

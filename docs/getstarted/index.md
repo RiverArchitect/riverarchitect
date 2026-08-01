@@ -7,6 +7,13 @@ has to exist before an analysis can run.
 The module is {mod}`riverarchitect.preprocessing` (with {mod}`riverarchitect.flows` for the
 flow side), and the **Get Started** tab of the interface.
 
+```{toctree}
+:maxdepth: 1
+:caption: In this section
+
+Get started, conditions and geofile conventions (legacy) <../wiki/Signposts>
+```
+
 ## Conditions
 
 A **condition** is one folder under `01_Conditions/` holding the terrain, sediment and
@@ -164,14 +171,6 @@ against another with.
 
 Map extents are QGIS print layouts rather than the original's `.inp` extent files. See
 {doc}`../modules/maps`.
-
-## Reference
-
-```{toctree}
-:maxdepth: 1
-
-Get started, conditions and geofile conventions (legacy) <../wiki/Signposts>
-```
 
 ```{eval-rst}
 .. seealso::

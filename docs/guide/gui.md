@@ -85,10 +85,16 @@ River Architect searches for them on startup and, when it finds bindings that lo
 ````{admonition} If the bindings are built for a different Python
 :class: warning
 
-Discovery only works when the bindings are ABI-compatible with the running interpreter - in practice, the same Python minor version. When they are not, the Mapping tab names the directory it rejected and the reason, and the fallback is to start with the interpreter QGIS was installed for:
+Discovery only works when the bindings are ABI-compatible with the running interpreter - in practice, the same Python minor version. When they are not, the Mapping tab names the directory it rejected and the version it was built for. Either install QGIS into the environment, so one interpreter does everything:
 
 ```bash
-RA_PYTHON=/usr/bin/python3 ./runRiverArchitectLinux.sh
+mamba install -n ra-env -c conda-forge qgis
+```
+
+or start with the interpreter QGIS was installed for - the launcher prints the exact command:
+
+```bash
+RA_PYTHON=/usr/bin/python3.11 ./runRiverArchitectLinux.sh
 ```
 
 ```powershell

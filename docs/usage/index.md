@@ -14,6 +14,16 @@ How to actually run River Architect, once {doc}`../setup/index` is done. Three w
 **Help ▸ Live Guide: Example** opens the same walkthrough *inside* the program. It sets the project directory to the sample data, and each step brings the tab it talks about to the front, so you read and click in the same window.
 ```
 
+```{toctree}
+:maxdepth: 2
+:caption: In this section
+
+../guide/example_walkthrough
+../guide/quickstart
+../guide/gui
+../guide/tutorial
+```
+
 ## The order the modules go in
 
 This is the one thing worth knowing before anything else. The modules chain, and the step people get stuck on is the first one: a condition that has not been prepared produces either an error or - worse - an empty map that looks like an answer.
@@ -45,14 +55,3 @@ The three ecohydraulic analyses are independent of one another, but all of them 
 ## Units
 
 Set the unit system before anything else, from the **Units** menu or the `unit` argument. It does **not** convert your rasters - it states what they already are. A mismatch does not raise an error anywhere in the chain; it silently applies metric thresholds to data in feet.
-
-## In this section
-
-```{toctree}
-:maxdepth: 2
-
-../guide/example_walkthrough
-../guide/quickstart
-../guide/gui
-../guide/tutorial
-```

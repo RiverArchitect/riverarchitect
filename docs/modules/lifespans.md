@@ -2,6 +2,17 @@
 
 Two modules, and the feature definitions they share.
 
+```{toctree}
+:maxdepth: 1
+:caption: In this section
+
+Lifespan and design mapping: introduction and working principles <../wiki/LifespanDesign>
+Parameter hypotheses <../wiki/LifespanDesign-parameters>
+River design and restoration features <../wiki/River-design-features>
+Code extension and modification <../wiki/LifespanDesign-code>
+Max Lifespan: working principles <../wiki/MaxLifespan>
+```
+
 ## Lifespan Design
 
 {mod}`riverarchitect.lifespan` - the **Lifespan ▸ Lifespan Design** tab.
@@ -248,18 +259,6 @@ is deliberate, and it is what the original did: it tells the planner the choice 
 
 The result feeds {doc}`morphology` - the `best_<feature>.tif` masks are what Terraforming
 reads to know where a feature is planned.
-
-## In this section
-
-```{toctree}
-:maxdepth: 1
-
-Lifespan and design mapping: introduction and working principles <../wiki/LifespanDesign>
-Parameter hypotheses <../wiki/LifespanDesign-parameters>
-River design and restoration features <../wiki/River-design-features>
-Code extension and modification <../wiki/LifespanDesign-code>
-Max Lifespan: working principles <../wiki/MaxLifespan>
-```
 
 ```{eval-rst}
 .. seealso::
