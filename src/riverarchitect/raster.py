@@ -471,6 +471,134 @@ def within_radius(mask, radius, dx=1.0, dy=1.0):
     return distance <= radius
 
 
+def focal_fraction(mask, window=1, valid=None):
+    """Share of each cell's neighbourhood that is True. Replaces focal ``FocalStatistics``.
+
+    ``arcpy.sa.FocalStatistics(raster, NbrRectangle(n, n, "CELL"), "MEAN")`` over a 0/1
+    raster, which is how the original measured *"the percentage of area covered with
+    cobble"* for its mineral cover types.
+
+    Cells outside ``valid`` - the reach boundary, or anywhere the input is NoData - are left
+    out of both the numerator and the denominator, so a cell at the edge of the surveyed area
+    is judged against the neighbours it actually has rather than against assumed dry ground.
+
+    Args:
+        mask (numpy.ndarray): boolean presence array.
+        window (int): neighbourhood radius in **cells**; ``1`` is the 3x3 window.
+        valid (numpy.ndarray): cells carrying data. Defaults to all of them.
+
+    Returns:
+        numpy.ndarray: fraction between 0 and 1, ``numpy.nan`` where no valid neighbour
+        exists.
+    """
+    mask = np.asarray(mask).astype(bool)
+    window = int(window)
+    if window < 1:
+        return mask.astype("float64")
+    valid = np.ones(mask.shape, dtype=bool) if valid is None \
+        else np.asarray(valid).astype(bool)
+
+    size = 2 * window + 1
+    kernel = np.ones((size, size), dtype="float64")
+    present = ndimage.convolve((mask & valid).astype("float64"), kernel, mode="constant",
+                               cval=0.0)
+    counted = ndimage.convolve(valid.astype("float64"), kernel, mode="constant", cval=0.0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(counted > 0, present / counted, np.nan)
+
+
+def least_cost_distance(passable, sources, dx=1.0, dy=1.0, connectivity=8, allowed=None,
+                        towards_sources=False):
+    """Least-cost distance between ``sources`` and every reachable cell, by Dijkstra.
+
+    Replaces ``arcpy.sa.CostDistance`` and, more to the point, the hand-built weighted
+    digraph River Architect 1.x traversed to find fish escape routes: cells are vertices,
+    steps between neighbouring passable cells are edges, and the edge weight is the
+    centre-to-centre distance. The result is the cost of the cheapest route from the nearest
+    source, which is what 1.x wrote into its ``shortest_paths`` rasters.
+
+    ``allowed`` makes the graph **directed**, which is what a velocity criterion needs: a
+    fish may drift down a fast chute it cannot swim back up.
+
+    Args:
+        passable (numpy.ndarray): boolean mask of cells that can be occupied at all.
+        sources (numpy.ndarray): boolean mask of start cells. Cells outside ``passable`` are
+            ignored.
+        dx, dy (float): cell size in map units, from :func:`cell_size`.
+        connectivity (int): 4 for rook steps, 8 to include the diagonals.
+        allowed (callable): ``allowed(dr, dc)`` returns a full-grid boolean array that is
+            True at ``(r, c)`` where a step **from** ``(r, c)`` **to** ``(r + dr, c + dc)``
+            is permitted. Steps in the opposite direction are asked for separately, so a
+            one-way edge is expressed by answering True for one and False for the other.
+            Without it every step between passable cells is permitted in both directions.
+        towards_sources (bool): search the reversed graph, so the result is the cost of
+            travelling **to** the nearest source rather than away from it. This is the
+            escape-route direction - a fish leaves the pool for the mainstem - and it is why
+            1.x traversed its graph outwards from the mainstem. Without a directed
+            ``allowed`` the two are identical.
+
+    Returns:
+        numpy.ndarray: cost between each cell and the nearest source, ``numpy.nan`` where
+        unreachable or impassable. Source cells cost 0.
+    """
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import dijkstra
+
+    passable = np.asarray(passable).astype(bool)
+    sources = np.asarray(sources).astype(bool) & passable
+    cost = np.full(passable.shape, np.nan)
+    if not passable.any() or not sources.any():
+        return cost
+
+    rows, cols = passable.shape
+    index = -np.ones(passable.shape, dtype=np.int64)
+    index[passable] = np.arange(int(passable.sum()))
+
+    steps = [(0, 1, abs(dx)), (1, 0, abs(dy))]
+    if int(connectivity) == 8:
+        diagonal = float(np.hypot(dx, dy))
+        steps += [(1, 1, diagonal), (1, -1, diagonal)]
+
+    from_index, to_index, weight = [], [], []
+    for dr, dc, step_cost in steps:
+        # The overlap of the grid with itself shifted by (dr, dc): `here` holds the cells a
+        # step starts from, `there` the cells it lands on.
+        row_from, row_to = max(0, -dr), rows - max(0, dr)
+        col_from, col_to = max(0, -dc), cols - max(0, dc)
+        here = (slice(row_from, row_to), slice(col_from, col_to))
+        there = (slice(row_from + dr, row_to + dr), slice(col_from + dc, col_to + dc))
+
+        both = passable[here] & passable[there]
+        if not both.any():
+            continue
+        forward, backward = both, both
+        if allowed is not None:
+            forward = both & np.asarray(allowed(dr, dc)).astype(bool)[here]
+            backward = both & np.asarray(allowed(-dr, -dc)).astype(bool)[there]
+
+        for source_mask, start, end in ((forward, here, there), (backward, there, here)):
+            if not source_mask.any():
+                continue
+            from_index.append(index[start][source_mask])
+            to_index.append(index[end][source_mask])
+            weight.append(np.full(int(source_mask.sum()), step_cost))
+
+    n = int(passable.sum())
+    if not weight:
+        cost[sources] = 0.0
+        return cost
+    graph = coo_matrix((np.concatenate(weight),
+                        (np.concatenate(from_index), np.concatenate(to_index))),
+                       shape=(n, n))
+    # Reversing the edges turns "how far from the mainstem is this cell" into "how far is
+    # this cell from reaching the mainstem", which is the question a stranded fish asks.
+    graph = (graph.T if towards_sources else graph).tocsr()
+
+    distance = dijkstra(graph, directed=True, indices=index[sources], min_only=True)
+    cost[passable] = np.where(np.isfinite(distance), distance, np.nan)
+    return cost
+
+
 def disconnected_mask(binary, connectivity=4, target=None):
     """Boolean mask of every wetted region that does not reach the main channel.
 

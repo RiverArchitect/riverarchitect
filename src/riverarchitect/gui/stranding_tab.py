@@ -233,9 +233,13 @@ class StrandingGui(RaModuleGui):
                   % (result["worst_discharge"], discharge,
                      result["worst_stranded_area"], area),
                   "Ever disconnected: %.0f %s" % (result["total_disconnected_area"], area),
-                  "",
-                  "Connectivity only: the swimming-speed criterion of the ArcGIS version",
-                  "is not applied."]
+                  ""]
+        if result.get("velocity_limited", False):
+            lines += ["Escape routes account for the %.1f %s swimming speed."
+                      % (result["u_max"], self.labels["u"])]
+        else:
+            lines += ["Depth only: the swimming-speed criterion needs the flow direction",
+                      "(ux<Q>.tif and uy<Q>.tif beside the condition)."]
         if result.get("output_dir"):
             lines += ["", "Written to: %s" % result["output_dir"]]
         self._write("\n".join(lines))

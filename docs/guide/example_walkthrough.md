@@ -323,13 +323,16 @@ The stranded percentage is also reported against the largest *measured* wetted e
 (`percent_of_max_wetted`), which on this reach is 356 832 sqft at 42200 cfs - not at the
 highest discharge, because of `h088053.tif`.
 
-```{admonition} The velocity criterion is not applied
+```{admonition} The velocity criterion needs flow direction
 :class: warning
 
-The original also blocked escape routes where the flow was faster than the lifestage could
-swim against. This port applies the depth criterion only. `StrandingRisk.velocity_limited` is
-`False` to record that, and `StrandingRisk.u_max` carries the threshold that would have been
-used, so a result can state it.
+Escape routes are found with Dijkstra's algorithm, as in the original, and the original also
+blocked them where the flow was faster than the lifestage could swim against. That criterion
+is directed - fast water can be drifted down but not climbed back up - so it needs the
+velocity *components*, and this condition ships only the speed `u<Q>.tif`. Pass
+`velocity_field={Q: (ux, uy)}` to apply it; `StrandingRisk.velocity_limited` reports whether
+it was. Do not substitute the speed alone: at 7250 cfs only 0.4 % of the mainstem here is
+slower than a juvenile's 1.9 fps, so an undirected criterion strands the river itself.
 ```
 
 ## 7. Riparian recruitment

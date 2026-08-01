@@ -694,3 +694,59 @@ cells the old expression mishandled can now fail earlier. On the sample reach `G
 planting rose from 23 166 to 44 775 sqft, `gravin` fell from 7 515 to 5 490 sqft, and full
 recruitment potential rose from 17 361 to 31 977 sqft. Anything comparing against a River
 Architect 1.x run must expect these differences.
+
+### Mineral cover: two defensible readings of the same two workbook cells
+
+Not a defect, but a place where the sources disagree and the choice should be visible rather
+than implicit.
+
+SHArC's cover option distinguishes two kinds of shelter. Vegetative cover - plants and
+streamwood - buffers each element by a **radius**: *"the module draws polygons with a
+user-defined radius around the plant polygons"*. Mineral cover - cobbles and boulders - is
+described instead by **how much of the surface it occupies**: *"areas where the boulder
+presence covers more than 30 % of the surface get assigned an HSI value of 0.5"*.
+
+Both are read from the same two cells per lifestage, and `Fish.xlsx` heads both blocks
+`Rad.`, so both are applied as radii here - the workbook is the file the code actually reads,
+and it calls them radii. The competing reading is available as `mineral_rule="fraction"`,
+measured with {func}`riverarchitect.raster.focal_fraction`, the `FocalStatistics` equivalent,
+over a 3x3 window by default; the original's window size is not recorded anywhere that
+survived, so it is a documented parameter rather than a silent constant.
+
+What tips the balance for anyone choosing: the mineral values the workbook holds are 0.1 and
+1.0, smaller than a cell on any real grid, so as radii
+{func}`riverarchitect.raster.within_radius` reduces to the identity and each cobble cell takes
+the suitability on its own with no spreading at all. As fractions the same numbers ask for
+10 % of the neighbourhood to be cobble and 100 % to be boulder. On the sample reach, Chinook
+juvenile SHArea with cover is 55 331 sqft by radius against 53 723 sqft by fraction, and
+boulders drop out of the fraction result entirely, their value asking for a neighbourhood that
+is wholly boulder on a reach that has none.
+
+### Stranding escape routes are found with Dijkstra again, and the velocity criterion works
+
+1.x built a weighted digraph over travel-permissible cells and ran Dijkstra's algorithm
+outwards from the low-flow mainstem, writing the route length into a `shortest_paths` raster
+per discharge and calling a cell disconnected when no finite-cost route reached it. The port
+replaced that with connected-component labelling, on the argument that with only the depth
+criterion applied the two select the same cells.
+
+The argument is sound - it is now verified cell-for-cell against a real Dijkstra search on the
+sample reach - but it only holds because the **velocity criterion was dropped**, and that
+criterion is the reason the original needed a graph at all. A fish cannot swim upstream
+against more than `u_max`, so fast water is a one-way door: passable downstream, impassable
+up. That is a *directed* edge, and no undirected rule expresses it.
+
+{func}`riverarchitect.raster.least_cost_distance` is that search, with an `allowed` hook for
+one-way edges and a `towards_sources` flag - the escape direction is *to* the mainstem, not
+away from it, which is why 1.x traversed its graph outwards from there.
+{class}`riverarchitect.stranding.StrandingRisk` uses it whenever a `velocity_field` is
+supplied, keeps the component rule as the equivalent fast path when one is not, and can write
+`escape_<Q>.tif`.
+
+What the criterion needs is the velocity **components**, and conditions ship `u<Q>.tif`, a
+speed. `ux<Q>.tif` and `uy<Q>.tif` are picked up automatically when a 2D model exports them;
+otherwise pass them through `velocity_field`. Approximating the criterion with the speed
+alone is not conservative, it is wrong: on the sample reach at 7250 cfs only 0.4 % of the
+low-flow mainstem is slower than a juvenile Chinook's 1.9 fps and at 16 000 cfs none of it
+is, so the mainstem itself becomes unreachable and 134 to 236 times more area reads as
+stranded. `velocity_limited` therefore reports whether the criterion actually applied.

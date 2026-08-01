@@ -64,6 +64,32 @@ shelter a fish cannot get to shelters nothing.
 With cover, the composite is the cube root of `dsi * vsi * cover` rather than the square root
 of `dsi * vsi`.
 
+```{admonition} Mineral cover can also be read as an areal fraction
+:class: note
+
+`Fish.xlsx` heads both cover blocks `Rad.`, which is why cobbles and boulders are applied by
+radius like plants and streamwood. The working-principles page describes them differently -
+*"areas where the boulder presence covers more than 30 % of the surface get assigned an HSI
+value of 0.5"* - and reads the same two cells as areal fractions. That reading is available:
+
+```python
+SHArC("2100_sample", unit="us", mineral_rule="fraction")   # or cover_window=2
+```
+
+The fraction is measured over a 3x3 window by default
+({data}`riverarchitect.sharc.COVER_WINDOW`); the original's window size is not recorded
+anywhere that survived, so it is a parameter rather than a constant. See
+{data}`riverarchitect.sharc.MINERAL_COVER_RULES`.
+
+Worth knowing before choosing. The mineral values the workbook holds are 0.1 for cobbles and
+1.0 for boulders, which as radii are smaller than a cell on any real grid - so under the
+default a mineral cover element shelters only itself, with no spreading at all. As fractions
+the same numbers ask for 10 % and 100 % of the neighbourhood. On the sample reach, Chinook
+juvenile SHArea with cover is 55 331 sqft by radius against 53 723 sqft by fraction, and
+boulders drop out of the fraction result entirely: their value asks for a neighbourhood that
+is *wholly* boulder, and a gravel-cobble reach has none.
+```
+
 ```{admonition} Where the radius came from
 :class: note
 
@@ -71,7 +97,8 @@ The original produced it by converting the cover raster to points, running
 `SpatialJoin_analysis(..., match_option="CLOSEST", search_radius=r)` against a point per
 cell, and converting back. That is a Euclidean distance transform written the only way
 `arcpy` allowed; here it is {func}`riverarchitect.raster.within_radius`, which also handles
-anisotropic cells correctly.
+anisotropic cells correctly. The mineral fraction is
+{func}`riverarchitect.raster.focal_fraction`, the equivalent of `FocalStatistics`.
 ```
 
 ### Species and lifestages
@@ -103,17 +130,28 @@ suitable, and clamping there would invent habitat at the highest discharges.
 
 As discharge falls the wetted area shrinks and breaks apart; pools that lose their connection
 to the main channel trap fish. Threshold each depth raster at the minimum swimming depth of
-the species and lifestage, label the wetted regions, and every region that does not reach the
-main channel is a stranding risk.
+the species and lifestage, then ask of every wetted cell whether a route back to the main
+channel exists. Where none does, a fish that is there is trapped.
+
+That question is answered by **Dijkstra's algorithm** over the travel-permissible cells -
+{func}`riverarchitect.raster.least_cost_distance` - which is how the original built its
+`shortest_paths` rasters: cells are vertices, steps between neighbours are edges weighted by
+the distance between cell centres, and the cheapest route to the mainstem is the escape
+route. When only the depth criterion applies, a route exists exactly when the wetted region
+touches the mainstem, so the answer coincides with connected-component labelling
+({func}`riverarchitect.raster.disconnected_mask`); that is the faster path and the one taken
+when no velocity field is supplied. The two are checked against each other on the sample
+reach in the test suite.
 
 The **main channel is defined once**, as the largest wetted region at the lowest analysed
 discharge, and every higher discharge is judged against it - the same target the original
-built its least-cost escape routes towards.
+built its escape routes towards.
 
 | Output | |
 |---|---|
 | `disconnected_<Q>.tif` | one per discharge |
 | `Q_disconnect.tif` | the highest discharge at which each cell was disconnected: the flow at which that spot becomes a trap as the hydrograph recedes |
+| `escape_<Q>.tif` | route length back to the mainstem, with `write_escape_routes=True` - the original's `shortest_paths` |
 | `pools_<Q>.gpkg` | the individual pools at the worst discharge |
 | table | wetted area, stranded area and pool count per discharge |
 
@@ -122,13 +160,32 @@ single most influential parameter in the analysis** - at `h_min = 0` every wet c
 and much of the pool count is single cells at the wetted edge, real in the raster and
 meaningless in the river. State the value you used alongside any result.
 
-```{admonition} The velocity criterion is not applied
+### The velocity criterion
+
+A fish cannot swim upstream against more than `u_max`, so fast water is a one-way door: it
+can be drifted down but not climbed back up. That makes the escape-route graph **directed**,
+and a directed graph needs the flow *direction*. Conditions ship `u<Q>.tif`, a speed, so the
+criterion applies only when the components are supplied as well:
+
+```python
+StrandingRisk.for_fish("2100_sample", "Chinook salmon", "juvenile",
+                       velocity_field={7250.0: ("ux007250.tif", "uy007250.tif")})
+```
+
+`velocity_field` takes a `{discharge: (ux, uy)}` mapping of arrays or paths, or a callable
+`f(discharge, profile) -> (ux, uy)`. `ux<Q>.tif` and `uy<Q>.tif` beside the condition's
+hydraulic rasters are picked up automatically.
+{attr}`riverarchitect.stranding.StrandingRisk.velocity_limited` reports whether the criterion
+is being applied, so a result can state it either way.
+
+```{admonition} Do not approximate it with the speed alone
 :class: warning
 
-The original also blocked escape routes where the flow was faster than the lifestage could
-swim against. This port applies the depth criterion only.
-{attr}`riverarchitect.stranding.StrandingRisk.velocity_limited` is `False` to record that,
-and `u_max` carries the threshold that would have been used, so a result can state it.
+Treating a cell as impassable because it is *fast*, without knowing which way, is not a
+conservative simplification - it is a different analysis. On the sample reach at 7250 cfs
+only 0.4 % of the low-flow mainstem is slower than a juvenile Chinook's 1.9 fps, and at
+16 000 cfs none of it is: the mainstem itself becomes unreachable and almost the whole wetted
+area reads as stranded. This is why `u_max` on its own does nothing.
 ```
 
 ## Riparian Seedling Recruitment

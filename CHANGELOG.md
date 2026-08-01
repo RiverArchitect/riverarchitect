@@ -4,6 +4,54 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-08-01
+
+**Fish escape routes are found with Dijkstra's algorithm again, and the velocity criterion
+of StrandingRisk works.** That criterion was the module's one documented gap, and it is the
+reason the original needed a graph search at all: a fish cannot swim upstream against more
+than it can swim, so fast water is passable downstream and not up - a directed edge, which no
+undirected rule expresses. Found by comparing against transcriptions of the original routines
+on the sample reach rather than by reading the code.
+
+### Added
+
+- `raster.least_cost_distance` - Dijkstra's algorithm over a raster, replacing
+  `arcpy.sa.CostDistance` and, more to the point, the weighted digraph 1.x traversed to find
+  fish escape routes. `allowed` makes individual edges one-way, which is what a velocity
+  criterion needs; `towards_sources` searches the reversed graph, because the escape
+  direction is *to* the mainstem rather than away from it.
+- `raster.focal_fraction` - the share of a cell's neighbourhood carrying a value, the
+  `FocalStatistics(..., "MEAN")` equivalent. Cells outside the surveyed area are left out of
+  both numerator and denominator, so an edge cell is judged against the neighbours it has.
+- `StrandingRisk.escape_routes` returns the length of the cheapest route from each wetted
+  cell back to the mainstem, and `run(write_escape_routes=True)` writes it as
+  `escape_<Q>.tif` - the equivalent of 1.x's `shortest_paths` directory.
+- **The velocity criterion of StrandingRisk**, which had been the module's one documented
+  gap. A fish cannot swim upstream against more than `u_max`, so fast water is passable
+  downstream and impassable up: a directed edge. `velocity_field` supplies the flow
+  components as a `{discharge: (ux, uy)}` mapping of arrays or paths, or as a callable;
+  `ux<Q>.tif` and `uy<Q>.tif` beside the condition are found automatically.
+
+- **`sharc.cover_hsi(mineral_rule="fraction")`** applies cobbles and boulders as an areal
+  fraction - *"areas where the boulder presence covers more than 30 % of the surface get
+  assigned an HSI value of 0.5"* - instead of by radius. The wiki describes mineral cover
+  that way while `Fish.xlsx` heads both cover blocks `Rad.`, so **the radius stays the
+  default** and this is the opt-in alternative; `cover_window` widens the 3x3 window, the
+  original's size not being recorded anywhere that survived. Worth knowing when choosing: the
+  mineral values the workbook holds (0.1 and 1.0) are smaller than a cell on any real grid,
+  so by radius a mineral element shelters only itself. On the sample reach Chinook juvenile
+  SHArea with cover is 55 331 sqft by radius against 53 723 sqft by fraction, boulders
+  dropping out of the latter entirely.
+
+### Changed
+
+- `StrandingRisk.velocity_limited` is a property rather than a constant `False`: it reports
+  whether the velocity criterion is actually being applied, which takes both a `u_max` and a
+  velocity field. `u_max` is now a constructor argument as well, and appears in the result.
+- Connected-component labelling stays the engine when no velocity field is given, since with
+  only the depth criterion the two searches provably select the same cells. That equivalence
+  is now a test on the sample reach rather than an assertion in a docstring.
+
 ## [2.3.1] - 2026-08-01
 
 **The bed shear stress is written out, and depth is called by its right name.** 2.3.0 made

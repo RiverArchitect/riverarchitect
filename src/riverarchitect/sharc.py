@@ -38,7 +38,8 @@ from . import config, raster
 from .condition import Condition, discharge_token
 
 __all__ = ["FishDatabase", "apply_curve", "cover_hsi", "SHArC", "COMBINE_METHODS",
-           "COVER_TYPES", "GRAIN_SIZE_LIMITS"]
+           "COVER_TYPES", "GRAIN_SIZE_LIMITS", "MINERAL_COVER", "MINERAL_COVER_RULES",
+           "COVER_WINDOW"]
 
 logger = logging.getLogger("riverarchitect")
 
@@ -299,8 +300,34 @@ COVER_TYPES = ("substrate", "cobbles", "boulders", "plants", "wood")
 #: units.
 GRAIN_SIZE_LIMITS = {"cobbles": (0.064, 0.256), "boulders": (0.256, 100.0)}
 
+#: Cover types the wiki describes as *mineral* cover, which it judges by areal fraction
+#: rather than by proximity. See :func:`cover_hsi` and :data:`MINERAL_COVER_RULES`.
+MINERAL_COVER = ("cobbles", "boulders")
 
-def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=None):
+#: How the first workbook value of a mineral cover type is read.
+#:
+#: ``"radius"``
+#:     an influence radius, the way vegetative cover is applied. **This is the default**,
+#:     because the packaged ``Fish.xlsx`` heads both cover blocks ``Rad.``.
+#: ``"fraction"``
+#:     an areal fraction, as ``docs/wiki/SHArC-working-principles.md`` describes mineral
+#:     cover: *"areas where the boulder presence covers more than 30 % of the surface get
+#:     assigned an HSI value of 0.5"*.
+#:
+#: The two readings disagree about the same two workbook cells and the evidence is genuinely
+#: split, which is why both are available. Worth knowing before choosing: the values the
+#: workbook holds (0.1 for cobbles, 1.0 for boulders) are smaller than one cell on any real
+#: grid, so under ``"radius"`` a mineral cover element shelters only itself.
+MINERAL_COVER_RULES = ("radius", "fraction")
+
+#: Neighbourhood radius **in cells** over which an areal fraction is measured. The original's
+#: window size is not recorded anywhere that survived; 1 is the smallest meaningful choice, a
+#: 3x3 window. Override it with the ``window`` argument of :func:`cover_hsi`.
+COVER_WINDOW = 1
+
+
+def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=None,
+              mineral_rule="radius", window=COVER_WINDOW):
     """Cover habitat suitability: shelter from substrate, cobbles, boulders, plants and wood.
 
     Depth and velocity say whether a fish *can* be somewhere. Cover says whether it is safe
@@ -308,15 +335,20 @@ def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=N
     original offered this as the *cover* option of SHArC and it is what separates a hydraulic
     habitat model from an ecohydraulic one.
 
-    Two kinds of layer, dispatched as ``cHSI.CovHSI.call_analysis`` did:
+    Three kinds of layer, dispatched as ``cHSI.CovHSI.call_analysis`` did:
 
     ``substrate``
         a grain size raster, mapped through its suitability curve like depth or velocity.
-    ``cobbles``, ``boulders``, ``plants``, ``wood``
-        presence layers. ``cobbles`` and ``boulders`` are cut out of a grain size raster by
-        the diameter ranges in :data:`GRAIN_SIZE_LIMITS`; ``plants`` and ``wood`` are given
-        directly. Each element then shelters everything within its **radius**, taken from
-        the first x value of its curve, and those cells take the curve's suitability.
+    ``cobbles``, ``boulders`` - **mineral** cover
+        presence layers, cut out of a grain size raster by the diameter ranges in
+        :data:`GRAIN_SIZE_LIMITS` unless given directly. Applied by **radius**, like
+        vegetative cover, unless ``mineral_rule="fraction"`` asks for the areal-fraction rule
+        the wiki describes - *"areas where the boulder presence covers more than 30 % of the
+        surface get assigned an HSI value of 0.5"*. See :data:`MINERAL_COVER_RULES`.
+    ``plants``, ``wood`` - **vegetative** cover
+        presence layers, given directly. Each element shelters everything within its
+        **radius**, taken from the first x value of its curve, and those cells take the
+        curve's suitability.
 
     The result is the cell-wise **maximum** across the types present: the best shelter
     available at a cell is what counts, not the sum of every kind of it.
@@ -332,6 +364,9 @@ def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=N
         depth (numpy.ndarray): water depth. When given, cover is cropped to cells at least as
             deep as the first point of the depth curve, as the original's
             ``crop_input_raster`` did - cover a fish cannot reach shelters nothing.
+        mineral_rule (str): ``"fraction"`` or ``"radius"``; see :data:`MINERAL_COVER_RULES`.
+        window (int): neighbourhood radius in cells for the areal fraction.
+            See :data:`COVER_WINDOW`.
 
     Returns:
         tuple: ``(cover, used)`` - the suitability array with NoData where no cover applies,
@@ -339,6 +374,8 @@ def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=N
     """
     from . import raster
 
+    if mineral_rule not in MINERAL_COVER_RULES:
+        raise ValueError("mineral_rule must be one of %s" % (MINERAL_COVER_RULES,))
     fish = fish or FishDatabase()
     species = fish.resolve_species(species)
     lifestage = fish.resolve_lifestage(species, lifestage)
@@ -370,13 +407,14 @@ def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=N
             used.append(cover_type)
             continue
 
-        # Presence layers. The curve gives a radius and the suitability inside it; where the
-        # workbook has only the scalar pair, cover_value supplies it.
+        # Presence layers. The curve's first point gives the threshold - a radius for
+        # vegetative cover, an areal fraction for mineral cover - and the suitability that
+        # goes with it; where the workbook has only the scalar pair, cover_value supplies it.
         value = fish.cover_value(species, lifestage, cover_type)
         if curve is not None:
-            radius, suitability_value = float(curve[0][0]), float(curve[1][0])
+            threshold, suitability_value = float(curve[0][0]), float(curve[1][0])
         elif value is not None:
-            radius, suitability_value = value
+            threshold, suitability_value = value
         else:
             continue
 
@@ -395,11 +433,28 @@ def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=N
         if not mask.any():
             continue
 
-        sheltered = raster.within_radius(mask, radius, dx, dy)
+        if cover_type in MINERAL_COVER and mineral_rule == "fraction":
+            # Areal fraction over the neighbourhood, judged only where there is data: a cell
+            # at the edge of the survey is measured against the neighbours it has.
+            covered = np.isfinite(grain) if grain is not None \
+                else np.ones(mask.shape, dtype=bool)
+            if reachable is not None:
+                covered = covered & reachable
+            fraction = raster.focal_fraction(mask, window=window, valid=covered)
+            with np.errstate(invalid="ignore"):
+                sheltered = np.nan_to_num(fraction) > threshold
+            logger.info("      * cover %-10s fraction > %.2f over a %dx%d window, HSI %.2f, "
+                        "%d cell(s) sheltered", cover_type, threshold, 2 * window + 1,
+                        2 * window + 1, suitability_value, int(sheltered.sum()))
+        else:
+            sheltered = raster.within_radius(mask, threshold, dx, dy)
+            logger.info("      * cover %-10s radius %.2f, HSI %.2f, %d cell(s) sheltered",
+                        cover_type, threshold, suitability_value, int(sheltered.sum()))
+
+        if not sheltered.any():
+            continue
         contributions.append(raster.con(sheltered, suitability_value))
         used.append(cover_type)
-        logger.info("      * cover %-10s radius %.2f, HSI %.2f, %d cell(s) sheltered",
-                    cover_type, radius, suitability_value, int(sheltered.sum()))
 
     if not contributions:
         return None, []
@@ -465,13 +520,15 @@ class SHArC:
         combine_method (str): ``"geometric_mean"`` or ``"product"``.
         fish (FishDatabase): the curve database. Defaults to the packaged ``Fish.xlsx``.
         threshold (float): cHSI above which a cell counts as usable habitat.
+        mineral_rule (str): how mineral cover is applied; see :data:`MINERAL_COVER_RULES`.
+        cover_window (int): neighbourhood radius in cells for the mineral cover fraction.
 
     Attributes:
         error (bool): True when at least one discharge could not be processed.
     """
 
     def __init__(self, condition, unit="us", combine_method="geometric_mean", fish=None,
-                 threshold=0.4):
+                 threshold=0.4, mineral_rule="radius", cover_window=COVER_WINDOW):
         self.condition = condition if isinstance(condition, Condition) \
             else Condition(condition)
         self.unit = str(unit).lower()
@@ -479,6 +536,10 @@ class SHArC:
             raise ValueError("combine_method must be one of %s" % (COMBINE_METHODS,))
         self.combine_method = combine_method
         self.threshold = float(threshold)
+        if mineral_rule not in MINERAL_COVER_RULES:
+            raise ValueError("mineral_rule must be one of %s" % (MINERAL_COVER_RULES,))
+        self.mineral_rule = mineral_rule
+        self.cover_window = int(cover_window)
         self.fish = fish or FishDatabase()
         self.logger = logger
         self.error = False
@@ -536,7 +597,9 @@ class SHArC:
 
         if cover is None and cover_layers:
             cover, used = cover_hsi(species, lifestage, cover_layers, reference,
-                                    unit=self.unit, fish=self.fish, depth=depth)
+                                    unit=self.unit, fish=self.fish, depth=depth,
+                                    mineral_rule=self.mineral_rule,
+                                    window=self.cover_window)
             self._cover_used.update(used)
 
         with np.errstate(invalid="ignore"):

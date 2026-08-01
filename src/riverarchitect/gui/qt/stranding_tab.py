@@ -241,11 +241,17 @@ class StrandingTab(RaTab):
                      result["worst_stranded_area"], area),
                   "Ever disconnected: %.0f %s"
                   % (result["total_disconnected_area"], area)]
-        if not result.get("velocity_limited", False):
+        if result.get("velocity_limited", False):
             lines += ["",
-                      "Note: connectivity only. The swimming-speed criterion of the ArcGIS",
-                      "version is not applied, so an area counts as connected even where the",
-                      "escape route runs against a current a fish could not beat."]
+                      "Escape routes account for the %.1f %s swimming speed: fast water is"
+                      % (result["u_max"], self.labels["u"]),
+                      "passable downstream and not upstream."]
+        else:
+            lines += ["",
+                      "Note: depth only. Applying the swimming-speed criterion needs the flow",
+                      "direction - ux<Q>.tif and uy<Q>.tif beside the condition, or a",
+                      "velocity_field - so an area counts as connected even where the escape",
+                      "route runs against a current a fish could not beat."]
         if result.get("output_dir"):
             lines += ["", "Written to:", result["output_dir"]]
         self.results.setPlainText("\n".join(lines))

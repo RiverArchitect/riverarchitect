@@ -133,6 +133,47 @@ def test_qt_lifespan_tab_lists_the_default_features(qt_app):
     assert tab.selected_features()          # something is ticked by default
 
 
+def test_qt_lifespan_tab_offers_the_plant_species(qt_app):
+    """The four plantings of the original are selectable by their full names."""
+    pytest.importorskip("rasterio")
+    from riverarchitect.gui.qt.main import RiverArchitectWindow
+
+    window = RiverArchitectWindow()
+    tab = find_tab(window, "LifespanTab")
+    labels = " ".join(tab.feature_list.item(i).text()
+                      for i in range(tab.feature_list.count()))
+    for name in ("Box Elder", "Cottonwood", "White Alder", "Willow"):
+        assert name in labels
+
+
+def test_qt_max_lifespan_tab_finds_the_plant_rasters(qt_app, tmp_path):
+    """Pointed at a folder of plant lifespan maps, the tab lists them and enables the run.
+
+    The tab hands every ``lf_*.tif`` in the directory to MaxLifespan, so mapping only the
+    three plants into their own folder is how a planner restricts the assessment to them.
+    """
+    pytest.importorskip("rasterio")
+    import numpy as np
+
+    from riverarchitect import raster
+    from riverarchitect.gui.qt.main import RiverArchitectWindow
+
+    from affine import Affine
+    profile = {"driver": "GTiff", "height": 2, "width": 2, "count": 1, "dtype": "float32",
+               "crs": "EPSG:32633", "transform": Affine(1.0, 0.0, 0.0, 0.0, -1.0, 2.0)}
+    for fid in ("cot", "wil", "whi"):
+        raster.write(str(tmp_path / ("lf_%s.tif" % fid)), np.full((2, 2), 5.0), profile)
+
+    window = RiverArchitectWindow()
+    tab = find_tab(window, "MaxLifespanTab")
+    tab.lifespan_dir = str(tmp_path)
+    tab._scan()
+    assert "3 feature(s) found" in tab.found.text()
+    for fid in ("cot", "wil", "whi"):
+        assert fid in tab.found.text()
+    assert tab.b_run.isEnabled()
+
+
 def test_qt_unit_switch_propagates_to_tabs(qt_app):
     from riverarchitect.gui.qt.main import RiverArchitectWindow
 

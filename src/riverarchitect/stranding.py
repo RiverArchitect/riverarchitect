@@ -11,21 +11,38 @@ Outputs
 * one ``disconnected_<Q>.tif`` per discharge;
 * ``Q_disconnect.tif`` - the highest discharge at which each cell was disconnected, i.e. the
   flow at which that spot becomes a trap as the hydrograph recedes;
+* ``escape_<Q>.tif`` - the length of the cheapest route from each cell back to the mainstem,
+  optionally, as the original's ``shortest_paths`` rasters held it;
 * a polygon layer of the individual pools at the worst discharge;
 * a per-discharge table of wetted area, stranded area and pool count.
 
 Relation to the original
 ------------------------
-The original built a least-cost "escape route" raster per discharge and called a cell
-disconnected when no route reached the low-flow target polygon - the largest wetted region
-at the *lowest* analysed discharge. With the depth threshold applied first, a route exists
-exactly when the region touches that target, so the least-cost search reduces to the
-connected-component rule in :func:`riverarchitect.raster.disconnected_mask`, seeded from the
-same low-flow mainstem. ``target_discharge`` chooses the discharge that defines it.
+The original built a weighted digraph over travel-permissible cells, ran Dijkstra's algorithm
+outwards from the low-flow mainstem, and called a cell disconnected when no finite-cost route
+reached it. The mainstem is the largest wetted region at the *lowest* analysed discharge, and
+``target_discharge`` chooses which discharge defines it.
 
-The velocity criterion of the original (a fish cannot swim upstream against more than
-``u_max``) is **not** applied; see :attr:`StrandingRisk.velocity_limited` for the flag that
-records this, and :attr:`StrandingRisk.u_max` for the threshold that would have been used.
+That search is :func:`riverarchitect.raster.least_cost_distance`, and it is what
+:class:`StrandingRisk` runs. With only the depth criterion applied a route exists exactly
+when the wetted region touches the mainstem, so the answer coincides with the
+connected-component rule in :func:`riverarchitect.raster.disconnected_mask` - which is
+faster, is used when no velocity field is supplied, and is checked against the Dijkstra
+result in the test suite.
+
+The velocity criterion
+----------------------
+A fish cannot swim upstream against more than ``u_max``, so fast water is a one-way door: it
+can be drifted down but not climbed back up. That makes the graph **directed**, and a
+directed graph needs the flow *direction*, not just its magnitude - conditions ship
+``u<Q>.tif`` as a speed. Supply the components through ``velocity_field`` and the criterion
+is applied; without them it is skipped and :attr:`StrandingRisk.velocity_limited` says so.
+
+Applying it as an undirected mask instead - a cell is impassable when it is fast - is not a
+usable approximation and the module will not do it silently: on the sample reach at 7250 cfs
+only 0.4 % of the low-flow mainstem is slower than a juvenile Chinook's 1.9 fps, so the
+mainstem itself would become unreachable and almost the whole wetted area would read as
+stranded.
 """
 
 import logging
@@ -111,28 +128,32 @@ class StrandingRisk:
             original's ``get_target_raster`` used: the mainstem is the largest wetted region
             at low flow, and a pool is stranded when no route reaches *it*. Pass ``False``
             to fall back to the largest region at each discharge separately.
+        u_max (float): maximum swimming speed. Applied only together with
+            ``velocity_field``; :meth:`for_fish` fills it from the habitat database.
+        velocity_field (callable or dict): the flow *direction* the velocity criterion needs.
+            Either a callable ``f(discharge, profile) -> (ux, uy)`` giving the eastward and
+            northward velocity components on that grid, or a dict ``{discharge: (ux, uy)}``
+            of arrays or raster paths. Defaults to ``ux<Q>.tif`` and ``uy<Q>.tif`` beside the
+            condition's hydraulic rasters when both exist.
 
     Attributes:
-        velocity_limited (bool): always False - the velocity criterion of the original is
-            not applied. Recorded so a caller can state it alongside a result.
+        velocity_limited (bool): True when the velocity criterion is actually applied, which
+            takes both a ``u_max`` and a velocity field. Recorded so a caller can state it
+            alongside a result.
     """
-
-    velocity_limited = False
 
     #: Species and lifestage the thresholds came from, when built by :meth:`for_fish`.
     species = None
     lifestage = None
-    #: Maximum swimming speed of that lifestage, recorded but not applied. See
-    #: :attr:`velocity_limited`.
-    u_max = None
 
     def __init__(self, condition, discharges=None, h_min=0.2, unit="us", connectivity=4,
-                 target_discharge=None):
+                 target_discharge=None, u_max=None, velocity_field=None):
         self.condition = condition if isinstance(condition, Condition) \
             else Condition(condition)
         self.h_min = float(h_min)
         self.unit = str(unit).lower()
         self.connectivity = int(connectivity)
+        self.u_max = None if u_max is None else float(u_max)
         self.logger = logger
         self.error = False
 
@@ -164,6 +185,9 @@ class StrandingRisk:
         self.target_discharge = target_discharge
         self._target = None
 
+        self.velocity_field = velocity_field if velocity_field is not None \
+            else self._discover_velocity_components()
+
     @classmethod
     def for_fish(cls, condition, species="Chinook salmon", lifestage="fry", fish=None,
                  **kwargs):
@@ -174,16 +198,82 @@ class StrandingRisk:
             species (str): common name; case and spacing are ignored.
             lifestage (str): lifestage; case and spacing are ignored.
             fish (riverarchitect.sharc.FishDatabase): an open database to reuse. Optional.
-            **kwargs: passed to the constructor. An explicit ``h_min`` wins over the
-                database.
+            **kwargs: passed to the constructor. An explicit ``h_min`` or ``u_max`` wins
+                over the database.
         """
         thresholds = travel_thresholds(species, lifestage, fish=fish)
         kwargs.setdefault("h_min", thresholds["h_min"])
+        kwargs.setdefault("u_max", thresholds.get("u_max"))
         instance = cls(condition, **kwargs)
         instance.species = species
         instance.lifestage = lifestage
-        instance.u_max = thresholds.get("u_max")
         return instance
+
+    # --------------------------------------------------------------------- velocity
+
+    def _discover_velocity_components(self):
+        """``{discharge: (ux, uy)}`` for every discharge shipping both component rasters."""
+        found = {}
+        for discharge in self.discharges:
+            token = discharge_token(discharge)
+            paths = tuple("%s%s" % (prefix, token) for prefix in ("ux", "uy"))
+            if all(self.condition.exists(name) for name in paths):
+                found[discharge] = tuple(self.condition.path(name) for name in paths)
+        if found:
+            self.logger.info("   >> velocity components found for %d of %d discharge(s)",
+                             len(found), len(self.discharges))
+        return found or None
+
+    @property
+    def velocity_limited(self):
+        """True when the velocity criterion is actually applied."""
+        return self.u_max is not None and self.velocity_field is not None
+
+    def velocity_components(self, discharge, reference):
+        """Eastward and northward velocity at a discharge, or ``(None, None)``."""
+        field = self.velocity_field
+        if field is None:
+            return None, None
+        if callable(field):
+            components = field(float(discharge), reference)
+        else:
+            components = field.get(float(discharge))
+        if components is None:
+            return None, None
+
+        resolved = []
+        for component in components:
+            if isinstance(component, str):
+                array, profile = raster.read(component)
+                component = raster.align(array, profile, reference)
+            resolved.append(np.nan_to_num(np.asarray(component, dtype="float64")))
+        return resolved[0], resolved[1]
+
+    def _travel_rule(self, discharge, reference, dx, dy):
+        """``allowed(dr, dc)`` for :func:`riverarchitect.raster.least_cost_distance`.
+
+        A fish moving from one cell to the next must hold its ground against whatever the
+        flow does along that direction. Where the flow runs *with* the fish it costs nothing;
+        where it runs against it, the fish has to make headway at up to ``u_max``. Taking the
+        opposing component rather than the speed is what makes the graph directed: a chute
+        too fast to climb can still be drifted down.
+        """
+        if not self.velocity_limited:
+            return None
+        ux, uy = self.velocity_components(discharge, reference)
+        if ux is None:
+            self.logger.info("      * no velocity components for Q = %g - the velocity "
+                             "criterion does not apply there", discharge)
+            return None
+
+        def allowed(dr, dc):
+            # Row indices grow southwards, so a step of +1 row moves -dy northwards.
+            east, north = dc * abs(dx), -dr * abs(dy)
+            length = float(np.hypot(east, north))
+            along = (ux * east + uy * north) / length      # flow component along the step
+            return along >= -self.u_max
+
+        return allowed
 
     # ----------------------------------------------------------------------- target
 
@@ -218,10 +308,71 @@ class StrandingRisk:
                                  self.target_discharge, int(self._target.sum()))
         return self._target if self._target.any() else None
 
+    # -------------------------------------------------------------- escape routes
+
+    def escape_routes(self, discharge, reference=None):
+        """Length of the cheapest route from each wetted cell back to the mainstem.
+
+        Dijkstra's algorithm over the travel-permissible cells, exactly as the original's
+        ``shortest_paths`` rasters were built: cells are vertices, steps between neighbours
+        are edges weighted by the distance between cell centres, and where a velocity field
+        applies the edges are one-way wherever the flow is faster than the fish can swim
+        against.
+
+        Args:
+            discharge (float): the discharge to evaluate.
+            reference (dict): profile every raster is aligned onto.
+
+        Returns:
+            numpy.ndarray: route length in map units, ``numpy.nan`` where dry or where no
+            route to the mainstem exists at all - which is the stranding criterion.
+        """
+        reference = reference or raster.profile_of(self._available[self.discharges[0]])
+        dx, dy = raster.cell_size(reference)
+        wet = self._wet(discharge, reference)
+
+        target = self.main_channel(reference)
+        if target is None:
+            # No low-flow mainstem to escape to: fall back on the largest wetted region at
+            # this discharge, which is what target_discharge=False asks for.
+            labels, count = raster.label_regions(wet, self.connectivity)
+            if count == 0:
+                return np.full(wet.shape, np.nan)
+            sizes = [int((labels == label).sum()) for label in range(1, count + 1)]
+            target = labels == (int(np.argmax(sizes)) + 1)
+
+        seeds = target & wet
+        if not seeds.any():
+            return np.full(wet.shape, np.nan)
+        return raster.least_cost_distance(
+            wet, seeds, dx, dy, connectivity=self.connectivity,
+            allowed=self._travel_rule(discharge, reference, dx, dy),
+            towards_sources=True)
+
+    def _disconnected(self, discharge, wet, reference):
+        """``(mask, pools)`` of cells with no escape route, and how many pools they form."""
+        if not self.velocity_limited:
+            # Without a directed criterion a route exists exactly when the wetted region
+            # touches the mainstem, so the component rule gives the same answer far faster.
+            # `tests/test_lifespan.py` checks the two against each other on the sample reach.
+            return raster.disconnected_mask(wet, connectivity=self.connectivity,
+                                            target=self.main_channel(reference))
+        mask = wet & ~np.isfinite(self.escape_routes(discharge, reference))
+        _labels, pools = raster.label_regions(mask, self.connectivity)
+        return mask, int(pools)
+
     # -------------------------------------------------------------------------- run
 
-    def run(self, output_dir=None, write_rasters=True):
+    def run(self, output_dir=None, write_rasters=True, write_escape_routes=False):
         """Walk the recession and quantify the disconnected area at each discharge.
+
+        Args:
+            output_dir (str): where the rasters go.
+            write_rasters (bool): write the per-discharge disconnected masks and
+                ``Q_disconnect.tif``.
+            write_escape_routes (bool): also write one ``escape_<Q>.tif`` per discharge, the
+                equivalent of the original's ``shortest_paths`` directory. Off by default
+                because it doubles the number of files written.
 
         Returns:
             dict: ``per_discharge`` (list of row dicts), ``total_disconnected_area``,
@@ -229,22 +380,25 @@ class StrandingRisk:
         """
         output_dir = output_dir or os.path.join(
             config.dir_output("StrandingRisk"), self.condition.name)
-        if write_rasters:
+        if write_rasters or write_escape_routes:
             os.makedirs(output_dir, exist_ok=True)
 
         reference = raster.profile_of(self._available[self.discharges[0]])
         dx, dy = raster.cell_size(reference)
         cell_area = dx * dy
 
-        target = self.main_channel(reference)
+        self.main_channel(reference)
+        if self.u_max is not None and not self.velocity_limited:
+            self.logger.info("   >> u_max = %g is recorded but not applied: the condition "
+                             "carries flow speed, not direction. See velocity_field.",
+                             self.u_max)
 
         rows = []
         per_discharge_masks = []
         for discharge in self.discharges:
             wet = self._wet(discharge, reference)
 
-            mask, pools = raster.disconnected_mask(wet, connectivity=self.connectivity,
-                                                   target=target)
+            mask, pools = self._disconnected(discharge, wet, reference)
             per_discharge_masks.append(raster.con(mask, float(discharge)))
 
             wetted_area = float(wet.sum() * cell_area)
@@ -262,6 +416,10 @@ class StrandingRisk:
                 raster.write(os.path.join(output_dir, "disconnected_%s.tif"
                                           % discharge_token(discharge)),
                              raster.con(mask, 1.0), reference)
+            if write_escape_routes:
+                raster.write(os.path.join(output_dir, "escape_%s.tif"
+                                          % discharge_token(discharge)),
+                             self.escape_routes(discharge, reference), reference)
 
         # The original expressed the disconnected area as a share of the wetted extent at
         # the *highest* discharge rather than at the discharge in hand, so the column is
@@ -285,6 +443,7 @@ class StrandingRisk:
             "area_unit": config.area_unit(self.unit),
             "discharge_unit": config.unit_labels(self.unit)["q"],
             "velocity_limited": self.velocity_limited,
+            "u_max": self.u_max,
         }
 
         q_disconnect = raster.cell_statistics(per_discharge_masks, "MAXIMUM")
@@ -314,9 +473,8 @@ class StrandingRisk:
             return None
         reference = reference or raster.profile_of(self._available[self.discharges[0]])
 
-        mask, _pools = raster.disconnected_mask(self._wet(discharge, reference),
-                                                connectivity=self.connectivity,
-                                                target=self.main_channel(reference))
+        mask, _pools = self._disconnected(discharge, self._wet(discharge, reference),
+                                          reference)
         if not mask.any():
             return None
 

@@ -211,3 +211,117 @@ def test_within_radius_of_nothing_is_nothing():
     # a zero radius keeps only the source cells
     mask[1, 1] = True
     assert raster.within_radius(mask, radius=0.0).sum() == 1
+
+
+# ----------------------------------------------------------------- focal statistics
+
+def test_focal_fraction_is_the_share_of_the_neighbourhood():
+    """FocalStatistics(..., NbrRectangle(3, 3, "CELL"), "MEAN") over a 0/1 raster."""
+    mask = np.zeros((5, 5), dtype=bool)
+    mask[2, 2] = True
+
+    fraction = raster.focal_fraction(mask, window=1)
+    assert fraction[2, 2] == pytest.approx(1.0 / 9.0)
+    assert fraction[1, 1] == pytest.approx(1.0 / 9.0)      # corner of the 3x3 window
+    assert fraction[0, 0] == pytest.approx(0.0)            # two cells away
+
+    mask[1:4, 1:4] = True
+    assert raster.focal_fraction(mask, window=1)[2, 2] == pytest.approx(1.0)
+
+
+def test_focal_fraction_judges_edge_cells_against_the_neighbours_they_have():
+    """A cell at the edge of the surveyed area is not scored against assumed empty ground."""
+    mask = np.ones((4, 4), dtype=bool)
+    # the whole grid is covered, so every cell's fraction must be 1 - including the corners,
+    # whose 3x3 window hangs off the grid
+    assert np.allclose(raster.focal_fraction(mask, window=1), 1.0)
+
+    valid = np.zeros((4, 4), dtype=bool)
+    valid[:2] = True                                       # only the top half has data
+    fraction = raster.focal_fraction(mask, window=1, valid=valid)
+    assert fraction[0, 0] == pytest.approx(1.0)
+    assert np.isnan(fraction[3, 3])                        # no valid neighbour at all
+
+
+def test_focal_fraction_with_no_window_is_the_mask_itself():
+    mask = np.array([[True, False], [False, True]])
+    assert np.array_equal(raster.focal_fraction(mask, window=0), mask.astype(float))
+
+
+# ------------------------------------------------------------ least-cost distance
+
+def test_least_cost_distance_measures_along_the_grid():
+    """Dijkstra over passable cells; the edge weight is the centre-to-centre distance."""
+    passable = np.ones((1, 5), dtype=bool)
+    sources = np.zeros((1, 5), dtype=bool)
+    sources[0, 0] = True
+
+    cost = raster.least_cost_distance(passable, sources, dx=3.0, dy=3.0, connectivity=4)
+    assert cost[0].tolist() == pytest.approx([0.0, 3.0, 6.0, 9.0, 12.0])
+
+
+def test_least_cost_distance_goes_round_an_obstacle():
+    passable = np.ones((3, 3), dtype=bool)
+    passable[1, 1] = False                       # a rock in the middle
+    sources = np.zeros((3, 3), dtype=bool)
+    sources[0, 0] = True
+
+    cost = raster.least_cost_distance(passable, sources, connectivity=4)
+    assert cost[2, 2] == pytest.approx(4.0)      # four rook steps, not two diagonals
+    assert np.isnan(cost[1, 1])
+
+    # with the diagonals available the cheapest route is still not straight through the
+    # rock: one rook step, one diagonal, one rook step
+    diagonal = raster.least_cost_distance(passable, sources, connectivity=8)
+    assert diagonal[2, 2] == pytest.approx(2.0 + np.sqrt(2.0))
+
+
+def test_least_cost_distance_reports_the_unreachable_as_nodata():
+    passable = np.array([[True, False, True]])
+    sources = np.array([[True, False, False]])
+    cost = raster.least_cost_distance(passable, sources)
+    assert cost[0, 0] == pytest.approx(0.0)
+    assert np.isnan(cost[0, 1]) and np.isnan(cost[0, 2])
+
+
+def test_least_cost_distance_can_be_directed():
+    """A one-way edge is reachable from one side only, which is what a current does."""
+    passable = np.ones((1, 4), dtype=bool)
+    sources = np.zeros((1, 4), dtype=bool)
+    sources[0, 0] = True
+
+    def allowed(_dr, dc):
+        # travel to the right (dc = +1) is permitted; travel to the left never is
+        return np.full(passable.shape, dc > 0)
+
+    downstream = raster.least_cost_distance(passable, sources, connectivity=4,
+                                            allowed=allowed)
+    assert downstream[0].tolist() == pytest.approx([0.0, 1.0, 2.0, 3.0])
+
+    # from the far end, nothing can come back
+    other_way = raster.least_cost_distance(passable, np.array([[False, False, False, True]]),
+                                           connectivity=4, allowed=allowed)
+    assert other_way[0, 3] == pytest.approx(0.0)
+    assert np.isnan(other_way[0, 0])
+
+
+def test_towards_sources_reverses_a_directed_search():
+    """"How far to the mainstem" is not "how far from the mainstem" once flow has direction."""
+    passable = np.ones((1, 4), dtype=bool)
+    sources = np.zeros((1, 4), dtype=bool)
+    sources[0, 0] = True
+
+    def allowed(_dr, dc):
+        return np.full(passable.shape, dc > 0)
+
+    away = raster.least_cost_distance(passable, sources, connectivity=4, allowed=allowed)
+    back = raster.least_cost_distance(passable, sources, connectivity=4, allowed=allowed,
+                                      towards_sources=True)
+    assert np.isfinite(away).all()               # every cell is reachable from cell 0
+    assert np.isnan(back[0, 1:]).all()           # but none of them can get back to it
+
+    # without a direction the two searches agree
+    plain = raster.least_cost_distance(passable, sources, connectivity=4)
+    reversed_plain = raster.least_cost_distance(passable, sources, connectivity=4,
+                                                towards_sources=True)
+    assert np.array_equal(plain, reversed_plain)
