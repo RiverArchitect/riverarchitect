@@ -453,9 +453,14 @@ def _default_prefix():
 
 
 def _p(*parts):
-    """Join path fragments and normalise the mixed \\ and / separators used across config.py."""
-    joined = os.path.join(*[str(x) for x in parts if str(x)])
-    return os.path.normpath(joined.replace("\\", os.sep).replace("/", os.sep))
+    """Join path fragments into one normalised path.
+
+    ``os.path`` already uses the right separator for the platform it runs on, and
+    ``normpath`` rewrites ``/`` as ``\\`` on Windows, so nothing here rewrites separators by
+    hand. It used to, and that was wrong on POSIX: a backslash is a legal character in a
+    file name there, so translating it to a separator corrupted any path containing one.
+    """
+    return os.path.normpath(os.path.join(*[str(x) for x in parts if str(x)]))
 
 
 class QgisSession(object):
@@ -973,7 +978,7 @@ class Mapper:
         self.logger.info("    * Map format: %0.1f mm x %0.1f mm"
                          % (page.pageSize().width(), page.pageSize().height()))
 
-        map_name = os.path.basename(str(map_name).replace("\\", "/"))
+        map_name = os.path.basename(str(map_name))
         pdf_name = _p(self.output_dir, map_name.split(".pdf")[0] + ".pdf")
         try:
             if os.path.isfile(pdf_name):
@@ -1047,7 +1052,7 @@ class Mapper:
         self.logger.info("----- ----- ----- ----- ----- ----- ----- ----- -----")
 
         for map_item in self.map_list:
-            map_name = os.path.basename(str(map_item).replace("\\", "/"))
+            map_name = os.path.basename(str(map_item))
             map_name = str(map_name).lower().split(".tif")[0].split("_mlf")[0]
             self.logger.info(" >> Preparing map: " + _p(self.output_dir, map_name + ".pdf"))
 

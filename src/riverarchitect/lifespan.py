@@ -25,10 +25,10 @@ or build a :class:`Feature` directly.
 
 Relation to the original
 ------------------------
-This implements the analysis hierarchy as documented in the wiki (see
-``docs/wiki/LifespanDesign.md``) rather than transcribing the arcpy control flow, which
-threaded results through a mutable ``raster_dict`` and a chain of ``Con()`` calls whose
-behaviour depended on which rasters happened to exist. The semantics are the documented ones:
+This implements the analysis hierarchy as the method documents it, rather than transcribing
+the arcpy control flow, which threaded results through a mutable ``raster_dict`` and a chain
+of ``Con()`` calls whose behaviour depended on which rasters happened to exist. The
+semantics are the documented ones:
 
 * every hydraulic criterion produces a *failure return period* raster, and the lifespan is
   their cell-wise **minimum** - the first flood that breaks the feature;

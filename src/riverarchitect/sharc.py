@@ -310,9 +310,9 @@ MINERAL_COVER = ("cobbles", "boulders")
 #:     an influence radius, the way vegetative cover is applied. **This is the default**,
 #:     because the packaged ``Fish.xlsx`` heads both cover blocks ``Rad.``.
 #: ``"fraction"``
-#:     an areal fraction, as ``docs/wiki/SHArC-working-principles.md`` describes mineral
-#:     cover: *"areas where the boulder presence covers more than 30 % of the surface get
-#:     assigned an HSI value of 0.5"*.
+#:     an areal fraction - *"areas where the boulder presence covers more than 30 % of the
+#:     surface get assigned an HSI value of 0.5"*, which is how the method has also been
+#:     described.
 #:
 #: The two readings disagree about the same two workbook cells and the evidence is genuinely
 #: split, which is why both are available. Worth knowing before choosing: the values the

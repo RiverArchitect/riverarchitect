@@ -381,12 +381,12 @@ def test_cobbles_and_boulders_are_cut_out_of_the_grain_raster():
 # ---------------------------------------------------- mineral cover: areal fraction
 
 def test_mineral_cover_is_an_areal_fraction_not_a_radius():
-    """The rule the wiki gives for mineral cover, and the reason the radius one is inert.
+    """The areal-fraction rule for mineral cover, and the reason the radius one is inert.
 
-    ``docs/wiki/SHArC-working-principles.md``: *"areas where the boulder presence covers more
-    than 30 % of the surface get assigned an HSI value of 0.5"*. Chinook fry ask for 10 % of
-    cobble, so a single cobble cell carries its 3x3 neighbourhood (1/9 = 11 %) but not the
-    ring beyond it. Opt-in: the radius reading stays the default.
+    *"Areas where the boulder presence covers more than 30 % of the surface get assigned an
+    HSI value of 0.5"*. Chinook fry ask for 10 % of cobble, so a single cobble cell carries
+    its 3x3 neighbourhood (1/9 = 11 %) but not the ring beyond it. Opt-in: the radius
+    reading stays the default.
     """
     from riverarchitect.sharc import cover_hsi
 

@@ -72,8 +72,10 @@ the `sys.path` comment at the top of `docs/conf.py`.
 > `tests/test_importable.py` enforces this by importing each module out of process with the
 > geospatial packages blocked.
 
-`docs/wiki/` holds the original GitHub wiki, preserved verbatim apart from link rewriting.
-Match the existing style there rather than reformatting the originals.
+Do not hard-wrap prose in `docs/`: one paragraph is one source line, so that a wording
+change does not reflow a paragraph and diffs stay readable. Code fences, tables, display
+math and directive options keep their own line structure, and `docs/license.md` is verbatim
+legal text that is left alone.
 
 ### <a name="rtdsetup"></a> Publishing on Read the Docs
 

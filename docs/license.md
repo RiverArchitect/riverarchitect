@@ -7,12 +7,11 @@ In short: you may use, modify and redistribute it, in source or binary form, com
 not, provided you keep the copyright notice and the disclaimer, and do not use the project's
 name or its contributors' names to endorse anything derived from it. There is no warranty.
 
-```{admonition} No Esri licence is required
+```{admonition} No proprietary licence is required
 :class: note
 
-This is the open-source release: the geoprocessing runs on GDAL and the mapping on QGIS, so
-nothing in River Architect requires ArcGIS, a Spatial Analyst extension, or any other
-proprietary licence. The 1.x series did - see {doc}`guide/arcpy_migration`.
+The geoprocessing runs on GDAL and the mapping on QGIS, so nothing in River Architect
+requires ArcGIS, a Spatial Analyst extension, or any other proprietary licence.
 ```
 
 ## Full text
@@ -68,5 +67,3 @@ and QGIS for map production. Their terms apply to those components, not to River
 The **sample data** in `sample-data/` is provided for demonstration and testing; see
 `sample-data/README.md` for its provenance and the upstream repository it comes from.
 
-The **legacy wiki pages** kept under *Concepts and legacy modules* are preserved from the
-original River Architect wiki, with only their links rewritten.

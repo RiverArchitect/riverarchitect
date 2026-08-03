@@ -12,8 +12,8 @@ from riverarchitect import raster
 dem, dem_profile = raster.read("sample-data/01_Conditions/2100_sample/dem.tif")
 depth, depth_profile = raster.read("sample-data/01_Conditions/2100_sample/h001000.tif")
 
-# The DEM and the depth raster rarely share a grid. arcpy hid this behind env.extent;
-# here it is explicit, because the silent alternative is a spatially meaningless result.
+# The DEM and the depth raster rarely share a grid, so say so explicitly: numpy either
+# raises or broadcasts into a spatially meaningless result.
 depth = raster.align(depth, depth_profile, dem_profile)
 
 # Water surface elevation where the bed is wet. The false branch becomes NoData, not zero.
@@ -65,7 +65,7 @@ depth_to_water = dem - surface
 raster.write("d2w.tif", depth_to_water, dem_profile)
 ```
 
-Kriging can also return the estimation variance, which was not straightforward in the ArcGIS implementation in v1:
+Kriging can also return its estimation variance, so the interpolation reports its own uncertainty:
 
 ```python
 surface, variance = raster.kriging(points, values, dem_profile, return_variance=True)

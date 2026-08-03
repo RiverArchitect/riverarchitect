@@ -50,7 +50,7 @@ The graphical interface lives in :mod:`riverarchitect.gui` and is started with t
 ``riverarchitect`` console script, or with ``python -m riverarchitect``.
 """
 
-__version__ = "2.4.0"
+__version__ = "2.5.0"
 __author__ = "River Architect Development Team"
 __license__ = "BSD-3-Clause"
 

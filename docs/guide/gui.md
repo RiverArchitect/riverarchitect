@@ -115,7 +115,7 @@ A disabled tab says what is missing rather than failing when you click *Compute*
 
 ## Tabs
 
-The top-level tabs group the modules the way the ArcGIS version did, and three of them open onto sub-tabs:
+The top-level tabs group the modules by theme, and three of them open onto sub-tabs:
 
 ```text
 Get Started
@@ -128,16 +128,13 @@ Maps
 
 **Get Started** prepares a condition. Nothing here is an analysis in its own right; it produces the derived rasters the others read - a detrended DEM, an interpolated water surface and the depth and depth-to-water-table rasters that follow from it, a morphological unit classification, the `input_definitions.inp`, and a one-off alignment of every raster onto a single grid. Start here with a condition that only has a DEM and 2D model output.
 
-**Lifespan Design** predicts how many years each restoration feature survives at every cell, from the flood return periods in the condition's `input_definitions.inp`, and the dimensions it needs to reach a target lifespan. Tick one or more features; the defaults reproduce the threshold values of the original `threshold_values.xlsx`. Writes `lf_<feature>.tif` and, where the feature supports it, `ds_<feature>.tif`. See {doc}`tutorial` for a worked example and {doc}`../wiki/LifespanDesign`.
+**Lifespan Design** predicts how many years each restoration feature survives at every cell, from the flood return periods in the condition's `input_definitions.inp`, and the dimensions it needs to reach a target lifespan. Tick one or more features; the defaults are {data}`riverarchitect.lifespan.FEATURES`. Writes `lf_<feature>.tif` and, where the feature supports it, `ds_<feature>.tif`. See {doc}`tutorial` for a worked example, {doc}`../modules/lifespans` for the method and {doc}`../modules/features` for the catalogue.
 
 **Max lifespan** answers the planner's question rather than the engineer's: given several feature lifespan maps, *which* feature belongs here? It reads the lifespan tab's output, takes the cell-wise maximum, and writes one best-feature mask and polygon layer per feature plus `max_lf.tif`. Ties are kept rather than broken, so a cell where two features both reach the maximum appears in both layers - the choice is yours to make on other grounds.
 
 **Terraforming** lowers the terrain where a feature planned by *Max Lifespan* sits further above the water table than its roots can reach, by exactly the excess, and reports the excavation that implies. Point it at the Max Lifespan output folder; feed its `dem_terraformed.tif` to Volume Assessment as the modified DEM.
 
-**River Builder** generates a synthetic valley - meandering centreline, varying width,
-thalweg, floodplain and terrace - from design parameters, and writes it as a DEM with a
-hillshade. Use it when the reach no longer contains a natural target to design towards. An
-existing RiverBuilder parameter file can be loaded directly.
+**River Builder** generates a synthetic valley - meandering centreline, varying width, thalweg, floodplain and terrace - from design parameters, and writes it as a DEM with a hillshade. Use it when the reach no longer contains a natural target to design towards. An existing RiverBuilder parameter file can be loaded directly.
 
 **Volume Assessment** compares a pre-project and a post-project DEM and reports fill,excavation and net volumes plus the affected areas. The *level of detection* excludeselevation differences smaller than the survey noise. Volumes are integrated under the triangulated surface; see {doc}`volumes` for why that matters.
 
@@ -191,10 +188,6 @@ Each step names the tab it belongs to, the settings to enter, what the result sh
 The window is not modal, so leave it open beside the main window and work through it. The same content is on this site as {doc}`example_walkthrough`, with the numbers each step produces; both render {mod}`riverarchitect.guide`, so they cannot disagree.
 
 The sample data ships with a source clone rather than with an installed wheel. Without it the guide still describes every step, and says so.
-
-## Not yet in the interface
-
-ModifyTerrain/RiverBuilder and ProjectMaker have no tab yet. Their analysis logic is described in the legacy wiki pages linked from the documentation index, and `raster.py` already provides the primitives each of them needs.
 
 ## Everything is also a Python API
 

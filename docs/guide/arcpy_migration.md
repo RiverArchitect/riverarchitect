@@ -1,15 +1,10 @@
 # Migrating from arcpy
 
-How each `arcpy` operation used by the original River Architect maps onto the open-source
-stack this package is built from. Useful when porting your own scripts, when reading the
-history of this codebase, or when checking that a replacement really is equivalent.
+How each `arcpy` operation used by the original River Architect maps onto the open-source stack this package is built from. Useful when porting your own scripts, when reading the history of this codebase, or when checking that a replacement really is equivalent.
 
-Most of these mappings are now implemented in {mod}`riverarchitect.raster`; this page
-records the reasoning and the verification behind them.
+Most of these mappings are now implemented in {mod}`riverarchitect.raster`; this page records the reasoning and the verification behind them.
 
-Mappings marked **verified** were executed against real sample conditions. Mappings marked
-**by inspection** were derived from the arcpy documentation and the original call sites but
-not run.
+Mappings marked **verified** were executed against real sample conditions. Mappings marked **by inspection** were derived from the arcpy documentation and the original call sites but not run.
 
 arcpy reference: <https://desktop.arcgis.com/de/arcmap/latest/analyze/arcpy/what-is-arcpy-.htm>
 
@@ -35,8 +30,7 @@ arcpy reference: <https://desktop.arcgis.com/de/arcmap/latest/analyze/arcpy/what
 | MaxLifespan | 21 | feature action assessment |
 | Tools | 6 | standalone helper scripts |
 
-The 20 most frequent calls, with `arcpy.sa` functions imported unqualified via
-`from arcpy.sa import *`:
+The 20 most frequent calls, with `arcpy.sa` functions imported unqualified via `from arcpy.sa import *`:
 
 ```
 253  Con                    101  arcpy.Raster            34  Delete_management
@@ -47,23 +41,17 @@ The 20 most frequent calls, with `arcpy.sa` functions imported unqualified via
  11  Square                  38  arcpy.sa.*              15  AddField_management
 ```
 
-The dependency is therefore **overwhelmingly raster map algebra**, not exotic geoprocessing.
-Roughly 85 % of the call sites are `Raster` / `Con` / `Float` / `Int` / `IsNull` /
-`CellStatistics` / environment settings, all of which map onto plain numpy.
+The dependency is therefore **overwhelmingly raster map algebra**, not exotic geoprocessing. Roughly 85 % of the call sites are `Raster` / `Con` / `Float` / `Int` / `IsNull` / `CellStatistics` / environment settings, all of which map onto plain numpy.
 
 ---
 
 ## Semantics that silently produce wrong results
 
-These are the traps. They matter more than the function-by-function mapping, because a naive
-port compiles, runs, and produces plausible-looking but wrong rasters.
+These are the traps. They matter more than the function-by-function mapping, because a naive port compiles, runs, and produces plausible-looking but wrong rasters.
 
 ### `arcpy.env.extent` performs implicit alignment; numpy does not
 
-arcpy resolves every map-algebra operand against `arcpy.env.extent`, `env.snapRaster` and
-`env.cellSize`, resampling and clipping on the fly. Operands with different extents are
-aligned without warning. numpy has no such notion: it either raises on shape mismatch, or,
-worse, broadcasts and produces a spatially meaningless result.
+arcpy resolves every map-algebra operand against `arcpy.env.extent`, `env.snapRaster` and `env.cellSize`, resampling and clipping on the fly. Operands with different extents are aligned without warning. numpy has no such notion: it either raises on shape mismatch, or, worse, broadcasts and produces a spatially meaningless result.
 
 This is not hypothetical for this project. In the checked-in sample condition:
 
@@ -72,9 +60,7 @@ dem.tif             (842, 500)  bounds [1309.5, -320.5, 1559.5, 100.5]
 h000098_750.tif     (440, 500)  bounds [1309.5, -220.0, 1559.5,   0.0]
 ```
 
-`cWaterLevel.interpolate_wle` computes `Con(ras_h > 0, (ras_dem + ras_h))` on exactly these
-two rasters, relying entirely on `arcpy.env.extent = ras_dem.extent` to make them conformable.
-**Any port must make that alignment explicit.** Verified helper:
+`cWaterLevel.interpolate_wle` computes `Con(ras_h > 0, (ras_dem + ras_h))` on exactly these two rasters, relying entirely on `arcpy.env.extent = ras_dem.extent` to make them conformable. **Any port must make that alignment explicit.** Verified helper:
 
 ```python
 from rasterio.enums import Resampling
@@ -91,21 +77,15 @@ def align(src_arr, src_prof, ref_prof, resampling=Resampling.nearest):
     return dst
 ```
 
-Verified: `h000098_750.tif` resampled from (440, 500) onto the DEM grid (842, 500), 215 000
-valid cells preserved.
+Verified: `h000098_750.tif` resampled from (440, 500) onto the DEM grid (842, 500), 215 000 valid cells preserved.
 
-Use `Resampling.nearest` for anything categorical or where the original cell values must be
-preserved exactly (depth, velocity, class rasters), `Resampling.bilinear` only for genuinely
-continuous resampling. arcpy's `Resample_management` default is `NEAREST`; the calls in
-`cConditionCreator.py` pass `BILINEAR` explicitly for depth and velocity.
+Use `Resampling.nearest` for anything categorical or where the original cell values must be preserved exactly (depth, velocity, class rasters), `Resampling.bilinear` only for genuinely continuous resampling. arcpy's `Resample_management` default is `NEAREST`; the calls in `cConditionCreator.py` pass `BILINEAR` explicitly for depth and velocity.
 
 ### NoData is not a value, and this condition mixes three conventions
 
-arcpy tracks a NoData mask per raster and propagates it through every operation. numpy does
-not, unless you use `np.nan` (float only) or masked arrays.
+arcpy tracks a NoData mask per raster and propagates it through every operation. numpy does not, unless you use `np.nan` (float only) or masked arrays.
 
-The sample condition declares **three different NoData values**, verified by reading every
-raster:
+The sample condition declares **three different NoData values**, verified by reading every raster:
 
 | raster group | declared NoData | actually present |
 |---|---|---|
@@ -116,26 +96,13 @@ raster:
 
 Consequences for a port:
 
-- Always read with `masked=True` and convert to `np.nan`; never read raw and compare against a
-  hard-coded sentinel.
-- `arcpy.RasterToNumPyArray(ras, nodata_to_value=0)` is used in 21 places. Under the `-999`
-  convention that turns NoData into a legitimate-looking `0`; under the `3.4e38` convention it
-  does the same. Any downstream `> 0` test then behaves differently depending on which
-  convention the input file happened to use. `cConnectivityAnalysis.py:498` does exactly this.
-- `ex_veg_sc*.tif` declaring `NoData = 0` means "no vegetation" is indistinguishable from
-  "outside the model domain". A masked read will drop those cells entirely rather than
-  treating them as zero vegetation.
+- Always read with `masked=True` and convert to `np.nan`; never read raw and compare against a hard-coded sentinel.
+- `arcpy.RasterToNumPyArray(ras, nodata_to_value=0)` is used in 21 places. Under the `-999` convention that turns NoData into a legitimate-looking `0`; under the `3.4e38` convention it does the same. Any downstream `> 0` test then behaves differently depending on which convention the input file happened to use. `cConnectivityAnalysis.py:498` does exactly this.
+- `ex_veg_sc*.tif` declaring `NoData = 0` means "no vegetation" is indistinguishable from "outside the model domain". A masked read will drop those cells entirely rather than treating them as zero vegetation.
 
-**Resolved for the in-repo condition.** `riverarchitect.tools.reconcile_nodata` rewrites a condition folder
-so every raster declares `config.nodata = -999.0`, preserving the NoData *mask* rather than the
-sentinel, so semantics such as `Con(IsNull(veg_ras), ras)` ("no existing vegetation") are
-unchanged. Applied to `01_Conditions/rsrm_test`: 10 of 30 rasters rewritten, all 30 now at
--999.0, masks and valid ranges verified identical afterwards. `ex_veg_sc*.tif` were promoted
-`uint8 -> int16` so that -999 is representable.
+**Resolved for the in-repo condition.** `riverarchitect.tools.reconcile_nodata` rewrites a condition folder so every raster declares `config.nodata = -999.0`, preserving the NoData *mask* rather than the sentinel, so semantics such as `Con(IsNull(veg_ras), ras)` ("no existing vegetation") are unchanged. Applied to `01_Conditions/rsrm_test`: 10 of 30 rasters rewritten, all 30 now at -999.0, masks and valid ranges verified identical afterwards. `ex_veg_sc*.tif` were promoted `uint8 -> int16` so that -999 is representable.
 
-`RiverArchitect-SampleData` was deliberately **not** modified: it is a separate git clone of
-upstream sample data, and its 128 analysis rasters are at least internally consistent
-(-3.4e38). Reconcile it too if you want one convention everywhere:
+`RiverArchitect-SampleData` was deliberately **not** modified: it is a separate git clone of upstream sample data, and its 128 analysis rasters are at least internally consistent (-3.4e38). Reconcile it too if you want one convention everywhere:
 
 ```bash
 mamba run -n ra-env python Tools/reconcile_nodata.py \
@@ -149,8 +116,7 @@ Con(ras_h > 0, ras_dem + ras_h)     # false branch -> NoData
 Con(ras_h > 0, ras_dem + ras_h, 0)  # false branch -> 0
 ```
 
-The two-argument form appears throughout the codebase. The numpy equivalent must use `np.nan`,
-not `0`:
+The two-argument form appears throughout the codebase. The numpy equivalent must use `np.nan`, not `0`:
 
 ```python
 np.where(h > 0, dem + h, np.nan)    # correct
@@ -161,21 +127,13 @@ Verified: false branch correctly NaN over all cells where `h <= 0`.
 
 ### Integer rasters, `Int()`, and attribute tables
 
-`Int()` truncates toward zero (it is not rounding). `RasterToPolygon_conversion` requires an
-integer raster, which is why `fGlobal.raster2shp` wraps its input in `Int()`. `numpy.astype("int32")`
-also truncates, so the behaviour matches, but note that `Int(np.nan)` is undefined; mask first.
+`Int()` truncates toward zero (it is not rounding). `RasterToPolygon_conversion` requires an integer raster, which is why `fGlobal.raster2shp` wraps its input in `Int()`. `numpy.astype("int32")` also truncates, so the behaviour matches, but note that `Int(np.nan)` is undefined; mask first.
 
 ### Shapefile field-name and value limits
 
-`z_field = ras_wse.name[:10]` in `cWaterLevel.py:126` exists because shapefile (DBF) field
-names are capped at 10 characters. GeoPandas writing to `.shp` inherits the same limit and
-warns. Writing GeoPackage (`.gpkg`) instead removes the constraint and is a strict improvement
-if the output format is not externally mandated.
+`z_field = ras_wse.name[:10]` in `cWaterLevel.py:126` exists because shapefile (DBF) field names are capped at 10 characters. GeoPandas writing to `.shp` inherits the same limit and warns. Writing GeoPackage (`.gpkg`) instead removes the constraint and is a strict improvement if the output format is not externally mandated.
 
-`cWaterLevel.py:118-125` also documents that `RasterToPoint_conversion` loses float precision,
-and works around it with an extra `arcpy.sa.Sample` call. A rasterio port does not need the
-workaround: `rasterio.transform.xy` on the valid-cell indices returns exact coordinates and the
-values come straight from the array at full precision.
+`cWaterLevel.py:118-125` also documents that `RasterToPoint_conversion` loses float precision, and works around it with an extra `arcpy.sa.Sample` call. A rasterio port does not need the workaround: `rasterio.transform.xy` on the valid-cell indices returns exact coordinates and the values come straight from the array at full precision.
 
 ---
 
@@ -234,13 +192,9 @@ def read(path):
 | `Reclassify(r,"Value",RemapValue([[1,10],...]))` | lookup array or `np.select` | verified |
 | `Reclassify(... RemapRange ...)` | `np.digitize(arr, bins)` | verified |
 
-`CellStatistics(..., "DATA")` ignores NoData cells, which is exactly `np.nan*` reduction
-semantics. `"NODATA"` (propagate) would instead be plain `np.max`/`np.sum`. All call sites in
-this repository use `"DATA"`.
+`CellStatistics(..., "DATA")` ignores NoData cells, which is exactly `np.nan*` reduction semantics. `"NODATA"` (propagate) would instead be plain `np.max`/`np.sum`. All call sites in this repository use `"DATA"`.
 
-Note the `RuntimeWarning: All-NaN slice encountered` that `np.nanmax` emits when every operand
-is NoData at a cell; arcpy silently returns NoData there. Suppress with
-`np.errstate(invalid="ignore")` or `warnings.catch_warnings()`, and confirm the result is NaN.
+Note the `RuntimeWarning: All-NaN slice encountered` that `np.nanmax` emits when every operand is NoData at a cell; arcpy silently returns NoData there. Suppress with `np.errstate(invalid="ignore")` or `warnings.catch_warnings()`, and confirm the result is NaN.
 
 ### The bed-shear expression is a resistance model, not just raster syntax
 
@@ -250,15 +204,9 @@ The original Lifespan Design calculation contained this ArcPy map-algebra expres
 Square(u / (5.75 * Log10(12.2 * h / (2 * 2.2 * grains))))
 ```
 
-`2.2 * grains` was intended to estimate $D_{84}$ from a $D_{50}$-like input, and the
-result of `Square(...)` is $u_*^2$.  A literal replacement with `np.square` would preserve
-the ArcPy syntax while also preserving the assumption that one Keulegan logarithmic
-resistance law is suitable at every relative submergence.
+`2.2 * grains` was intended to estimate $D_{84}$ from a $D_{50}$-like input, and the result of `Square(...)` is $u_*^2$.  A literal replacement with `np.square` would preserve the ArcPy syntax while also preserving the assumption that one Keulegan logarithmic resistance law is suitable at every relative submergence.
 
-The GDAL/rasterio calculation instead selects a resistance law from
-$\chi=h/(2D_{84})$: Rickenmann--Recking for $\chi\le7$, Keulegan--Einstein for
-$\chi\ge20$, and a smooth stress-coefficient blend between them.  It lives in
-{mod}`riverarchitect.shear`, which is pure numpy and takes plain arrays:
+The GDAL/rasterio calculation instead selects a resistance law from $\chi=h/(2D_{84})$: Rickenmann--Recking for $\chi\le7$, Keulegan--Einstein for $\chi\ge20$, and a smooth stress-coefficient blend between them.  It lives in {mod}`riverarchitect.shear`, which is pure numpy and takes plain arrays:
 
 ```python
 from riverarchitect import shear
@@ -270,23 +218,12 @@ result.h_over_ks   # relative submergence
 result.regime      # 0 invalid, 1 Rickenmann-Recking, 2 blended, 3 Keulegan-Einstein
 ```
 
-Read each source band through {func}`riverarchitect.raster.read`, which turns NoData into
-`numpy.nan`, and align depth, velocity and grain size onto one reference grid with
-{func}`riverarchitect.raster.align` before calling it.  The complete physical definition,
-limits and grain-percentile warning are in the
-[Lifespans calculation](../modules/lifespans.md#dimensionless-bed-shear-stress-taux).
+Read each source band through {func}`riverarchitect.raster.read`, which turns NoData into `numpy.nan`, and align depth, velocity and grain size onto one reference grid with {func}`riverarchitect.raster.align` before calling it.  The complete physical definition, limits and grain-percentile warning are in the [Lifespans calculation](../modules/lifespans.md#dimensionless-bed-shear-stress-taux).
 
-Two consequences of the change are worth stating plainly, because they alter every
-taux-dependent result relative to River Architect 1.x:
+Two consequences of the change are worth stating plainly, because they alter every taux-dependent result relative to River Architect 1.x:
 
-* **The Shields stress is now referenced to $D_{84}$**, not to the mean grain size that the
-  original divided by.  In the deep-water limit $\theta_{84}$ is therefore the legacy value
-  divided by 2.2.  The critical values in `lifespan.FEATURES` and the recruitment parameters
-  are unchanged numerically and are now read as $\theta_{84}$ thresholds.
-* **The resistance law is no longer Keulegan everywhere.**  On the bundled sample reach
-  about 95 % of wet cells have $\chi<7$, so the original applied its single logarithmic law
-  almost entirely outside the range where it is defensible.  The `regime<Q>.tif` diagnostic
-  raster written by each run reports this per cell.
+* **The Shields stress is now referenced to $D_{84}$**, not to the mean grain size that the original divided by.  In the deep-water limit $\theta_{84}$ is therefore the legacy value divided by 2.2.  The critical values in `lifespan.FEATURES` and the recruitment parameters are unchanged numerically and are now read as $\theta_{84}$ thresholds.
+* **The resistance law is no longer Keulegan everywhere.**  On the bundled sample reach about 95 % of wet cells have $\chi<7$, so the original applied its single logarithmic law almost entirely outside the range where it is defensible.  The `regime<Q>.tif` diagnostic raster written by each run reports this per cell.
 
 ### Raster <-> vector conversion
 
@@ -302,12 +239,9 @@ taux-dependent result relative to River Architect 1.x:
 | `sa.Sample(r, pts, out)` | `list(src.sample(coords))` | by inspection |
 | `raster2shp` + `CalculateGeometryAttributes(AREA)` | `gdf["F_AREA"] = gdf.geometry.area` | verified |
 
-Verified round-trip on the sample data: polygonizing the wetted area at Q = 98.75 gives a total
-of **53 750.0 m²**, exactly matching the cell-count cross-check (`n_cells * cellsize²`), and
-re-rasterizing the polygons reproduces the source mask with **100.00 % cell agreement**.
+Verified round-trip on the sample data: polygonizing the wetted area at Q = 98.75 gives a total of **53 750.0 m²**, exactly matching the cell-count cross-check (`n_cells * cellsize²`), and re-rasterizing the polygons reproduces the source mask with **100.00 % cell agreement**.
 
-`rasterio.features.shapes` uses 4-connectivity by default (`connectivity=4`), matching arcpy's
-`RasterToPolygon` default. Pass `connectivity=8` if diagonal joins are wanted.
+`rasterio.features.shapes` uses 4-connectivity by default (`connectivity=4`), matching arcpy's `RasterToPolygon` default. Pass `connectivity=8` if diagonal joins are wanted.
 
 ### Interpolation (the WLE workflow)
 
@@ -332,24 +266,14 @@ w = 1.0 / d ** 2.0
 z = (w * vals[i]).sum(1) / w.sum(1)
 ```
 
-Verified on `wse000098_750.tif`: 8 600 source points interpolated onto the 842 x 500 DEM grid.
-Output range 2002.45 .. 2002.69, identical to the source value range, i.e. the interpolator does
-not overshoot (as expected for inverse-distance weighting, which is bounded by its inputs).
-Nearest-neighbour gave the same range.
+Verified on `wse000098_750.tif`: 8 600 source points interpolated onto the 842 x 500 DEM grid. Output range 2002.45 .. 2002.69, identical to the source value range, i.e. the interpolator does not overshoot (as expected for inverse-distance weighting, which is bounded by its inputs). Nearest-neighbour gave the same range.
 
 Ordinary kriging with a spherical variogram ran successfully via pykrige. Two practical notes:
 
-- pykrige exposes the **kriging variance** as the second return value of `execute()`. That is
-  the `out_variance_prediction_raster` output which is currently commented out in
-  `cWaterLevel.py:146-148` and `256-259`. The open-source route makes reinstating it free.
-- Kriging is O(n³) in the number of source points. arcpy's `search_radius="Variable 12"` makes
-  it local; pykrige's `OrdinaryKriging` is global by default. For realistic point counts use
-  `pykrige.ok.OrdinaryKriging(..., n_closest_points=12, backend="loop")` in `execute()`, or
-  subsample. The verification used a coarse grid deliberately to keep runtime bounded.
+- pykrige exposes the **kriging variance** as the second return value of `execute()`. That is the `out_variance_prediction_raster` output which is currently commented out in `cWaterLevel.py:146-148` and `256-259`. The open-source route makes reinstating it free.
+- Kriging is O(n³) in the number of source points. arcpy's `search_radius="Variable 12"` makes it local; pykrige's `OrdinaryKriging` is global by default. For realistic point counts use `pykrige.ok.OrdinaryKriging(..., n_closest_points=12, backend="loop")` in `execute()`, or subsample. The verification used a coarse grid deliberately to keep runtime bounded.
 
-The arcpy code retries kriging with a doubled `lagSize` when it hits error `010079`
-("could not fit semivariogram"). pykrige raises a plain `ValueError` in the analogous case; the
-retry loop translates directly, with `nlags` in place of `lagSize`.
+The arcpy code retries kriging with a doubled `lagSize` when it hits error `010079` ("could not fit semivariogram"). pykrige raises a plain `ValueError` in the analogous case; the retry loop translates directly, with `nlags` in place of `lagSize`.
 
 ### Zonal, tabular and vector operations
 
@@ -372,19 +296,13 @@ retry loop translates directly, with `nlags` in place of `lagSize`.
 | `ListFields` | `gdf.columns` | trivial |
 | `CreateFeatureclass_management` | `gpd.GeoDataFrame(...).to_file(...)` | trivial |
 
-Verified: `zonal_stats` over the wetted-area polygon against `u000098_750.tif` returned
-count = 215 000, mean = 0.608, max = 1.179, consistent with the raster's own statistics.
-`sjoin` matched 2 of 3 test points to their containing polygon.
+Verified: `zonal_stats` over the wetted-area polygon against `u000098_750.tif` returned count = 215 000, mean = 0.608, max = 1.179, consistent with the raster's own statistics. `sjoin` matched 2 of 3 test points to their containing polygon.
 
-Note `rasterstats.zonal_stats` needs the NoData value passed explicitly when the raster's
-declared NoData is one of the `3.4e38` files (see the NoData section), otherwise those cells enter the
-statistics.
+Note `rasterstats.zonal_stats` needs the NoData value passed explicitly when the raster's declared NoData is one of the `3.4e38` files (see the NoData section), otherwise those cells enter the statistics.
 
 ### Connectivity and region grouping (StrandingRisk)
 
-`StrandingRisk/cConnectivityAnalysis.py` polygonizes the wetted area, computes polygon areas,
-and treats every polygon except the largest as disconnected (a fish-stranding pool). The
-raster-native equivalent is a connected-component labelling:
+`StrandingRisk/cConnectivityAnalysis.py` polygonizes the wetted area, computes polygon areas, and treats every polygon except the largest as disconnected (a fish-stranding pool). The raster-native equivalent is a connected-component labelling:
 
 ```python
 from scipy import ndimage
@@ -395,21 +313,11 @@ main = int(np.argmax(sizes)) + 1
 disconnected = (lab > 0) & (lab != main)
 ```
 
-Verified on a synthetic pattern with a known diagonal bridge: 4-connectivity found 3 regions,
-8-connectivity (`structure=np.ones((3,3))`) correctly merged the diagonally-adjacent pair into
-2 regions. The "all but the largest region" rule reproduced the expected 10 disconnected cells.
+Verified on a synthetic pattern with a known diagonal bridge: 4-connectivity found 3 regions, 8-connectivity (`structure=np.ones((3,3))`) correctly merged the diagonally-adjacent pair into 2 regions. The "all but the largest region" rule reproduced the expected 10 disconnected cells.
 
-**Use `RiverArchitect-SampleData` for this, not `rsrm_test`.** At every discharge in
-`rsrm_test` the wetted area forms exactly one connected region (Q = 1.06: 3 750 m²,
-Q = 3.89: 4 750 m², Q = 25.40: 30 250 m², single-region under both 4- and 8-connectivity),
-because that condition is an idealized prismatic channel with a constant `dmean` of 0.001 and
-monotonically growing depths. It cannot exercise StrandingRisk at all.
+**Use `RiverArchitect-SampleData` for this, not `rsrm_test`.** At every discharge in `rsrm_test` the wetted area forms exactly one connected region (Q = 1.06: 3 750 m², Q = 3.89: 4 750 m², Q = 25.40: 30 250 m², single-region under both 4- and 8-connectivity), because that condition is an idealized prismatic channel with a constant `dmean` of 0.001 and monotonically growing depths. It cannot exercise StrandingRisk at all.
 
-`RiverArchitect-SampleData/01_Conditions/2100_sample` (real gravel-cobble reach, US customary)
-does: **all 60 depth rasters produce disconnected pools**, from 2 pools at Q = 300 cfs to 119
-pools at Q = 7 250 cfs, with stranded areas of 18 to 3 060 ft². Pool counts peak around
-Q = 7 250 and again at Q = 10 000, which is the behaviour the module exists to quantify. This
-is the condition to regression-test connectivity against.
+`RiverArchitect-SampleData/01_Conditions/2100_sample` (real gravel-cobble reach, US customary) does: **all 60 depth rasters produce disconnected pools**, from 2 pools at Q = 300 cfs to 119 pools at Q = 7 250 cfs, with stranded areas of 18 to 3 060 ft². Pool counts peak around Q = 7 250 and again at Q = 10 000, which is the behaviour the module exists to quantify. This is the condition to regression-test connectivity against.
 
 ### Surface analysis
 
@@ -420,30 +328,13 @@ is the condition to regression-test connectivity against.
 | `arcpy.SurfaceVolume_3d(r, "", "ABOVE", plane, z_factor)` | `riverpy/fVolume.surface_volume()` | verified |
 | `sa.Fill` | `richdem.FillDepressions` or `whitebox.fill_depressions()` | by inspection |
 
-**Resolved in favour of the triangulated method.** `arcpy.SurfaceVolume_3d` integrates under a
-*triangulated* surface through the cell centres; a cell-prism sum (`sum(z) * cell_area`)
-instead carries a boundary error proportional to the perimeter of the surface. On a flat 10 x
-10 m test surface the prism sum overestimates by 21 %, and that error does not vanish under
-refinement for surfaces truncated at their edge. Earthworks quantities are a reported
-deliverable, so the triangulated result is authoritative.
+**Resolved in favour of the triangulated method.** `arcpy.SurfaceVolume_3d` integrates under a *triangulated* surface through the cell centres; a cell-prism sum (`sum(z) * cell_area`) instead carries a boundary error proportional to the perimeter of the surface. On a flat 10 x 10 m test surface the prism sum overestimates by 21 %, and that error does not vanish under refinement for surfaces truncated at their edge. Earthworks quantities are a reported deliverable, so the triangulated result is authoritative.
 
-{mod}`riverarchitect.volume` implements it in pure numpy (no arcpy, no 3D Analyst, no
-GDAL): every 2 x 2 block of cell centres is split into two triangles, and the volume between
-each triangle and the reference plane is integrated in closed form, clipping triangles that
-cross the plane. {mod}`riverarchitect.volume_assessment` now calls it instead of
-`SurfaceVolume_3d`, which also removes the fragile string-parsing of the geoprocessing message
-(`feat_vol.getMessage(1).split("Volume=")[1]`) and the 3D Analyst checkout.
+{mod}`riverarchitect.volume` implements it in pure numpy (no arcpy, no 3D Analyst, no GDAL): every 2 x 2 block of cell centres is split into two triangles, and the volume between each triangle and the reference plane is integrated in closed form, clipping triangles that cross the plane. {mod}`riverarchitect.volume_assessment` now calls it instead of `SurfaceVolume_3d`, which also removes the fragile string-parsing of the geoprocessing message (`feat_vol.getMessage(1).split("Volume=")[1]`) and the 3D Analyst checkout.
 
-Verified against 11 cases with exact analytical answers: flat surfaces, tilted planes, planes
-crossing the reference (clipping), non-zero reference planes, `reference="BELOW"`, anisotropic
-cells, NoData exclusion, and draped surface area on a 45-degree slope (100·√2). Grid-refinement
-on a pyramid converges to the exact volume (1330.0 → 1332.5 → 1333.125 → 1333.28 against an
-exact 1333.33). The function also returns planimetric and draped (3-D) surface area, which
-`SurfaceVolume_3d` reported and the old code discarded.
+Verified against 11 cases with exact analytical answers: flat surfaces, tilted planes, planes crossing the reference (clipping), non-zero reference planes, `reference="BELOW"`, anisotropic cells, NoData exclusion, and draped surface area on a 45-degree slope (100·√2). Grid-refinement on a pyramid converges to the exact volume (1330.0 → 1332.5 → 1333.125 → 1333.28 against an exact 1333.33). The function also returns planimetric and draped (3-D) surface area, which `SurfaceVolume_3d` reported and the old code discarded.
 
-`whitebox` (`whitebox.WhiteboxTools()`) covers slope, aspect, curvature, hillshade, flow
-accumulation, depression filling, and TIN gridding as a single dependency and is the closest
-functional analogue to Spatial Analyst + 3D Analyst.
+`whitebox` (`whitebox.WhiteboxTools()`) covers slope, aspect, curvature, hillshade, flow accumulation, depression filling, and TIN gridding as a single dependency and is the closest functional analogue to Spatial Analyst + 3D Analyst.
 
 ### TIN (`ModifyTerrain/RiverBuilder/RiverBuilderRenderer.py`)
 
@@ -454,8 +345,7 @@ functional analogue to Spatial Analyst + 3D Analyst.
 | `TinRaster_3d(tin, out, 'FLOAT', 'LINEAR', 'CELLSIZE n')` | `scipy.interpolate.LinearNDInterpolator(tri, z)` evaluated on the target grid, or `whitebox.lidar_tin_gridding()` |
 | `HillShade_3d(...)` | `gdal.DEMProcessing(..., "hillshade")` |
 
-Linear interpolation over a Delaunay triangulation is mathematically the same operation as
-arcpy's `TinRaster` with `LINEAR` interpolation, so this path should reproduce closely.
+Linear interpolation over a Delaunay triangulation is mathematically the same operation as arcpy's `TinRaster` with `LINEAR` interpolation, so this path should reproduce closely.
 
 ### Environment, licensing and messaging
 
@@ -470,11 +360,7 @@ arcpy's `TinRaster` with `LINEAR` interpolation, so this path should reproduce c
 | `arcpy.ExecuteError` | `rasterio.errors.RasterioError`, `RuntimeError`, or a project-local exception |
 | `arcpy.GetParameterAsText` / `GetParameter` | `argparse`; only used in the standalone `Tools/` scripts |
 
-Removing `arcpy.env.workspace` is worth calling out separately. It is process-global mutable
-state that interacts badly with `parent_gui.py`'s per-tab `os.chdir` (see `CLAUDE.md`).
-Several modules set `arcpy.env.workspace` in one method and depend on it in another; that
-coupling disappears entirely once paths are explicit, and it is a plausible source of
-order-dependent bugs.
+Removing `arcpy.env.workspace` is worth calling out separately. It is process-global mutable state that interacts badly with `parent_gui.py`'s per-tab `os.chdir` (see `CLAUDE.md`). Several modules set `arcpy.env.workspace` in one method and depend on it in another; that coupling disappears entirely once paths are explicit, and it is a plausible source of order-dependent bugs.
 
 ---
 
@@ -494,259 +380,105 @@ order-dependent bugs.
 
 ### Fixed
 
-1. **`fGlobal.py` - the entire import block failed on Python 3.10+.** `from collections import
-   Iterable` has raised `ImportError` since Python 3.10 (the name moved to `collections.abc`
-   in 3.3). The bare `except` around the import block swallowed it, so `numpy`, `bisect_left`,
-   `glob`, `time` and `webbrowser` were all silently absent from `fGlobal`'s namespace, and
-   every function depending on them failed later with `NameError` far from the cause. This is
-   the most likely explanation for broad, hard-to-localise breakage on a recent ArcGIS Pro
-   Python. Fixed to import from `collections.abc`; `fGlobal` now imports cleanly and `flatten`,
-   `write_Q_str`, `read_Q_str` were re-verified.
+1. **`fGlobal.py` - the entire import block failed on Python 3.10+.** `from collections import Iterable` has raised `ImportError` since Python 3.10 (the name moved to `collections.abc` in 3.3). The bare `except` around the import block swallowed it, so `numpy`, `bisect_left`, `glob`, `time` and `webbrowser` were all silently absent from `fGlobal`'s namespace, and every function depending on them failed later with `NameError` far from the cause. This is the most likely explanation for broad, hard-to-localise breakage on a recent ArcGIS Pro Python. Fixed to import from `collections.abc`; `fGlobal` now imports cleanly and `flatten`, `write_Q_str`, `read_Q_str` were re-verified.
 
-2. **`GetStarted/cWaterLevel.py` - the kriging retry could never succeed.** In the
-   `except arcpy.ExecuteError` handler the `while empty_bins` retry loop was nested inside
-   `if "010079" in ...`, but the trailing `self.logger.info(arcpy.AddError(...))` and
-   `return True` sat at the *same* indentation as that `if`. Even when a retry produced a
-   valid raster, control fell through and the method returned `True`, which callers read as
-   failure. Restructured so a successful retry breaks out to the shared save block and any
-   non-010079 error returns immediately.
+2. **`GetStarted/cWaterLevel.py` - the kriging retry could never succeed.** In the `except arcpy.ExecuteError` handler the `while empty_bins` retry loop was nested inside `if "010079" in ...`, but the trailing `self.logger.info(arcpy.AddError(...))` and `return True` sat at the *same* indentation as that `if`. Even when a retry produced a valid raster, control fell through and the method returned `True`, which callers read as failure. Restructured so a successful retry breaks out to the shared save block and any non-010079 error returns immediately.
 
-3. **`cWaterLevel.py` - `cell_size` was a string.**
-   `GetRasterProperties_management(...).getOutput(0)` returns a *string*, and it is localised
-   (comma decimal separator on non-English systems). `lagSize=cell_size * itr` therefore
-   repeated the string ("0.50.5") instead of multiplying, so the retry fed nonsense lag sizes
-   to `KrigingModelOrdinary`. Now coerced to `float` with a comma-to-dot fallback.
+3. **`cWaterLevel.py` - `cell_size` was a string.** `GetRasterProperties_management(...).getOutput(0)` returns a *string*, and it is localised (comma decimal separator on non-English systems). `lagSize=cell_size * itr` therefore repeated the string ("0.50.5") instead of multiplying, so the retry fed nonsense lag sizes to `KrigingModelOrdinary`. Now coerced to `float` with a comma-to-dot fallback.
 
-4. **`fGlobal.raster2shp` - `area_unit` received a file path.**
-   `area_unit=out_shp_name` passed the output shapefile name where a unit keyword belongs.
-   `raster2shp` now takes a `unit` argument ("us"/"si") and resolves it through the new
-   `fGlobal.area_unit_str()` helper.
+4. **`fGlobal.raster2shp` - `area_unit` received a file path.** `area_unit=out_shp_name` passed the output shapefile name where a unit keyword belongs. `raster2shp` now takes a `unit` argument ("us"/"si") and resolves it through the new `fGlobal.area_unit_str()` helper.
 
-   Correction to an earlier claim: `ProjectMaker/s30_terrain_stabilization.py:192` is **not**
-   affected. It passes `area_units`, correctly set to `SQUARE_FEET_US` or `SQUARE_METERS` at
-   lines 34/38. Only `raster2shp` had the bug, and it currently has no callers, so it was
-   latent rather than active.
+   Correction to an earlier claim: `ProjectMaker/s30_terrain_stabilization.py:192` is **not** affected. It passes `area_units`, correctly set to `SQUARE_FEET_US` or `SQUARE_METERS` at lines 34/38. Only `raster2shp` had the bug, and it currently has no callers, so it was latent rather than active.
 
-5. **Mixed NoData conventions.** `01_Conditions/rsrm_test` has been reconciled to
-   `config.nodata = -999.0` with `riverarchitect.tools.reconcile_nodata` (10 of 30 rasters rewritten;
-   masks and valid data verified unchanged). See the NoData section.
+5. **Mixed NoData conventions.** `01_Conditions/rsrm_test` has been reconciled to `config.nodata = -999.0` with `riverarchitect.tools.reconcile_nodata` (10 of 30 rasters rewritten; masks and valid data verified unchanged). See the NoData section.
 
 ### Open
 
-6. **`cWaterLevel.calculate_h` and `calculate_d2w` have no success return.**
-   `interpolate_wle` returns `False` on success and `True` on error, but the other two fall
-   off the end returning `None`. `None` is falsy so callers behave correctly today, but the
-   asymmetry makes the error contract easy to get wrong in new code. Left alone because
-   changing it without being able to run the callers is a gratuitous risk.
+6. **`cWaterLevel.calculate_h` and `calculate_d2w` have no success return.** `interpolate_wle` returns `False` on success and `True` on error, but the other two fall off the end returning `None`. `None` is falsy so callers behave correctly today, but the asymmetry makes the error contract easy to get wrong in new code. Left alone because changing it without being able to run the callers is a gratuitous risk.
 
-7. **`cWaterLevel.calculate_d2w` gates on `ras_wle > 0`.** WLE is an absolute elevation
-   (about 2002 m in `rsrm_test`, about 200 ft in the SampleData condition). For a project
-   referenced to a datum where water levels are negative, every cell would be dropped as
-   NoData. `IsNull` would be the intent-preserving test. Not changed, because it alters
-   analysis results and should be a deliberate decision.
+7. **`cWaterLevel.calculate_d2w` gates on `ras_wle > 0`.** WLE is an absolute elevation (about 2002 m in `rsrm_test`, about 200 ft in the SampleData condition). For a project referenced to a datum where water levels are negative, every cell would be dropped as NoData. `IsNull` would be the intent-preserving test. Not changed, because it alters analysis results and should be a deliberate decision.
 
-8. **21 call sites still use `RasterToNumPyArray(..., nodata_to_value=0)`**, which converts
-   NoData into a legitimate-looking zero. Now that inputs are reconciled to -999.0 the
-   behaviour is at least consistent, but `0` remains a poor sentinel for depth and velocity
-   rasters where zero is a valid measurement.
+8. **21 call sites still use `RasterToNumPyArray(..., nodata_to_value=0)`**, which converts NoData into a legitimate-looking zero. Now that inputs are reconciled to -999.0 the behaviour is at least consistent, but `0` remains a poor sentinel for depth and velocity rasters where zero is a valid measurement.
 
 ## Fidelity gaps found by running the whole chain
 
-The defects above were found by reading the original. These were found by running the ported
-modules end to end on `sample-data/2100_sample` and comparing the behaviour against
-River Architect 1.4, which is a different exercise: they are places where the port was
-*plausible* but did not do what the original did. All are fixed; each has a regression test.
+The defects above were found by reading the original. These were found by running the ported modules end to end on `sample-data/2100_sample` and comparing the behaviour against River Architect 1.4, which is a different exercise: they are places where the port was *plausible* but did not do what the original did. All are fixed; each has a regression test.
 
 ### Threshold units are a round trip, not a conversion
 
-Worth stating first, because it looks like a bug and is not.
-`cLifespanDesignAnalysis.analyse_d2w` and friends divide every length threshold by
-`config.ft2m`, which reads as though the values in `threshold_values.xlsx` were metric. They
-are not: `cThresholdDirector.get_thresh_value` has already **multiplied** them by the same
-factor when the workbook's "CHOOSE UNIT SYSTEM" cell says `U.S. customary`, which it does.
-The two cancel. `lifespan.FEATURES` holds the workbook's values unconverted, and that is
-correct - Cottonwood really is keyed to a water table 1 to 7 **feet** down.
+Worth stating first, because it looks like a bug and is not. `cLifespanDesignAnalysis.analyse_d2w` and friends divide every length threshold by `config.ft2m`, which reads as though the values in `threshold_values.xlsx` were metric. They are not: `cThresholdDirector.get_thresh_value` has already **multiplied** them by the same factor when the workbook's "CHOOSE UNIT SYSTEM" cell says `U.S. customary`, which it does. The two cancel. `lifespan.FEATURES` holds the workbook's values unconverted, and that is correct - Cottonwood really is keyed to a water table 1 to 7 **feet** down.
 
 ### Three features lost their morphological-unit lists
 
-`sideca`, `gravin` and `gravou` carry `Morphological Units: relevance` lists and
-`mu_method = 1` in `threshold_values.xlsx`, and those rows were dropped when `FEATURES` was
-transcribed. The features were therefore mapped without their spatial restriction, which
-overstated them substantially: `gravin` fell from 33 273 to 7 515 sqft once the criterion was
-restored (5 490 sqft with the regime-aware bed shear stress described below, which came
-later), and `backwt` - which did have its list - from 124 074 to 2 295 sqft once the
-criterion could resolve any codes at all, which is the next item.
+`sideca`, `gravin` and `gravou` carry `Morphological Units: relevance` lists and `mu_method = 1` in `threshold_values.xlsx`, and those rows were dropped when `FEATURES` was transcribed. The features were therefore mapped without their spatial restriction, which overstated them substantially: `gravin` fell from 33 273 to 7 515 sqft once the criterion was restored (5 490 sqft with the regime-aware bed shear stress described below, which came later), and `backwt` - which did have its list - from 124 074 to 2 295 sqft once the criterion could resolve any codes at all, which is the next item.
 
 ### The morphological-unit code table was unreachable, and half of it was discarded
 
 Two separate faults compounded:
 
-* `lifespan._mu_codes` looked only for a `morphological_units.xlsx` **beside the condition**.
-  Conditions do not ship one. The original read the packaged table
-  (`cParameters.MU.read_mus` on `config.xlsx_mu`), so the criterion silently did nothing here
-  while it worked in 1.4.
-* `preprocessing.MorphologicalUnits` skipped every row without all four depth and velocity
-  bounds. That is right for *classifying* a cell, but it discarded the twenty floodplain
-  units - floodplain, terrace, levee, pond, agricultural plain - which have a name and a code
-  but no hydraulic range because they are not delineated hydraulically. Those are exactly the
-  units the feature threshold lists name.
+* `lifespan._mu_codes` looked only for a `morphological_units.xlsx` **beside the condition**. Conditions do not ship one. The original read the packaged table (`cParameters.MU.read_mus` on `config.xlsx_mu`), so the criterion silently did nothing here while it worked in 1.4.
+* `preprocessing.MorphologicalUnits` skipped every row without all four depth and velocity bounds. That is right for *classifying* a cell, but it discarded the twenty floodplain units - floodplain, terrace, levee, pond, agricultural plain - which have a name and a code but no hydraulic range because they are not delineated hydraulically. Those are exactly the units the feature threshold lists name.
 
-  The original had the same restriction (`read_mus` requires columns F to I to parse as
-  floats), which is why its `analyse_mu` hit `KeyError` on the first floodplain name in a
-  list, was swallowed by a bare `except`, and dropped the whole criterion without a word.
+  The original had the same restriction (`read_mus` requires columns F to I to parse as floats), which is why its `analyse_mu` hit `KeyError` on the first floodplain name in a list, was swallowed by a bare `except`, and dropped the whole criterion without a word.
 
-`MorphologicalUnits` now keeps every named, coded unit with `nan` bounds and exposes
-`classifiable()` for the subset that can be delineated; `lifespan` falls back to the packaged
-table; and a unit whose name does not resolve is now **named in the log** instead of being
-swallowed.
+`MorphologicalUnits` now keeps every named, coded unit with `nan` bounds and exposes `classifiable()` for the subset that can be delineated; `lifespan` falls back to the packaged table; and a unit whose name does not resolve is now **named in the log** instead of being swallowed.
 
 ### The two workbooks never agreed on unit names
 
-`threshold_values.xlsx` writes `agriplain`, `in-channel bar`, `high floodplain`,
-`island-floodplain`, `fast glide`; `morphological_units.xlsx` writes `agricultural plain`,
-`bar (in-channel)`, `floodplain (high)`, `island (flood only)`, `glide (fast)`. In 1.4 every
-one of those was a `KeyError`. `preprocessing.MU_ALIASES` maps them, and `codes()` returns
-both vocabularies.
+`threshold_values.xlsx` writes `agriplain`, `in-channel bar`, `high floodplain`, `island-floodplain`, `fast glide`; `morphological_units.xlsx` writes `agricultural plain`, `bar (in-channel)`, `floodplain (high)`, `island (flood only)`, `glide (fast)`. In 1.4 every one of those was a `KeyError`. `preprocessing.MU_ALIASES` maps them, and `codes()` returns both vocabularies.
 
 ### `Fish.xlsx` says "Chinook Salmon"; everything else says "Chinook salmon"
 
-`FishDatabase` matched species names exactly, so `SHArC.run("Chinook salmon", ...)` raised
-`KeyError` while `StrandingRisk.for_fish("Chinook salmon", ...)` accepted the same string
-from a hard-coded table. The capitalisation of a caller's argument decided whether an
-analysis ran. `FishDatabase.resolve_species` and `resolve_lifestage` now match
-case-insensitively and ignore extra spacing, and report the available options when they fail.
+`FishDatabase` matched species names exactly, so `SHArC.run("Chinook salmon", ...)` raised `KeyError` while `StrandingRisk.for_fish("Chinook salmon", ...)` accepted the same string from a hard-coded table. The capitalisation of a caller's argument decided whether an analysis ran. `FishDatabase.resolve_species` and `resolve_lifestage` now match case-insensitively and ignore extra spacing, and report the available options when they fail.
 
-`stranding.TRAVEL_THRESHOLDS` was also a duplicate of data already in the workbook.
-`stranding.travel_thresholds()` now reads `Fish.xlsx` first - as `cFish.get_travel_threshold`
-did - and falls back to the built-in table only for pairs the workbook does not cover, such
-as Chinook adults.
+`stranding.TRAVEL_THRESHOLDS` was also a duplicate of data already in the workbook. `stranding.travel_thresholds()` now reads `Fish.xlsx` first - as `cFish.get_travel_threshold` did - and falls back to the built-in table only for pairs the workbook does not cover, such as Chinook adults.
 
 ### Stranding connectivity was seeded per discharge, not from the low-flow mainstem
 
-`cConnectivityAnalysis.get_target_raster` builds the escape-route target **once**, from the
-largest wetted polygon at the *lowest* analysed discharge, and every discharge is judged
-against it. The port instead kept the largest region at each discharge separately. Those
-agree whenever the wetted area only grows with discharge - they do agree on the whole sample
-reach - but they diverge as soon as a detached area outgrows the channel it is detached from,
-and then the port reports the mainstem as the stranded part. `StrandingRisk` now takes
-`target_discharge`, defaulting to the lowest analysed discharge.
+`cConnectivityAnalysis.get_target_raster` builds the escape-route target **once**, from the largest wetted polygon at the *lowest* analysed discharge, and every discharge is judged against it. The port instead kept the largest region at each discharge separately. Those agree whenever the wetted area only grows with discharge - they do agree on the whole sample reach - but they diverge as soon as a detached area outgrows the channel it is detached from, and then the port reports the mainstem as the stranded part. `StrandingRisk` now takes `target_discharge`, defaulting to the lowest analysed discharge.
 
-The percentage column was also computed against the wetted area at each discharge, where the
-original used the largest wetted extent so the column is comparable down a recession. Both
-are now reported (`percent_stranded`, `percent_of_max_wetted`). The reference extent is taken
-by **measurement** rather than at the highest discharge: on a condition holding one bad
-hydraulic raster - as the sample reach does at 88053 cfs - those are not the same thing.
+The percentage column was also computed against the wetted area at each discharge, where the original used the largest wetted extent so the column is comparable down a recession. Both are now reported (`percent_stranded`, `percent_of_max_wetted`). The reference extent is taken by **measurement** rather than at the highest discharge: on a condition holding one bad hydraulic raster - as the sample reach does at 88053 cfs - those are not the same thing.
 
 ### Recruitment tracked the wrong quantities in the day-by-day walk
 
-`cRecruitmentPotential.rec_inund_survival` is a single loop over the flow record, and the
-port reproduced its shape but not three of its rules:
+`cRecruitmentPotential.rec_inund_survival` is a single loop over the flow record, and the port reproduced its shape but not three of its rules:
 
-* **Inundation is the longest run of consecutive submerged days** (`consec_inund_days_max`),
-  not their total. Summing every submerged day condemns a cell that was briefly wet on twenty
-  separate occasions, and on the sample reach it more than halved the inundation-survival
-  area (30 483 sqft against 71 451).
-* **A recession day only counts where the cell is dry** (`one_if_dry`). A submerged seedling
-  is not desiccating, however fast the surface is dropping.
-* **The denominator is per cell.** When a cell goes dry during seed dispersal, that is when
-  its seed landed, so the original resets its counts and its day count from there
-  (`rr_total_d = max_rr_total_d - i`). The port divided every cell by one scalar.
+* **Inundation is the longest run of consecutive submerged days** (`consec_inund_days_max`), not their total. Summing every submerged day condemns a cell that was briefly wet on twenty separate occasions, and on the sample reach it more than halved the inundation-survival area (30 483 sqft against 71 451).
+* **A recession day only counts where the cell is dry** (`one_if_dry`). A submerged seedling is not desiccating, however fast the surface is dropping.
+* **The denominator is per cell.** When a cell goes dry during seed dispersal, that is when its seed landed, so the original resets its counts and its day count from there (`rr_total_d = max_rr_total_d - i`). The port divided every cell by one scalar.
 
-The classification boundary differed too: the original treats a cell submerged for exactly
-`inundation_lethal` days as stressed (0.5), and only `> lethal` as dead. Together these moved
-full recruitment potential on the sample reach from 5 949 to 17 361 sqft (31 977 sqft with
-the regime-aware bed shear stress described below, which came later).
+The classification boundary differed too: the original treats a cell submerged for exactly `inundation_lethal` days as stressed (0.5), and only `> lethal` as dead. Together these moved full recruitment potential on the sample reach from 5 949 to 17 361 sqft (31 977 sqft with the regime-aware bed shear stress described below, which came later).
 
 ### `build_product("inp")` ignored its output directory
 
-Every other product honoured `output_dir`; the `.inp` writer always wrote into the condition
-folder, so building products into a scratch directory overwrote the condition's real
-`input_definitions.inp`.
+Every other product honoured `output_dir`; the `.inp` writer always wrote into the condition folder, so building products into a scratch directory overwrote the condition's real `input_definitions.inp`.
 
 ### The Keulegan-only Shields stress was replaced, deliberately
 
-This one is not a defect in the port: it is a place where reproducing the original faithfully
-would reproduce a physical error. The single expression
-`Square(u / (5.75 * Log10(12.2 * h / (2 * 2.2 * grains))))` assumes the Keulegan--Einstein
-logarithmic resistance law at every relative submergence. On the sample reach about 95 % of
-wet cells have $h/k_s<7$, where the roughness layer occupies much of the water column and
-that law does not hold; in the shallowest cells the argument of the logarithm approaches one
-and the computed stress diverges. Shallow riffle margins are exactly where lifespan and
-recruitment analyses look.
+This one is not a defect in the port: it is a place where reproducing the original faithfully would reproduce a physical error. The single expression `Square(u / (5.75 * Log10(12.2 * h / (2 * 2.2 * grains))))` assumes the Keulegan--Einstein logarithmic resistance law at every relative submergence. On the sample reach about 95 % of wet cells have $h/k_s<7$, where the roughness layer occupies much of the water column and that law does not hold; in the shallowest cells the argument of the logarithm approaches one and the computed stress diverges. Shallow riffle margins are exactly where lifespan and recruitment analyses look.
 
-{mod}`riverarchitect.shear` therefore switches to Rickenmann--Recking (2011) below
-$h/k_s=7$, keeps Keulegan--Einstein above 20, blends the stress coefficient smoothly between
-them, and references the result to $D_{84}$. Every run writes `ts<Q>.tif`, `tb<Q>.tif`,
-`hks<Q>.tif` and `regime<Q>.tif`, so both the stress and the closure used to reach it are
-visible rather than implicit.
+{mod}`riverarchitect.shear` therefore switches to Rickenmann--Recking (2011) below $h/k_s=7$, keeps Keulegan--Einstein above 20, blends the stress coefficient smoothly between them, and references the result to $D_{84}$. Every run writes `ts<Q>.tif`, `tb<Q>.tif`, `hks<Q>.tif` and `regime<Q>.tif`, so both the stress and the closure used to reach it are visible rather than implicit.
 
-Those four also replace `LifespanDesign/helper.py`, the standalone script that wrote 1.x's
-stress rasters into `01_Conditions/<condition>/ts/` and `.../tb/`. The equivalent is
-{func}`riverarchitect.preprocessing.bed_shear_stress`, a Get Started product; it writes
-beside the hydraulic rasters rather than into a subfolder per quantity, which had split one
-discharge's rasters across three places. `tb` keeps the 1.x prefix but is documented as
-what 1.x actually stored there - $u_*^2$, not the $\rho_w u_*^2$ its name claims, the
-density having been cancelled again when forming `ts`.
+Those four also replace `LifespanDesign/helper.py`, the standalone script that wrote 1.x's stress rasters into `01_Conditions/<condition>/ts/` and `.../tb/`. The equivalent is {func}`riverarchitect.preprocessing.bed_shear_stress`, a Get Started product; it writes beside the hydraulic rasters rather than into a subfolder per quantity, which had split one discharge's rasters across three places. `tb` keeps the 1.x prefix but is documented as what 1.x actually stored there - $u_*^2$, not the $\rho_w u_*^2$ its name claims, the density having been cancelled again when forming `ts`.
 
-The results move, and they move in both directions: the median stress on the sample reach
-falls (the $D_{84}$ reference alone divides the deep-water value by 2.2) while the shallow
-cells the old expression mishandled can now fail earlier. On the sample reach `Generic`
-planting rose from 23 166 to 44 775 sqft, `gravin` fell from 7 515 to 5 490 sqft, and full
-recruitment potential rose from 17 361 to 31 977 sqft. Anything comparing against a River
-Architect 1.x run must expect these differences.
+The results move, and they move in both directions: the median stress on the sample reach falls (the $D_{84}$ reference alone divides the deep-water value by 2.2) while the shallow cells the old expression mishandled can now fail earlier. On the sample reach `Generic` planting rose from 23 166 to 44 775 sqft, `gravin` fell from 7 515 to 5 490 sqft, and full recruitment potential rose from 17 361 to 31 977 sqft. Anything comparing against a River Architect 1.x run must expect these differences.
 
 ### Mineral cover: two defensible readings of the same two workbook cells
 
-Not a defect, but a place where the sources disagree and the choice should be visible rather
-than implicit.
+Not a defect, but a place where the sources disagree and the choice should be visible rather than implicit.
 
-SHArC's cover option distinguishes two kinds of shelter. Vegetative cover - plants and
-streamwood - buffers each element by a **radius**: *"the module draws polygons with a
-user-defined radius around the plant polygons"*. Mineral cover - cobbles and boulders - is
-described instead by **how much of the surface it occupies**: *"areas where the boulder
-presence covers more than 30 % of the surface get assigned an HSI value of 0.5"*.
+SHArC's cover option distinguishes two kinds of shelter. Vegetative cover - plants and streamwood - buffers each element by a **radius**: *"the module draws polygons with a user-defined radius around the plant polygons"*. Mineral cover - cobbles and boulders - is described instead by **how much of the surface it occupies**: *"areas where the boulder presence covers more than 30 % of the surface get assigned an HSI value of 0.5"*.
 
-Both are read from the same two cells per lifestage, and `Fish.xlsx` heads both blocks
-`Rad.`, so both are applied as radii here - the workbook is the file the code actually reads,
-and it calls them radii. The competing reading is available as `mineral_rule="fraction"`,
-measured with {func}`riverarchitect.raster.focal_fraction`, the `FocalStatistics` equivalent,
-over a 3x3 window by default; the original's window size is not recorded anywhere that
-survived, so it is a documented parameter rather than a silent constant.
+Both are read from the same two cells per lifestage, and `Fish.xlsx` heads both blocks `Rad.`, so both are applied as radii here - the workbook is the file the code actually reads, and it calls them radii. The competing reading is available as `mineral_rule="fraction"`, measured with {func}`riverarchitect.raster.focal_fraction`, the `FocalStatistics` equivalent, over a 3x3 window by default; the original's window size is not recorded anywhere that survived, so it is a documented parameter rather than a silent constant.
 
-What tips the balance for anyone choosing: the mineral values the workbook holds are 0.1 and
-1.0, smaller than a cell on any real grid, so as radii
-{func}`riverarchitect.raster.within_radius` reduces to the identity and each cobble cell takes
-the suitability on its own with no spreading at all. As fractions the same numbers ask for
-10 % of the neighbourhood to be cobble and 100 % to be boulder. On the sample reach, Chinook
-juvenile SHArea with cover is 55 331 sqft by radius against 53 723 sqft by fraction, and
-boulders drop out of the fraction result entirely, their value asking for a neighbourhood that
-is wholly boulder on a reach that has none.
+What tips the balance for anyone choosing: the mineral values the workbook holds are 0.1 and 1.0, smaller than a cell on any real grid, so as radii {func}`riverarchitect.raster.within_radius` reduces to the identity and each cobble cell takes the suitability on its own with no spreading at all. As fractions the same numbers ask for 10 % of the neighbourhood to be cobble and 100 % to be boulder. On the sample reach, Chinook juvenile SHArea with cover is 55 331 sqft by radius against 53 723 sqft by fraction, and boulders drop out of the fraction result entirely, their value asking for a neighbourhood that is wholly boulder on a reach that has none.
 
 ### Stranding escape routes are found with Dijkstra again, and the velocity criterion works
 
-1.x built a weighted digraph over travel-permissible cells and ran Dijkstra's algorithm
-outwards from the low-flow mainstem, writing the route length into a `shortest_paths` raster
-per discharge and calling a cell disconnected when no finite-cost route reached it. The port
-replaced that with connected-component labelling, on the argument that with only the depth
-criterion applied the two select the same cells.
+1.x built a weighted digraph over travel-permissible cells and ran Dijkstra's algorithm outwards from the low-flow mainstem, writing the route length into a `shortest_paths` raster per discharge and calling a cell disconnected when no finite-cost route reached it. The port replaced that with connected-component labelling, on the argument that with only the depth criterion applied the two select the same cells.
 
-The argument is sound - it is now verified cell-for-cell against a real Dijkstra search on the
-sample reach - but it only holds because the **velocity criterion was dropped**, and that
-criterion is the reason the original needed a graph at all. A fish cannot swim upstream
-against more than `u_max`, so fast water is a one-way door: passable downstream, impassable
-up. That is a *directed* edge, and no undirected rule expresses it.
+The argument is sound - it is now verified cell-for-cell against a real Dijkstra search on the sample reach - but it only holds because the **velocity criterion was dropped**, and that criterion is the reason the original needed a graph at all. A fish cannot swim upstream against more than `u_max`, so fast water is a one-way door: passable downstream, impassable up. That is a *directed* edge, and no undirected rule expresses it.
 
-{func}`riverarchitect.raster.least_cost_distance` is that search, with an `allowed` hook for
-one-way edges and a `towards_sources` flag - the escape direction is *to* the mainstem, not
-away from it, which is why 1.x traversed its graph outwards from there.
-{class}`riverarchitect.stranding.StrandingRisk` uses it whenever a `velocity_field` is
-supplied, keeps the component rule as the equivalent fast path when one is not, and can write
-`escape_<Q>.tif`.
+{func}`riverarchitect.raster.least_cost_distance` is that search, with an `allowed` hook for one-way edges and a `towards_sources` flag - the escape direction is *to* the mainstem, not away from it, which is why 1.x traversed its graph outwards from there. {class}`riverarchitect.stranding.StrandingRisk` uses it whenever a `velocity_field` is supplied, keeps the component rule as the equivalent fast path when one is not, and can write `escape_<Q>.tif`.
 
-What the criterion needs is the velocity **components**, and conditions ship `u<Q>.tif`, a
-speed. `ux<Q>.tif` and `uy<Q>.tif` are picked up automatically when a 2D model exports them;
-otherwise pass them through `velocity_field`. Approximating the criterion with the speed
-alone is not conservative, it is wrong: on the sample reach at 7250 cfs only 0.4 % of the
-low-flow mainstem is slower than a juvenile Chinook's 1.9 fps and at 16 000 cfs none of it
-is, so the mainstem itself becomes unreachable and 134 to 236 times more area reads as
-stranded. `velocity_limited` therefore reports whether the criterion actually applied.
+What the criterion needs is the velocity **components**, and conditions ship `u<Q>.tif`, a speed. `ux<Q>.tif` and `uy<Q>.tif` are picked up automatically when a 2D model exports them; otherwise pass them through `velocity_field`. Approximating the criterion with the speed alone is not conservative, it is wrong: on the sample reach at 7250 cfs only 0.4 % of the low-flow mainstem is slower than a juvenile Chinook's 1.9 fps and at 16 000 cfs none of it is, so the mainstem itself becomes unreachable and 134 to 236 times more area reads as stranded. `velocity_limited` therefore reports whether the criterion actually applied.

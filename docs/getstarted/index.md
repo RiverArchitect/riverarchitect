@@ -4,13 +4,6 @@ This section explains River Architect vocabularly, like what a *Condition* is, w
 
 The module is {mod}`riverarchitect.preprocessing` (with {mod}`riverarchitect.flows` for the flow side), and the **Get Started** tab of the interface.
 
-```{toctree}
-:maxdepth: 1
-:caption: In this section
-
-Get started, conditions and geofile conventions (legacy) <../wiki/Signposts>
-```
-
 ## Conditions
 
 A **condition** is one folder under `01_Conditions/` holding the terrain, sediment and hydraulic rasters for a single planning situation: existing state, with-project state, a design variant. Every analysis runs *against a condition*, and comparing two conditions is how a project is evaluated.
@@ -35,8 +28,7 @@ These are not cosmetic. The modules find rasters by name.
 | `hks<Q>.tif` | relative submergence `h/ks` at that discharge |
 | `regime<Q>.tif` | which bed-resistance law applied: 1 Rickenmann-Recking, 2 blended, 3 Keulegan-Einstein, 0 invalid |
 
-`<Q>` is the discharge as a **six-digit, zero-padded** integer, so 1000 cfs is `h001000.tif`. That is how {class}`riverarchitect.condition.Condition` recovers the discharge from a file
-name, and how depth is paired with velocity. Conditions written by River Architect 1.x instead spell a fractional discharge with `_` for the decimal point (`h000001_060.tif` is 1.06); both forms are read, and a derived raster keeps the spelling of the hydraulic rasters it came from.
+`<Q>` is the discharge as a **six-digit, zero-padded** integer, so 1000 cfs is `h001000.tif`. That is how {class}`riverarchitect.condition.Condition` recovers the discharge from a file name, and how depth is paired with velocity. Conditions written by River Architect 1.x instead spell a fractional discharge with `_` for the decimal point (`h000001_060.tif` is 1.06); both forms are read, and a derived raster keeps the spelling of the hydraulic rasters it came from.
 
 The last four are written by **Get Started ▸ dimensionless bed shear stress (taux)** - see {func}`riverarchitect.preprocessing.bed_shear_stress`. They are outputs, not inputs: nothing requires them, and Lifespan Design and Riparian Recruitment recompute the stress internally  rather than reading them, so an edited or stale `ts<Q>.tif` cannot silently change an analysis.
 
@@ -49,13 +41,12 @@ The original distinguished `dmean.tif` from `dmean_ft.tif`. This release does no
 ```{admonition} Record the grain-size statistic
 :class: important
 
-The legacy name `dmean.tif` does not prove that a raster contains $D_{50}$, $D_{84}$, or an arithmetic mean. That distinction matters in the Lifespan module's {doc}`dimensionless bed-shear calculation <../modules/lifespans>`: supply measured $D_{84}$ where possible, or use $D_{84}\approx2.2D_{50}$ only when the input is actually $D_{50}$. Store that interpretation in the condition metadata so a later analysis does not silently apply the conversion to the wrong statistic.
+The name `dmean.tif` does not prove that a raster contains $D_{50}$, $D_{84}$, or an arithmetic mean. That distinction matters in the Lifespan module's {doc}`dimensionless bed-shear calculation <../modules/lifespans>`: supply measured $D_{84}$ where possible, or use $D_{84}\approx2.2D_{50}$ only when the input is actually $D_{50}$. Store that interpretation in the condition metadata so a later analysis does not silently apply the conversion to the wrong statistic.
 ```
 
 ## Input definition files
 
-`input_definitions.inp` names which raster is which, and gives the **flood return period of each modelled discharge**. It is the metadata every analysis needs before it can start, and
-the return periods are what turn a set of discharges into a lifespan axis.
+`input_definitions.inp` names which raster is which, and gives the **flood return period of each modelled discharge**. It is the metadata every analysis needs before it can start, and the return periods are what turn a set of discharges into a lifespan axis.
 
 ```text
 Return periods = 1.0, 1.08, 1.13, 2.0, 5.0, 20.0, 50.0 #[Comma separated LIST]
@@ -69,7 +60,7 @@ DEM = dem #[STRING]
 DEM of differences = fill, scour #[Comma separated LIST]
 ```
 
-The format is the original's, so existing conditions are read unchanged: everything after `#` is a comment, keys are matched case-insensitively on a substring, and `.tif` is optional. {func}`riverarchitect.preprocessing.write_input_definitions` writes one. 
+Everything after `#` is a comment, keys are matched case-insensitively on a substring, and `.tif` is optional. {func}`riverarchitect.preprocessing.write_input_definitions` writes one. 
 
 Only the discharges listed here carry a return period, so **only these are used for lifespan mapping**. The ecohydraulic modules scan the folder instead and use every `h<Q>.tif` on disk, for instance, on the sample reach that is 60 rasters against the 17 the `.inp` names.
 
@@ -121,7 +112,7 @@ Without this step SHArea cannot be computed at all: there is nothing to weigh on
 
 ## Map extent definition files
 
-Map extents are QGIS print layouts rather than the original's `.inp` extent files. See {doc}`../modules/maps`.
+Map extents are QGIS print layouts. See {doc}`../modules/maps`.
 
 ```{eval-rst}
 .. seealso::

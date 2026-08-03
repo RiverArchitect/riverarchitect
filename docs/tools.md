@@ -1,19 +1,6 @@
 # Tools
 
-Section 4 of the original wiki. Utility routines that sit beside the analysis modules:
-things a project needs occasionally, that do not belong in a tab.
-
-In the original these were loose console scripts under `RiverArchitect/Tools/`, described as
-"beta versions of future functionalities". In this release the ones that earned their place
-are **importable modules with console-script entry points**, and the ones that were really
-part of an analysis have moved into it.
-
-```{toctree}
-:maxdepth: 1
-:caption: In this section
-
-River Architect Tools (legacy) <wiki/Tools>
-```
+Utility routines that sit beside the analysis modules: things a project needs occasionally, that do not belong in a tab. Each is an importable module with a console-script entry point.
 
 ## Available now
 
@@ -26,12 +13,9 @@ riverarchitect-reconcile-nodata <condition-folder>
 
 Also **Tools ▸ Reconcile NoData in a condition** in the interface.
 
-Conditions assembled from different preprocessing chains carry inconsistent NoData
-sentinels - real-world inputs mix `-999`, `-3.4e38`, `+3.4e38`, `0` and `-9999`, sometimes
-within one dataset. This rewrites a folder to `config.NODATA` (-999.0).
+Conditions assembled from different preprocessing chains carry inconsistent NoData sentinels - real-world inputs mix `-999`, `-3.4e38`, `+3.4e38`, `0` and `-9999`, sometimes within one dataset. This rewrites a folder to `config.NODATA` (-999.0).
 
-The NoData **mask is preserved exactly**; only the sentinel changes. `--dry-run` reports what
-would be rewritten without touching anything.
+The NoData **mask is preserved exactly**; only the sentinel changes. `--dry-run` reports what would be rewritten without touching anything.
 
 ### Bed shear stress
 
@@ -40,16 +24,9 @@ riverarchitect-taux --velocity u000550.tif --depth h000550.tif --grains dmean.ti
     --unit us --output-prefix out/q000550
 ```
 
-Runs the Shields stress calculation of {mod}`riverarchitect.shear` on one set of rasters,
-outside a condition folder - useful for checking model output before it is organised as a
-condition, or for comparing the closure against measured stress. It writes
-`<prefix>_theta84.tif`, `<prefix>_ustar2.tif`, `<prefix>_h_over_ks.tif` and
-`<prefix>_regime.tif`, and prints how many cells fell into each resistance regime.
+Runs the Shields stress calculation of {mod}`riverarchitect.shear` on one set of rasters, outside a condition folder - useful for checking model output before it is organised as a condition, or for comparing the closure against measured stress. It writes `<prefix>_theta84.tif`, `<prefix>_ustar2.tif`, `<prefix>_h_over_ks.tif` and `<prefix>_regime.tif`, and prints how many cells fell into each resistance regime.
 
-Depth and grain size are resampled onto the velocity raster's grid, so the three need not
-share an extent. They **must** share a unit system, and `--unit` must name it. Pass
-`--grain-kind d84` when the grain raster holds a measured $D_{84}$; the default `dmean`
-estimates it as $2.2\,D_{\mathrm{mean}}$, which is what the analysis modules do.
+Depth and grain size are resampled onto the velocity raster's grid, so the three need not share an extent. They **must** share a unit system, and `--unit` must name it. Pass `--grain-kind d84` when the grain raster holds a measured $D_{84}$; the default `dmean` estimates it as $2.2\,D_{\mathrm{mean}}$, which is what the analysis modules do.
 
 ### lyrx2qml
 
@@ -57,15 +34,11 @@ estimates it as $2.2\,D_{\mathrm{mean}}$, which is what the analysis modules do.
 riverarchitect-lyrx2qml input.lyrx output.qml
 ```
 
-Converts an ArcGIS Pro layer file to a QGIS layer style, so a project that has already
-invested in symbology does not have to rebuild it for {doc}`modules/maps`.
+Converts an ArcGIS Pro layer file to a QGIS layer style, so a project that already has symbology does not have to rebuild it for {doc}`modules/maps`.
 
 ### Flow analysis
 
-{mod}`riverarchitect.flows` replaces the original's `make_annual_flow_duration.py` and
-`make_annual_peak.py`, which were console scripts with the station name and the file paths
-edited into the source. It is now a module, and it is reachable from **Get Started ▸ analyze
-flows** - see {doc}`getstarted/index`.
+{mod}`riverarchitect.flows` turns a daily flow record into seasonal flow duration curves, annual peaks and Gumbel return periods. It is reachable from **Get Started ▸ analyze flows** - see {doc}`getstarted/index` - and directly as a module:
 
 ```python
 from riverarchitect.flows import FlowSeries, return_periods
@@ -79,27 +52,17 @@ peaks = flows.annual_peaks()
 periods = return_periods(peaks, discharges=[7250, 20000, 88053])
 ```
 
-`annual_peaks` prepares exactly the series the original exported for the U.S. Army Corps of
-Engineers' [HEC-SSP](https://www.hec.usace.army.mil/software/hec-ssp/); `return_periods` adds
-a first estimate so that a defensible starting point needs no second program. For a formal
-flood frequency analysis, still use HEC-SSP or an equivalent.
+`annual_peaks` prepares the annual maximum series a flood frequency analysis needs, in the form the U.S. Army Corps of Engineers' [HEC-SSP](https://www.hec.usace.army.mil/software/hec-ssp/) expects; `return_periods` adds a first estimate so a defensible starting point needs no second program. For a formal flood frequency analysis, still use HEC-SSP or an equivalent.
 
 ### File renaming
 
-The original's `rename_files.py` added, removed or replaced prefixes and suffixes to make
-input files match the naming conventions. No replacement ships here: the conventions are
-documented in {doc}`getstarted/index`, and `rename`, `mmv` or a three-line shell loop does
-the job without a bespoke script.
+There is no renaming tool. The naming conventions are documented in {doc}`getstarted/index`, and `rename`, `mmv` or a three-line shell loop does the job without a bespoke script.
 
-## Not ported
+## Not implemented
 
-**`morphology_designer.py`** (with `cHydraulic.py` and `cPoolRiffle.py`) produced design
-tables for self-sustaining pool-riffle channels from cross-section-averaged hydraulics. It
-is independent of the raster analysis and of `arcpy`, and has not been rewritten.
-{doc}`wiki/Tools` describes it.
+**A pool-riffle morphology designer.** It produces design tables for self-sustaining pool-riffle sequences from cross-section-averaged hydraulics: given a discharge that is morphologically effective - one that mobilises the bed - it sizes a sequence whose velocity reversal maintains itself. That is a one-dimensional design calculation rather than a raster analysis, which is why it sits outside the module chain and has not been rewritten.
 
-For a synthetic channel *geometry* rather than a design table, see **River Builder** in
-{doc}`modules/morphology`, which is ported.
+For a synthetic channel *geometry* rather than a design table, see **River Builder** in {doc}`modules/morphology`.
 
 ```{eval-rst}
 .. seealso::

@@ -1,8 +1,9 @@
 """Project-wide configuration: paths, units and the canonical NoData value.
 
-Paths are resolved with :mod:`os.path` so that the same constants work on Windows and
-POSIX. The original River Architect hard-coded ``"\\\\"`` separators throughout, which is
-one of the reasons it could only run on Windows.
+Paths are resolved with :mod:`os.path` so that the same constants work on Windows, macOS and
+Linux. No separator is ever written literally: ``os.path.join`` picks the right one, and
+nothing translates separators by hand, because a backslash is a legal character in a POSIX
+file name and rewriting it corrupts the path.
 
 Data directories are resolved relative to a *project root*, which is by default the current
 working directory. Point :envvar:`RIVERARCHITECT_HOME` at a directory to override it, or

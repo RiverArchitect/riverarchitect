@@ -15,8 +15,7 @@ LifespanDesign("2100_sample").run(["rocks"])
 StrandingRisk.for_fish("2100_sample", "Chinook salmon", "fry").run()
 ```
 
-This page takes the long way round instead, building both analyses out of the raster primitives. That is worth reading once: it shows exactly what the modules do, which assumptions they make, and where you would change them for a river that behaves differently. The physical background is in {doc}`../wiki/LifespanDesign`,
-{doc}`../wiki/LifespanDesign-parameters` and {doc}`../wiki/StrandingRisk`.
+This page takes the long way round instead, building both analyses out of the raster primitives. That is worth reading once: it shows exactly what the modules do, which assumptions they make, and where you would change them for a river that behaves differently. The physical background is in {doc}`../modules/lifespans`, {doc}`../modules/features` and {doc}`../modules/ecohydraulics`.
 ````
 
 The scripts on this page are in `examples/`, ready to run:
@@ -130,8 +129,7 @@ Three functions are doing the work:
 
 {func}`~riverarchitect.raster.con` with two arguments writes the return period where the grain is mobile and **NoData** everywhere else. Passing `0` for the false branch instead would put a zero-year lifespan on every stable cell and destroy the next step.
 
-{func}`~riverarchitect.raster.cell_statistics` with `"MINIMUM"` then reduces the stack of 17 per-flood rasters to the earliest flood that mobilises each cell. Cells that survive every modelled flood are NoData in all 17 layers and stay NoData - correctly, since their lifespan
-is longer than the 50-year event and cannot be quantified from this data.
+{func}`~riverarchitect.raster.cell_statistics` with `"MINIMUM"` then reduces the stack of 17 per-flood rasters to the earliest flood that mobilises each cell. Cells that survive every modelled flood are NoData in all 17 layers and stay NoData - correctly, since their lifespan is longer than the 50-year event and cannot be quantified from this data.
 
 `align` inside `hydraulics()` is a no-op here, because the depth and velocity rasters happen to share the grain-size grid. It becomes necessary in the next step, and leaving it in costs nothing.
 
@@ -187,7 +185,7 @@ Read that as a design statement: over 1.5 acres of this reach, boulders are mobi
 
 ### Refinement: restrict to where the bed actually moves
 
-Angular boulders are a response to scour, so the original method restricts the lifespan map to cells whose observed scour exceeds a threshold - 3 ft in the default threshold workbook. This is the step that needs the alignment, since `scour.tif` is on the 5 ft grid:
+Angular boulders are a response to scour, so the lifespan map is restricted to cells whose observed scour exceeds a threshold - 3 ft for the `rocks` feature in {data}`riverarchitect.lifespan.FEATURES`. This is the step that needs the alignment, since `scour.tif` is on the 5 ft grid:
 
 ```python
 scour, scour_prof = raster.read(os.path.join(CONDITION, "scour.tif"))
@@ -213,7 +211,7 @@ As a hydrograph recedes, the wetted area shrinks and breaks apart. Pools that lo
 
 ### Setup
 
-The travel thresholds come from the fish database of the original software. For Chinook salmon fry the minimum swimming depth is 0.2 ft.
+The travel thresholds come from `Fish.xlsx`. For Chinook salmon fry the minimum swimming depth is 0.2 ft.
 
 ```python
 import os
@@ -365,8 +363,6 @@ MaxLifespan("sample-data/Output/LifespanDesign/2100_sample").run()
 ## Next
 
 * {doc}`gui` runs all of this from the graphical interface.
-* {doc}`quickstart` covers the remaining primitives: interpolation, zonal statistics,
-  reclassification, NoData reconciliation.
+* {doc}`quickstart` covers the remaining primitives: interpolation, zonal statistics, reclassification, NoData reconciliation.
 * {doc}`volumes` covers earthwork quantities from DEM differencing.
-* {doc}`arcpy_migration` maps each arcpy operation used above onto its replacement, and
-  records the defects found while migrating.
+* {doc}`arcpy_migration` maps each arcpy operation used above onto its replacement, and records the defects found while migrating.

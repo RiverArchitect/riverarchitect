@@ -4,7 +4,43 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.5.0] - 2026-08-03
+
+**The documentation describes this program, not the one it replaced.** The twenty-three
+legacy wiki pages under `docs/wiki/` documented ArcGIS Pro click-paths, `.aprx` projects and
+`riverpy` internals - none of which exist here. Everything in them that was still true has
+been rewritten in GDAL terms into the page it belongs to and the pages themselves deleted,
+along with every link to them.
+
+Also fixes the most confusing state the program has: QGIS installed, Maps tab disabled, and
+an error message about a package that is not missing.
+
+### Added
+
+- `mapping.bindings_python_version` reads the ABI tag off `qgis/_core.cpython-3XX-*.so`, so
+  a version mismatch is named before the import is attempted rather than surfacing as an
+  unrelated-looking failure.
+- `mapping.qgis_interpreter` finds an installed interpreter the discovered bindings would
+  load in, so the advice names a real path instead of a guess.
+- `mapping.qgis_launcher_warning` gives both start-up scripts one shared diagnosis, printed
+  before a window opens.
+- **New page: River design and restoration features** (`docs/modules/features.md`). The
+  feature catalogue - what a backwater, a berm setback, an engineered log jam or a gravel
+  stockpile is, which criteria apply to each, why those thresholds and from which study.
+  Checked against `lifespan.FEATURES`, so the tables and the code agree.
+- **New section: Help**, holding the FAQ and Known issues.
+
+### Changed
+
+- The `Fish.xlsx` layout - which row each suitability curve starts on, which columns a
+  species block occupies, what may be edited and what must not - is documented in
+  `docs/modules/ecohydraulics.md` rather than by pointing at a page about a class that no
+  longer exists. The feature literature, the morphological unit list, the acknowledgment and
+  the disclaimer moved likewise into the pages that own them.
+- `troubleshooting.md` became `help/known-issues.md`.
+- Documentation sources are no longer hard-wrapped at a column. One paragraph is one line, so
+  a wording change no longer reflows a paragraph and diffs stay readable. Rendered output is
+  unchanged: all 78 pages were compared before and after.
 
 ### Fixed
 
@@ -21,16 +57,16 @@ All notable changes to River Architect are recorded here. The format follows
 - Duplicate discovery reports. `/usr/lib/python3/dist-packages` matches both the literal
   Debian entry and the `python3*` glob, so one failing installation was named twice and read
   as two.
+- **Windows-only separator handling in `mapping.py`.** Its path helper translated `\` to the
+  platform separator, which is correct on Windows and wrong on POSIX, where a backslash is a
+  legal character in a file name - a path containing one was silently corrupted. `os.path`
+  already does the right thing on each platform, so nothing rewrites separators any more.
+  Two `basename` calls that split on `\` by hand were fixed the same way.
 - Sub-pages no longer hang off an **In this section** node in the documentation menu. The
   heading put the `toctree` inside a section, so every child page was nested one level too
   deep, under an entry that was not a page. The toctrees now carry the text as a caption
   instead, which renders the same in the body and leaves the child pages attached directly to
   their parent - the structure the original wiki had.
-
-### Added
-
-- `mapping.bindings_python_version`, `mapping.qgis_interpreter` and
-  `mapping.qgis_launcher_warning`, so both start-up scripts share one diagnosis.
 
 ## [2.4.0] - 2026-08-01
 
@@ -488,6 +524,7 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
+[2.5.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.5.0
 [2.2.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.2.0
 [2.1.1]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.1.1
 [2.1.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.1.0

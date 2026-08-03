@@ -23,8 +23,7 @@ import logging
 logger = logging.getLogger("riverarchitect")
 ```
 
-Add it to the lazy import list in `src/riverarchitect/__init__.py`, so a missing optional
-dependency only breaks the module that needs it:
+Add it to the lazy import list in `src/riverarchitect/__init__.py`, so a missing optional dependency only breaks the module that needs it:
 
 ```python
 def __getattr__(name):
@@ -71,8 +70,7 @@ Anything that prepares a condition belongs in {data}`riverarchitect.preprocessin
 
 * an API page, `docs/api/<name>.rst`, added to `docs/api/index.rst`;
 * a section in the module page it belongs to under `docs/modules/`;
-* a step in {mod}`riverarchitect.guide` if it is part of the standard chain - both front ends
-  render that tuple, and a test checks every step names a tab that exists.
+* a step in {mod}`riverarchitect.guide` if it is part of the standard chain - both front ends render that tuple, and a test checks every step names a tab that exists.
 
 Keep the docs build at **zero warnings**:
 

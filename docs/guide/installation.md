@@ -15,7 +15,7 @@ This page gets River Architect running in a few minutes. If something does not w
 
 | | Minimum | Notes |
 |---|---|---|
-| Operating system | Linux, macOS or Windows | no Esri software, no Windows-only dependency |
+| Operating system | Linux, macOS or Windows | no platform-specific dependency |
 | Python | 3.9 (3.12 recommended) | 3.12 is what `environment.yml` pins |
 | Disk | ~3 GB | almost all of it is the GDAL stack |
 | RAM | 4 GB | 8 GB for reach-scale rasters |

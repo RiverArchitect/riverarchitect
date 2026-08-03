@@ -1,14 +1,13 @@
 # Software setup
 
-Installing River Architect, what it needs, how its files are organised, and where it writes its logs. This is section 1 of the original wiki's *Installation*, rewritten for the
-open-source release.
+Installing River Architect, what it needs, how its files are organised, and where it writes its logs.
 
-```{admonition} What changed since the ArcGIS version (v1)
+```{admonition} You install an environment, not a GIS
 :class: important
 
-River Architect no longer requires **ArcGIS Pro**, an **Esri licence** or the **Spatial Analyst** extension, and it is no longer Windows-only. Everything the original did with `arcpy` now runs on **GDAL** through rasterio, with numpy and scipy for the algebra and geopandas for the vector side. Map production runs on **QGIS** print layouts instead of ArcGIS layout templates.
+The geoprocessing runs on **GDAL** through rasterio, with numpy and scipy for the algebra and geopandas for the vector side, so setup is a conda environment and nothing else. River Architect runs on Linux, macOS and Windows and needs no proprietary licence anywhere in the analysis chain.
 
-The practical consequence for setup: you install a conda environment, not a GIS. The one exception is the Maps tab, which needs the QGIS Python bindings; see {doc}`../modules/maps`.
+The one exception is the Maps tab, which needs the QGIS Python bindings; see {doc}`../modules/maps`.
 ```
 
 ```{toctree}
@@ -17,13 +16,6 @@ The practical consequence for setup: you install a conda environment, not a GIS.
 
 ../guide/installation
 ../guide/installation_detailed
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Reference
-
-Program file structure, requirements and logfiles (legacy) <../wiki/Installation>
 ```
 
 ## The short version
@@ -54,9 +46,7 @@ None of these needs a licence.
 
 ## Where things live
 
-A **project directory** is the root that everything resolves against. Set it with the
-`Project` menu, with the `RIVERARCHITECT_HOME` environment variable, or as the first
-argument to the launcher.
+A **project directory** is the root that everything resolves against. Set it with the `Project` menu, with the `RIVERARCHITECT_HOME` environment variable, or as the first argument to the launcher.
 
 ```text
 <project>/
@@ -66,21 +56,15 @@ argument to the launcher.
 └── Output/<module>/<condition>/  every analysis result
 ```
 
-The **package** is separate from your data and holds only code and lookup tables
-(`Fish.xlsx`, `morphological_units.xlsx`, `recruitment_parameters.xlsx`, QGIS layer styles).
-Nothing writes into it.
+The **package** is separate from your data and holds only code and lookup tables (`Fish.xlsx`, `morphological_units.xlsx`, `recruitment_parameters.xlsx`, QGIS layer styles). Nothing writes into it.
 
 ## Logfiles
 
-Every module logs through the standard library `logging` module, to the logger named
-`riverarchitect`. The interface prints that stream to the console it was started from. To
-capture it to a file:
+Every module logs through the standard library `logging` module, to the logger named `riverarchitect`. The interface prints that stream to the console it was started from. To capture it to a file:
 
 ```python
 import logging
 logging.basicConfig(filename="riverarchitect.log", level=logging.INFO)
 ```
 
-The original wrote fixed `logfile.log` files into each module's own folder. Routing through
-`logging` instead means the messages can go wherever a project wants them, and that a module
-used as a library does not scatter files.
+The original wrote fixed `logfile.log` files into each module's own folder. Routing through `logging` instead means the messages can go wherever a project wants them, and that a module used as a library does not scatter files.
