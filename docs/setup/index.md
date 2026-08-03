@@ -1,21 +1,14 @@
 # Software setup
 
-Installing River Architect, what it needs, how its files are organised, and where it writes
-its logs. This is section 1 of the original wiki's *Installation*, rewritten for the
+Installing River Architect, what it needs, how its files are organised, and where it writes its logs. This is section 1 of the original wiki's *Installation*, rewritten for the
 open-source release.
 
-```{admonition} What changed since the ArcGIS version
+```{admonition} What changed since the ArcGIS version (v1)
 :class: important
 
-River Architect no longer requires **ArcGIS Pro**, an **Esri licence** or the **Spatial
-Analyst** extension, and it is no longer Windows-only. Everything the original did with
-`arcpy` now runs on **GDAL** through rasterio, with numpy and scipy for the algebra and
-geopandas for the vector side. Map production runs on **QGIS** print layouts instead of
-ArcGIS layout templates.
+River Architect no longer requires **ArcGIS Pro**, an **Esri licence** or the **Spatial Analyst** extension, and it is no longer Windows-only. Everything the original did with `arcpy` now runs on **GDAL** through rasterio, with numpy and scipy for the algebra and geopandas for the vector side. Map production runs on **QGIS** print layouts instead of ArcGIS layout templates.
 
-The practical consequence for setup: you install a conda environment, not a GIS. The one
-exception is the Maps tab, which needs the QGIS Python bindings - see
-{doc}`../modules/maps`.
+The practical consequence for setup: you install a conda environment, not a GIS. The one exception is the Maps tab, which needs the QGIS Python bindings; see {doc}`../modules/maps`.
 ```
 
 ```{toctree}
@@ -44,8 +37,7 @@ pip install -e ".[all]"
 ./runRiverArchitectLinux.sh          # runRiverArchitectWin.bat on Windows
 ```
 
-The launcher opens the interface on the bundled sample data. Open **Help ▸ Live Guide:
-Example** and work through {doc}`../guide/example_walkthrough`.
+The launcher opens the interface on the bundled sample data. Open **Help ▸ Live Guide: Example** and work through {doc}`../guide/example_walkthrough`.
 
 ## Requirements at a glance
 

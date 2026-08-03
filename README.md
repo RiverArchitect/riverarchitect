@@ -6,18 +6,15 @@
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 
-River Architect supports river engineers and ecologists in planning habitat-enhancing river
-design features: their expected lifespans, the dimensions they need to be stable, where they
-belong in the terrain, and what they are worth ecologically.
+River Architect supports river engineers and ecologists in planning habitat-enhancing river restoration features: their expected lifespans, the dimensions they need to be stable, where they belong in the terrain, and what they are worth ecologically.
 
-This is the **open-source release**. The geoprocessing runs on GDAL, rasterio, numpy and
-scipy; map production runs on QGIS print layouts. **No Esri software or licence is
-required**, and the package runs on Linux, macOS and Windows.
+This is the **open-source release**. The geoprocessing runs on GDAL, rasterio, numpy and scipy; map production runs on QGIS print layouts. **No Esri software or licence is required**, and River Architect v2+ runs on Linux, macOS and Windows.
 
-The method is documented in an
-[open-access, peer-reviewed paper](https://doi.org/10.1016/j.softx.2020.100438)
-(*SoftwareX*, 2020).
-
+The methods are documented in:
+* [Schwindt, Larrieu, Pasternack, Rabone,  2020. River Architect. SoftwareX 11, 100438. doi: 10.1016/j.softx.2020.100438
+](https://doi.org/10.1016/j.softx.2020.100438)
+* [Larrieu, Pasternack, Schwindt, 2021. Automated analysis of lateral river connectivity and fish stranding risks-Part 1: Review, theory and algorithm. Ecohydrology 14, e2268. doi: 10.1002/eco.2268](https://doi.org/10.1002/eco.2268)
+* [Phillips, Pasternack, Larrieu, 2025. Development and testing of a mechanistic potential niche model of riparian tree seedling recruitment. Ecological Modelling 501, 110986. doi: 10.1016/j.ecolmodel.2024.110986](https://doi.org/10.1016/j.ecolmodel.2024.110986)
 ---
 
 ## Installation
@@ -30,10 +27,7 @@ mamba activate ra-env
 pip install -e ".[all]"
 ```
 
-The geospatial stack installs far more reliably through conda-forge than through pip, because
-GDAL and its bindings come as prebuilt binaries. `mamba` comes with
-[Miniforge](https://conda-forge.org/download/). River Architect is not on PyPI yet, so
-install from a clone as above.
+The geospatial stack installs far more reliably through conda-forge than through pip, because GDAL and its bindings come as prebuilt binaries. `mamba` comes with [Miniforge](https://conda-forge.org/download/). River Architect is not on PyPI yet, so install from a clone as above.
 
 Map production additionally needs QGIS with its Python bindings, which cannot come from PyPI:
 
@@ -42,10 +36,7 @@ sudo apt install qgis python3-qgis          # Debian / Ubuntu
 python -c "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
 ```
 
-Everything except the mapping module works without QGIS. Per-platform instructions are in the
-[quick installation guide](https://riverarchitect.readthedocs.io/en/latest/guide/installation.html);
-the dependency background, project directory layout and troubleshooting are in the
-[detailed one](https://riverarchitect.readthedocs.io/en/latest/guide/installation_detailed.html).
+Everything except the mapping module works without QGIS. Per-platform instructions are in the [quick installation guide](https://riverarchitect.readthedocs.io/en/latest/guide/installation.html); the dependency background, project directory layout and troubleshooting are in the [detailed installation guide](https://riverarchitect.readthedocs.io/en/latest/guide/installation_detailed.html).
 
 ## Usage
 
@@ -56,17 +47,14 @@ Launch the graphical interface:
 runRiverArchitectWin.bat          # Windows
 ```
 
-The launchers find the environment themselves and, with no argument, open the sample data
-bundled in `sample-data/`. From an activated environment:
+The launchers find the environment themselves and, with no argument, open the sample data bundled in `sample-data/`. From an activated environment:
 
 ```bash
 riverarchitect                    # or: python -m riverarchitect
 riverarchitect /path/to/project   # start with a project directory
 ```
 
-The interface renders with Qt (PySide6, or the PyQt5 that comes with QGIS) and falls back to
-tkinter when no Qt binding is installed, so it always opens. See the
-[interface guide](https://riverarchitect.readthedocs.io/en/latest/guide/gui.html).
+The interface renders with Qt (PySide6, or the PyQt5 that comes with QGIS) and falls back to tkinter when no Qt binding is installed, so it always opens. See the [interface guide](https://riverarchitect.readthedocs.io/en/latest/guide/gui.html).
 
 Or use the modules directly:
 
@@ -108,19 +96,14 @@ print(f"{n_pools} pools, {mask.sum() * dx * dy:.0f} sqft stranded")
 
 ### Try it on real data
 
-A real gravel-cobble reach ships in [`sample-data/`](sample-data) - 60 discharges of depth
-and velocity, a DEM, grain sizes and a DEM of difference - so there is nothing to download.
-The [tutorial](https://riverarchitect.readthedocs.io/en/latest/guide/tutorial.html) runs a
-lifespan and design map for angular boulders and a fish stranding assessment over a receding
-hydrograph on it. Both scripts are in `examples/` and need no arguments:
+A real gravel-cobble reach ships in [`sample-data/`](sample-data) - 60 discharges of depth and velocity, a DEM, grain sizes and a DEM of difference, so there is nothing else to download. The [tutorial](https://riverarchitect.readthedocs.io/en/latest/guide/tutorial.html) runs a lifespan and design map for angular boulders and a fish stranding assessment over a receding hydrograph on it. Both scripts are in `examples/` and need no arguments:
 
 ```bash
 mamba run -n ra-env python examples/lifespan_rocks.py
 mamba run -n ra-env python examples/stranding_risk.py
 ```
 
-More building blocks in the
-[quickstart](https://riverarchitect.readthedocs.io/en/latest/guide/quickstart.html).
+More building blocks in the [quickstart guide](https://riverarchitect.readthedocs.io/en/latest/guide/quickstart.html).
 
 ## What's in the box
 
@@ -144,10 +127,7 @@ More building blocks in the
 
 ## Migrating from the ArcGIS version
 
-The original River Architect was built on `arcpy` and required ArcGIS Pro with a Spatial
-Analyst licence. If you are porting scripts, read
-[Migrating from arcpy](https://riverarchitect.readthedocs.io/en/latest/guide/arcpy_migration.html)
-first. Two differences silently produce wrong results if code is ported naively:
+The original River Architect was built on `arcpy` and required ArcGIS Pro with a Spatial Analyst licence. If you are porting scripts, read [Migrating from arcpy](https://riverarchitect.readthedocs.io/en/latest/guide/arcpy_migration.html) first. Two differences silently produce wrong results if code is ported naively: 
 
 - **`arcpy.env.extent` did implicit alignment.** numpy does not. Use `raster.align()`.
 - **Two-argument `Con()` yields NoData on the false branch**, not zero.
@@ -164,11 +144,7 @@ python -m riverarchitect.tools.lyrx2qml LifespanRasterSymbology.lyrx
 
 ## Documentation
 
-<https://riverarchitect.readthedocs.io/>
-
-The legacy wiki is preserved under *Concepts and legacy modules*. Its analysis concepts,
-parameters and design-feature definitions remain the best available background on the
-method; its installation instructions and code examples refer to the ArcGIS version.
+Detailed documentation is available at <https://riverarchitect.readthedocs.io/>
 
 ## Development
 
@@ -183,8 +159,7 @@ pytest                                          # test suite
 python -m sphinx -b html docs docs/_build/html  # documentation
 ```
 
-Sample data lives in [`sample-data/`](sample-data); it is vendored from the
-[SampleData repository](https://github.com/RiverArchitect/SampleData).
+Sample data lives in [`sample-data/`](sample-data); it is sourced by the former (now archived) [SampleData repository](https://github.com/RiverArchitect/SampleData).
 
 Contributions are welcome. Please open an issue before starting on a major change.
 
@@ -196,11 +171,7 @@ Contributions are welcome. Please open an issue before starting on a major chang
 
 ## Acknowledgment
 
-Developed in the [Pasternack Lab](http://pasternack.ucdavis.edu/) at the University of
-California, Davis, Department of Land, Air and Water Resources, with funding from the
-[Yuba Water Agency](https://www.yubawater.org/) (Awards #201016094 and #10446) and the
-[USDA National Institute of Food and Agriculture](https://nifa.usda.gov/)
-(Hatch project CA-D-LAW-7034-H).
+Developed in the [Pasternack Lab](http://pasternack.ucdavis.edu/) at the University of California, Davis, Department of Land, Air and Water Resources, with funding from the [Yuba Water Agency](https://www.yubawater.org/) (Awards #201016094 and #10446) and the [USDA National Institute of Food and Agriculture](https://nifa.usda.gov/) (Hatch project CA-D-LAW-7034-H).
 
 ## License
 

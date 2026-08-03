@@ -1,7 +1,6 @@
 # Quick installation
 
-This page gets River Architect running in a few minutes. If something does not work, or you
-want to know *why* the steps look like this, read {doc}`installation_detailed`.
+This page gets River Architect running in a few minutes. If something does not work, or you want to know *why* the steps look like this, read {doc}`installation_detailed`.
 
 ```{admonition} In short
 :class: tip
@@ -23,17 +22,39 @@ want to know *why* the steps look like this, read {doc}`installation_detailed`.
 | PySide6 | 6.5 or newer | the Qt interface; falls back to tkinter without it |
 | QGIS | 3.28 or newer, with Python bindings | **only** for the mapping module |
 
-Everything except mapping works without QGIS, and the interface opens without PySide6. The
-full dependency list is in {ref}`the detailed page <detailed-requirements>`.
+Everything except mapping works without QGIS, and the interface opens without PySide6. The full dependency list is in {ref}`the detailed page <detailed-requirements>`.
 
 ```{note}
-River Architect is not on PyPI yet, so `pip install riverarchitect` does not work. Install
-from a clone of the repository as shown below.
+River Architect is not on PyPI yet, so `pip install riverarchitect` does not work. Install from a clone of the repository as shown below.
 ```
 
 ## Install
 
 ::::{tab-set}
+
+:::{tab-item} Windows
+:sync: windows
+
+Run these in the **Miniforge Prompt** (installed with [Miniforge](https://conda-forge.org/download/)), not in `cmd.exe`.
+
+```powershell
+git clone https://github.com/RiverArchitect/riverarchitect.git
+cd riverarchitect
+mamba env create -f environment.yml
+mamba activate ra-env
+pip install -e ".[all]"
+```
+
+For map production, install QGIS with the [OSGeo4W installer](https://qgis.org/download/) (choose the *Express Desktop Install*). QGIS ships its own Python, so run the mapping module from the **OSGeo4W Shell**:
+
+```powershell
+python-qgis -c "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
+```
+
+```{warning}
+Do not install QGIS into `ra-env`. The conda-forge `qgis` package and the OSGeo4W one compete for the same DLLs, and the usual result is an environment where neither works.
+```
+:::
 
 :::{tab-item} Linux
 :sync: linux
@@ -54,36 +75,7 @@ pip install -e ".[all]"
 sudo apt install qgis python3-qgis        # Debian / Ubuntu
 ```
 
-On Fedora use `sudo dnf install qgis qgis-python`, on Arch
-`sudo pacman -S qgis python-qgis`.
-:::
-
-:::{tab-item} Windows
-:sync: windows
-
-Run these in the **Miniforge Prompt** (installed with
-[Miniforge](https://conda-forge.org/download/)), not in `cmd.exe`.
-
-```powershell
-git clone https://github.com/RiverArchitect/riverarchitect.git
-cd riverarchitect
-mamba env create -f environment.yml
-mamba activate ra-env
-pip install -e ".[all]"
-```
-
-For map production, install QGIS with the
-[OSGeo4W installer](https://qgis.org/download/) (choose the *Express Desktop Install*).
-QGIS ships its own Python, so run the mapping module from the **OSGeo4W Shell**:
-
-```powershell
-python-qgis -c "from qgis.core import Qgis; print(Qgis.QGIS_VERSION)"
-```
-
-```{warning}
-Do not install QGIS into `ra-env`. The conda-forge `qgis` package and the OSGeo4W one
-compete for the same DLLs, and the usual result is an environment where neither works.
-```
+On Fedora use `sudo dnf install qgis qgis-python`, on Arch `sudo pacman -S qgis python-qgis`.
 :::
 
 :::{tab-item} macOS
@@ -127,12 +119,9 @@ pytest                       # 54 tests, about a second
 
 `pytest` needs the test extra: `pip install -e ".[all,test]"`.
 
-If the mapping module is going to be used, check the QGIS bindings separately with the
-interpreter that owns them (see the tabs above). River Architect reports
-`QGIS_AVAILABLE = False` and disables the Mapping tab rather than crashing when they are
-missing.
+If the mapping module is going to be used, check the QGIS bindings separately with the interpreter that owns them (see the tabs above). River Architect reports `QGIS_AVAILABLE = False` and disables the Mapping tab rather than crashing when they are missing.
 
-## Start the interface
+## Run River Architect: start the interface
 
 ::::{tab-set}
 
@@ -154,9 +143,7 @@ runRiverArchitectWin.bat
 
 ::::
 
-The launchers find the environment themselves, so there is nothing to activate first. With
-no argument they open the sample data bundled with the repository. From an activated
-environment, equivalently:
+The launchers find the environment themselves, so there is nothing to activate first. With no argument they open the sample data bundled with the repository. From an activated environment, equivalently:
 
 ```bash
 riverarchitect                    # console script
@@ -168,8 +155,7 @@ riverarchitect /path/to/project   # start with a project directory
 
 ## The sample data
 
-A real gravel-cobble reach ships with the repository in `sample-data/`, so there is nothing
-extra to download. It is a complete project directory:
+A real gravel-cobble reach ships with the repository in `sample-data/`, so there is nothing extra to download. It is a complete project directory:
 
 ```bash
 riverarchitect sample-data
@@ -181,5 +167,4 @@ export RIVERARCHITECT_HOME="$PWD/sample-data"     # Windows: setx RIVERARCHITECT
 * {doc}`gui` covers the graphical interface and the launchers.
 * {doc}`tutorial` runs lifespan mapping and fish stranding on the sample data.
 * {doc}`quickstart` is a tour of the individual building blocks.
-* {doc}`installation_detailed` explains the dependency choices, the project directory
-  layout and what to do when an install goes wrong.
+* {doc}`installation_detailed` explains the dependency choices, the project directory layout and what to do when an install goes wrong.

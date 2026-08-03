@@ -1,4 +1,4 @@
-# Modules
+# Modules (detail)
 
 Section 3 of the original wiki: the analyses themselves, in the order a project runs them.
 
@@ -10,8 +10,7 @@ Section 3 of the original wiki: the analyses themselves, in the order a project 
 | {doc}`maps` | Mapping | how does it get onto paper? |
 | {doc}`projectmaker` | Project Maker | what does it cost, and what does it buy per unit of habitat gained? |
 
-All of them read a **condition** prepared by {doc}`../getstarted/index`, and all of them are
-ordinary Python modules as well as tabs - see the {doc}`API reference <../api/index>`.
+All of them read a **condition** prepared by {doc}`../getstarted/index`, and all of them are ordinary Python modules as well as tabs - see the {doc}`API reference <../api/index>`.
 
 ```{toctree}
 :maxdepth: 2

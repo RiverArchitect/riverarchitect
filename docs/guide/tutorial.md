@@ -1,16 +1,11 @@
 # Tutorial: lifespan mapping and fish stranding
 
-This walkthrough runs two complete analyses on a real reach: a **lifespan and design map**
-for angular boulders, and a **fish stranding risk** assessment over a receding hydrograph.
-Both use the public sample data, and every number printed below was produced by the code on
-this page.
+This walkthrough runs two complete analyses on a real reach: a **lifespan and design map** for angular boulders, and a **fish stranding risk** assessment over a receding hydrograph. Both use the public sample data, and every number printed below was produced by the code on this page.
 
 ````{admonition} Two ways to run these
 :class: tip
 
-Both analyses are packaged modules with a tab in the interface -
-{mod}`riverarchitect.lifespan` and {mod}`riverarchitect.stranding` - so in practice you would
-click *Lifespan and design* and *Ecohydraulics* in the GUI, or call three lines of Python:
+Both analyses are packaged modules with a tab in the interface, {mod}`riverarchitect.lifespan` and {mod}`riverarchitect.stranding`, so in practice you would click *Lifespan and design* and *Ecohydraulics* in the GUI, or call three lines of Python:
 
 ```python
 from riverarchitect.lifespan import LifespanDesign
@@ -20,10 +15,7 @@ LifespanDesign("2100_sample").run(["rocks"])
 StrandingRisk.for_fish("2100_sample", "Chinook salmon", "fry").run()
 ```
 
-This page takes the long way round instead, building both analyses out of the raster
-primitives. That is worth reading once: it shows exactly what the modules do, which
-assumptions they make, and where you would change them for a river that behaves differently.
-The physical background is in {doc}`../wiki/LifespanDesign`,
+This page takes the long way round instead, building both analyses out of the raster primitives. That is worth reading once: it shows exactly what the modules do, which assumptions they make, and where you would change them for a river that behaves differently. The physical background is in {doc}`../wiki/LifespanDesign`,
 {doc}`../wiki/LifespanDesign-parameters` and {doc}`../wiki/StrandingRisk`.
 ````
 
@@ -43,9 +35,7 @@ git clone https://github.com/RiverArchitect/riverarchitect.git
 cd riverarchitect
 ```
 
-It is a gravel-cobble reach in a Mediterranean climate, 359 x 173 cells at 3 ft
-resolution, in **US customary units** (feet, cubic feet per second). Under
-`sample-data/01_Conditions/2100_sample/`:
+It is a gravel-cobble reach in a Mediterranean climate, 359 x 173 cells at 3 ft resolution, in **US customary units** (feet, cubic feet per second). Under `sample-data/01_Conditions/2100_sample/`:
 
 | File | What it is |
 |---|---|
@@ -57,27 +47,17 @@ resolution, in **US customary units** (feet, cubic feet per second). Under
 | `u000300.tif` … `u088053.tif` | flow velocity at the same discharges, ft/s |
 | `input_definitions.inp` | which rasters belong to the condition, and the flood return period of each discharge |
 
-The scripts resolve their paths through {func}`riverarchitect.config.project_home`: the
-`RIVERARCHITECT_HOME` environment variable if set, otherwise the working directory, and
-otherwise the bundled `sample-data/`. So they run from anywhere in a clone, and pointing
-`RIVERARCHITECT_HOME` at your own project directory switches them to your data.
+The scripts resolve their paths through {func}`riverarchitect.config.project_home`: the `RIVERARCHITECT_HOME` environment variable if set, otherwise the working directory, and otherwise the bundled `sample-data/`. So they run from anywhere in a clone, and pointing `RIVERARCHITECT_HOME` at your own project directory switches them to your data.
 
 ```{warning}
-`scour.tif` is on a 5 ft grid; the depth, velocity and grain-size rasters are on a 3 ft
-grid. They cannot be combined without an explicit {func}`riverarchitect.raster.align`. This
-is not a quirk of the sample data - it is what real conditions look like, and it is why
-alignment is explicit in this package rather than implicit as it was in `arcpy.env.extent`.
+`scour.tif` is on a 5 ft grid; the depth, velocity and grain-size rasters are on a 3 ft grid. They cannot be combined without an explicit {func}`riverarchitect.raster.align`. This is not a quirk of the sample data - it is what real conditions look like, and it is why alignment is explicit in this package rather than implicit as it was in `arcpy.env.extent`.
 ```
 
 ## Part 1: lifespan and design mapping
 
 ### The idea
 
-A restoration feature survives until a flood mobilises it. For angular boulders placed on
-the bed, "mobilised" means the flow can move a grain of the boulder's size. So: compute, at
-each modelled discharge, the largest grain the flow can still move; compare that against the
-grain size actually present; and the **lowest** flood return period at which the flow wins is
-the feature's expected lifespan in years.
+A restoration feature survives until a flood mobilises it. For angular boulders placed on the bed, "mobilised" means the flow can move a grain of the boulder's size. So: compute, at each modelled discharge, the largest grain the flow can still move; compare that against the grain size actually present; and the **lowest** flood return period at which the flow wins is the feature's expected lifespan in years.
 
 The critical grain size follows from Manning's equation and a Shields criterion:
 
@@ -85,10 +65,7 @@ $$
 D_{cr} = \frac{(u \cdot n)^2}{(s - 1)\ \tau_{*,cr}\ h^{1/3}\ \mathit{SF}}
 $$
 
-with $u$ flow velocity, $h$ water depth, $n$ Manning's roughness, $s = 2.68$ the relative
-grain density, $\tau_{*,cr}$ the critical dimensionless bed shear stress and $\mathit{SF}$ a
-safety factor. The default threshold values for angular boulders are $\tau_{*,cr} = 0.047$
-and $\mathit{SF} = 1.3$.
+with $u$ flow velocity, $h$ water depth, $n$ Manning's roughness, $s = 2.68$ the relative grain density, $\tau_{*,cr}$ the critical dimensionless bed shear stress and $\mathit{SF}$ a safety factor. The default threshold values for angular boulders are $\tau_{*,cr} = 0.047$ and $\mathit{SF} = 1.3$.
 
 ### Setup
 
@@ -129,8 +106,7 @@ def hydraulics(q, ref_prof):
     return np.where(h > 0, h, np.nan), u
 ```
 
-Note `np.where(h > 0, h, np.nan)`: dry cells must become NoData, not zero, or the $h^{1/3}$
-term divides by zero and produces an infinite critical grain size everywhere the bed is dry.
+Note `np.where(h > 0, h, np.nan)`: dry cells must become NoData, not zero, or the $h^{1/3}$ term divides by zero and produces an infinite critical grain size everywhere the bed is dry.
 
 ### The lifespan raster
 

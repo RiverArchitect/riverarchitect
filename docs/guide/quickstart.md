@@ -1,11 +1,10 @@
-# Quickstart
+# Usage quickstart
 
-Every example below runs without Esri software. The mapping example additionally needs QGIS.
+Please note that the mapping example needs QGIS.
 
 ## Reading and combining rasters
 
-The two rules that matter most: NoData is always `numpy.nan` in memory, and rasters of
-differing extent must be **explicitly aligned** before they are combined.
+The two rules that matter most: NoData is always `numpy.nan` in memory, and rasters of differing extent must be **explicitly aligned** before they are combined.
 
 ```python
 from riverarchitect import raster
@@ -25,8 +24,7 @@ raster.write("wse.tif", wse, dem_profile)
 
 ## Wetted area and fish stranding risk
 
-Pools that lose their connection to the main channel as discharge drops are a stranding
-risk. That is a connected-component problem:
+Pools that lose their connection to the main channel as discharge drops are a stranding risk. That is a connected-component problem:
 
 ```python
 import numpy as np
@@ -67,8 +65,7 @@ depth_to_water = dem - surface
 raster.write("d2w.tif", depth_to_water, dem_profile)
 ```
 
-Kriging can also return the estimation variance, which the ArcGIS implementation could not
-easily expose:
+Kriging can also return the estimation variance, which was not straightforward in the ArcGIS implementation in v1:
 
 ```python
 surface, variance = raster.kriging(points, values, dem_profile, return_variance=True)
@@ -87,8 +84,7 @@ print(f"excavation {result['excavation_volume']:.1f} {result['volume_unit']}")
 print(f"net        {result['net_volume']:.1f} {result['volume_unit']}")
 ```
 
-Volumes are integrated under the triangulated surface through the cell centres, not summed
-as vertical prisms. See {doc}`volumes` for why that distinction is not cosmetic.
+Volumes are integrated under the triangulated surface through the cell centres, not summed as vertical prisms. See {doc}`volumes` for why that distinction is not cosmetic.
 
 ## Producing maps
 
@@ -114,13 +110,11 @@ mapper.dx, mapper.dy = width, extent.height()
 mapper.make_pdf_maps("lf_wood_series")
 ```
 
-This writes a single three-page PDF through a QGIS atlas, alongside a `.qgz` project you can
-open and refine in QGIS.
+This writes a single three-page PDF through a QGIS atlas, alongside a `.qgz` project you can open and refine in QGIS.
 
 ## Normalising input NoData
 
-Conditions assembled from different preprocessing chains carry inconsistent NoData values.
-Reconcile a condition folder before analysis:
+Conditions assembled from different preprocessing chains carry inconsistent NoData values. Reconcile a condition folder before analysis:
 
 ```bash
 python -m riverarchitect.tools.reconcile_nodata sample-data/01_Conditions/2100_sample --dry-run

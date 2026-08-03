@@ -70,10 +70,4 @@ Section 5 of the original wiki, brought up to date. For anything not answered he
   velocity criterion of Stranding Risk ({doc}`modules/ecohydraulics`). Both are called out
   where they belong.
 
-## Legacy page
 
-```{toctree}
-:maxdepth: 1
-
-Frequently asked questions (legacy) <wiki/FAQ>
-```

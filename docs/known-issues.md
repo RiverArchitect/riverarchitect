@@ -1,18 +1,3 @@
-# Troubleshooting and error message handling
-
-Section 6 of the original wiki. What is known to be limited, how to diagnose a problem, and
-what the messages mean.
-
-```{admonition} The legacy error list is about arcpy, and no longer applies
-:class: important
-
-The original's troubleshooting page is 13 000 words, and most of it decodes `arcpy`
-`ExecuteError` codes, Spatial Analyst licence failures and `.aprx` template problems. **None
-of those can occur in this release** - there is no `arcpy`, no licence and no `.aprx`. The
-page is preserved at the bottom for anyone still running 1.x, and for the analysis background
-in it, but start here.
-```
-
 ## Known issues
 
 **Lifestage names were hard-coded, and no longer are.** The original required lifestages to
