@@ -11,7 +11,7 @@ Section 5 of the original wiki, brought up to date. For anything not answered he
   {doc}`getstarted/index`.
 
 **Do I need ArcGIS, an Esri licence or Spatial Analyst?**
-: No. That is the point of this release. The geoprocessing runs on GDAL through rasterio,
+: No. Since v2, ArcPy and ArcGIS dependencies have been abandoned. The geoprocessing runs on GDAL through rasterio,
   with numpy and scipy for the algebra. Nothing in the analysis chain needs a licence, and it
   runs on Linux, macOS and Windows.
 
