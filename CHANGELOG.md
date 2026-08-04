@@ -4,7 +4,14 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.6.0] - 2026-08-04
+
+**The pool-riffle designer is in, and nothing from 1.x is unported any more.** It sizes a
+sequence that maintains itself: at low flow the riffle is the faster of the two, but as
+discharge rises the pool has to accelerate past it, scouring itself out and depositing on the
+riffle. Without that reversal the pool fills in within a few floods. The calculation is
+one-dimensional and cross-section-averaged - it takes a channel, not a raster - which is why
+it is a tool rather than a module tab.
 
 ### Added
 
@@ -561,6 +568,7 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
+[2.6.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.6.0
 [2.5.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.5.0
 [2.2.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.2.0
 [2.1.1]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.1.1
