@@ -4,8 +4,6 @@ Things that are known to be wrong, missing or surprising. Each is documented her
 
 **Two rasters in the bundled sample condition are inconsistent with their file names.** `u000550.tif` peaks at 1.4 ft/s where its neighbours at 500 and 600 cfs reach 4.5, and `h088053.tif` peaks at 6.8 ft where 42200 cfs reaches 22. Both are byte-for-byte what upstream publishes and are kept deliberately - see `sample-data/README.md`. Expect one odd row in any per-discharge table on that reach.
 
-**The pool-riffle morphology designer is not implemented.** It produces design tables for self-sustaining pool-riffle sequences from cross-section-averaged hydraulics, which is a standalone design calculation rather than a raster analysis. See {doc}`../tools`.
-
 **River Builder's regime relation can produce an absurd depth.** `H = 165*D50*tau_cr/S` is inversely proportional to slope, so a gentle valley with a coarse bed gives a bankfull depth greater than the channel is wide. The tab reports this instead of building the valley silently, and the answer is to give the bankfull depth explicitly.
 
 **Project Maker leaves some quantities empty.** A rate priced per yard of bank, per culvert or per bridge does not follow from a mapped area, so it is not guessed. The log names what could not be derived; enter those directly.

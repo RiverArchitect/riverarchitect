@@ -19,6 +19,7 @@ API reference
    recruitment
    flows
    projectmaker
+   poolriffle
    mapping
    config
    guide

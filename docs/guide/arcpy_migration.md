@@ -482,3 +482,26 @@ The argument is sound - it is now verified cell-for-cell against a real Dijkstra
 {func}`riverarchitect.raster.least_cost_distance` is that search, with an `allowed` hook for one-way edges and a `towards_sources` flag - the escape direction is *to* the mainstem, not away from it, which is why 1.x traversed its graph outwards from there. {class}`riverarchitect.stranding.StrandingRisk` uses it whenever a `velocity_field` is supplied, keeps the component rule as the equivalent fast path when one is not, and can write `escape_<Q>.tif`.
 
 What the criterion needs is the velocity **components**, and conditions ship `u<Q>.tif`, a speed. `ux<Q>.tif` and `uy<Q>.tif` are picked up automatically when a 2D model exports them; otherwise pass them through `velocity_field`. Approximating the criterion with the speed alone is not conservative, it is wrong: on the sample reach at 7250 cfs only 0.4 % of the low-flow mainstem is slower than a juvenile Chinook's 1.9 fps and at 16 000 cfs none of it is, so the mainstem itself becomes unreachable and 134 to 236 times more area reads as stranded. `velocity_limited` therefore reports whether the criterion actually applied.
+
+### The pool-riffle designer's Caamano branch fired on the inverted condition
+
+`Tools/cPoolRiffle.pool_riffle_designer` widens the riffle and narrows the pool in 1 mm steps until the residual pool depth reaches its target, checking the Caamano et al. (2009) velocity-reversal criterion at every step. Its adjustment branch reads:
+
+```python
+if caamano_ratio > 1:
+    D_z_ratio = abs((target_D_z - D_z) / target_D_z)
+    if iter_count < 10:
+        print("Caamano criterion NOT fulfilled ...")
+        if m_pool > 1.0:
+            m_pool -= 0.1
+```
+
+`caamano_ratio` is the left side of the criterion over the right, so a ratio above one is the criterion being **satisfied**. The branch therefore steepened the pool bank in exactly the case that needed no rescue, and printed that the criterion had failed while it did so. On the shipped sample channel it fired once, taking the pool bank from 1:2.58 to 1:2.48, which is why that run reports a 15.65 m pool base width where {func}`riverarchitect.poolriffle.design_pool_riffle` reports 14.88 m. Both designs reach the same 0.914 m residual depth at the same 135.97 m³/s reversal discharge and both satisfy the criterion; they are two points on one design curve at different pool bank slopes.
+
+Under this construction - equal cross-sectional area, both widths moved by the same step - the criterion holds from the first increment for every channel tested, so there is nothing to steer towards. It is evaluated at every step and reported as `caamano_satisfied`, because a design that failed it would not maintain itself and must not be returned as though it would.
+
+Two smaller defects in the same file. The expansion-loss angle was computed as `atan(radians((B_r - B_p) / l_pool2riffle))`: a dimensionless width gradient passed through `radians()` before its arctangent, then treated as degrees by the line below. That drove Hager's correction to roughly a hundred-thousandth of its intended value, so the term was present but inert. It is small on a realistic expansion either way; it is now computed in the degrees the formula expects, so it is small for the right reason.
+
+And `get_spacing` fitted a lognormal to the five Thompson (2013) spacing factors, drew ten million samples and averaged them - which converges to the mean of the distribution it was constructed to have, `mean(factors)`, computed the slow way and differently on every run because the draw was unseeded. {func}`riverarchitect.poolriffle.pool_spacing` is that multiplication. {func}`riverarchitect.poolriffle.pool_spacing_bounds` returns the reported range, which is what the scatter was worth reporting for in the first place.
+
+Finally, the normal-depth solver used Newton-Raphson from an initial guess of `1 / w_base` - a quantity with the wrong dimensions - and printed "Emergency break: No convergence reached" after a thousand iterations when it diverged. Discharge is strictly increasing in depth, so the port brackets and bisects instead, which cannot fail.

@@ -132,6 +132,8 @@ class RiverArchitectGui(tk.Frame):
         menu_bar.add_cascade(label="Tools", menu=tools_menu)
         tools_menu.add_command(label="Reconcile NoData in a condition ...",
                                command=self.run_reconcile_nodata)
+        tools_menu.add_command(label="Pool-riffle designer ...",
+                               command=self.run_pool_riffle)
 
         help_menu = tk.Menu(menu_bar, tearoff=0)
         menu_bar.add_cascade(label="Help", menu=help_menu)
@@ -219,6 +221,64 @@ class RiverArchitectGui(tk.Frame):
         if failed:
             message += "\n%d could not be read; see the log." % failed
         showinfo("Reconcile NoData", message)
+
+    def run_pool_riffle(self):
+        """Size a self-maintaining pool-riffle sequence from a channel and a target depth.
+
+        A dialog rather than a tab: the calculation takes a cross-section, not a condition,
+        so it has nothing to read from the project directory and nothing to write into it.
+        """
+        from ..poolriffle import design_pool_riffle, format_design
+
+        unit = self.unit.get()
+        labels = config.unit_labels(unit)
+        fields = (
+            ("d50", "Median grain size (%s)" % labels["length"], 0.3),
+            ("slope", "Channel bed slope (-)", 0.004),
+            ("width", "Channel base width (%s)" % labels["length"], 79.0),
+            ("pool_depth", "Target residual pool depth (%s)" % labels["length"], 3.0),
+            ("bank_slope", "Bank slope 1:m (-)", 2.58),
+        )
+
+        window = tk.Toplevel(self)
+        window.title("Pool-riffle designer")
+        tk.Label(window, justify="left", anchor="w",
+                 text="Sizes a pool-riffle sequence that maintains itself: the widths\n"
+                      "that produce the target pool depth at the discharge which just\n"
+                      "mobilises the bed. Values are in %s." % labels["length"]
+                 ).grid(row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(8, 4))
+
+        entries = {}
+        for row, (name, label, default) in enumerate(fields, start=1):
+            tk.Label(window, text=label, anchor="w").grid(row=row, column=0, sticky="w",
+                                                         padx=8, pady=2)
+            entry = tk.Entry(window, width=14)
+            entry.insert(0, str(default))
+            entry.grid(row=row, column=1, sticky="w", padx=8, pady=2)
+            entries[name] = entry
+
+        output = tk.Text(window, width=52, height=16, font=("TkFixedFont",))
+        output.grid(row=len(fields) + 2, column=0, columnspan=2, padx=8, pady=8)
+
+        def compute_design():
+            output.delete("1.0", tk.END)
+            try:
+                values = {name: float(entry.get()) for name, entry in entries.items()}
+                design = design_pool_riffle(
+                    d50=values["d50"], slope=values["slope"],
+                    base_width=values["width"],
+                    target_residual_depth=values["pool_depth"],
+                    bank_slope=values["bank_slope"], unit=unit)
+            except ValueError as exc:
+                output.insert("1.0", "Cannot design this channel:\n%s" % exc)
+                return
+            output.insert("1.0", format_design(design))
+
+        buttons = tk.Frame(window)
+        buttons.grid(row=len(fields) + 1, column=0, columnspan=2, sticky="e", padx=8)
+        tk.Button(buttons, text="Compute", command=compute_design).pack(side="left", padx=4)
+        tk.Button(buttons, text="Close", command=window.destroy).pack(side="left")
+        compute_design()
 
     @staticmethod
     def open_documentation():

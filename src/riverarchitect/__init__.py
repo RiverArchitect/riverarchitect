@@ -35,6 +35,8 @@ Modules
     Synthetic river valleys from a handful of design parameters.
 :mod:`riverarchitect.projectmaker`
     Construction cost against the gain in seasonal habitat area.
+:mod:`riverarchitect.poolriffle`
+    Design tables for self-maintaining pool-riffle sequences.
 :mod:`riverarchitect.flows`
     Seasonal flow duration curves, annual peaks and flood return periods.
 :mod:`riverarchitect.mapping`
@@ -59,7 +61,7 @@ from . import config  # noqa: F401
 __all__ = ["config", "guide", "condition", "raster", "shear", "volume",
            "volume_assessment", "lifespan", "maxlifespan", "terraforming",
            "riverbuilder", "stranding", "sharc", "preprocessing", "recruitment",
-           "flows", "projectmaker", "mapping", "tools", "__version__"]
+           "flows", "projectmaker", "poolriffle", "mapping", "tools", "__version__"]
 
 
 def __getattr__(name):

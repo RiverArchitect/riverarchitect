@@ -4,6 +4,43 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **The pool-riffle morphology designer**, the last calculation from 1.x that had no
+  equivalent here, as {mod}`riverarchitect.poolriffle` with a
+  `riverarchitect-pool-riffle` console script and a **Tools ▸ Pool-riffle designer**
+  dialog in both front ends. It sizes a sequence that maintains itself: the reversal
+  discharge from the Shields criterion, the pool spacing after Thompson (2013), and the
+  pool and riffle widths that reach a target residual pool depth at that discharge,
+  checking the Caamano et al. (2009) velocity-reversal criterion throughout.
+- `poolriffle.pool_spacing_bounds` returns the reported *range* of pool spacings rather
+  than only its expectation, because a single spacing implies a confidence the literature
+  does not support.
+- `--roughness all` runs the design once per published roughness estimate and `--csv`
+  writes the comparison, since the answer is sensitive to a Manning's `n` that nobody
+  measures directly.
+
+### Changed
+
+- The Tools page lists each tool directly instead of grouping them under *Available now*
+  and *Not implemented*. Nothing is unimplemented any more.
+
+### Fixed
+
+- Three defects carried by the 1.x design script, recorded in `docs/guide/arcpy_migration.md`
+  and reproduced here only as far as they were correct. Its Caamano adjustment fired when the
+  criterion was **satisfied** while printing that it had failed, so a sample run steepened the
+  pool bank for no reason - the reversal discharge, reversal depth, spacing and residual depth
+  reproduce exactly, the widths land at a different point on the same design curve. Its
+  expansion-loss angle passed a dimensionless gradient through `radians()` before taking an
+  arctangent and then read the result as degrees, leaving Hager's correction about five orders
+  of magnitude too small. Its pool spacing averaged ten million unseeded lognormal draws from a
+  distribution built to have exactly the mean of the five Thompson factors.
+- The normal-depth solver brackets and bisects instead of running Newton-Raphson from an
+  initial guess with the wrong dimensions, which diverged on wide shallow channels.
+
 ## [2.5.0] - 2026-08-03
 
 **The documentation describes this program, not the one it replaced.** The twenty-three

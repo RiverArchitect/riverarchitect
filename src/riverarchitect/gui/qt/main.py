@@ -12,9 +12,10 @@ import os
 
 from ... import __version__, config, guide
 from .qtcompat import (
-    QAction, QApplication, QDesktopServices, QFileDialog, QIcon, QLabel,
-    QMainWindow, QMessageBox, QTabWidget, QUrl, QVBoxLayout, QWidget,
-    Qt, QT_BINDING, exec_app,
+    QAction, QApplication, QDesktopServices, QDialog, QDoubleSpinBox, QFileDialog,
+    QFont, QFormLayout, QHBoxLayout, QIcon, QLabel, QMainWindow, QMessageBox,
+    QPlainTextEdit, QPushButton, QTabWidget, QUrl, QVBoxLayout, QWidget,
+    Qt, QT_BINDING, exec_app, exec_dialog,
 )
 from .getstarted_tab import GetStartedTab
 from .lifespan_tab import LifespanTab
@@ -132,6 +133,9 @@ class RiverArchitectWindow(QMainWindow):
         action = QAction("Reconcile NoData in a condition ...", self)
         action.triggered.connect(self.run_reconcile_nodata)
         tools_menu.addAction(action)
+        action = QAction("Pool-riffle designer ...", self)
+        action.triggered.connect(self.run_pool_riffle)
+        tools_menu.addAction(action)
 
         help_menu = self.menuBar().addMenu("&Help")
         action = QAction("Documentation", self)
@@ -238,6 +242,76 @@ class RiverArchitectWindow(QMainWindow):
         if failed:
             message += "\n%d could not be read; see the log." % failed
         QMessageBox.information(self, "Reconcile NoData", message)
+
+    def run_pool_riffle(self):
+        """Size a self-maintaining pool-riffle sequence from a channel and a target depth.
+
+        A dialog rather than a tab: the calculation takes a cross-section, not a condition,
+        so it has nothing to read from the project directory and nothing to write into it.
+        """
+        from ...poolriffle import design_pool_riffle, format_design
+
+        # The window has no unit attribute of its own; the checked menu action is the
+        # single source of truth, the same one set_unit() drives.
+        unit = next((key for key, action in self.unit_actions.items()
+                     if action.isChecked()), "us")
+        labels = config.unit_labels(unit)
+        fields = (
+            ("d50", "Median grain size (%s)" % labels["length"], 0.3, 6),
+            ("slope", "Channel bed slope (-)", 0.004, 5),
+            ("width", "Channel base width (%s)" % labels["length"], 79.0, 3),
+            ("pool_depth", "Target residual pool depth (%s)" % labels["length"], 3.0, 3),
+            ("bank_slope", "Bank slope 1:m (-)", 2.58, 2),
+        )
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Pool-riffle designer")
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel(
+            "Sizes a pool-riffle sequence that maintains itself: the widths that\n"
+            "produce the target pool depth at the discharge which just mobilises\n"
+            "the bed. Values are in %s." % labels["length"]))
+        form = QFormLayout()
+        boxes = {}
+        for name, label, default, decimals in fields:
+            box = QDoubleSpinBox(dialog)
+            box.setDecimals(decimals)
+            box.setRange(1e-6, 1e6)
+            box.setValue(default)
+            form.addRow(label, box)
+            boxes[name] = box
+        layout.addLayout(form)
+
+        buttons = QHBoxLayout()
+        compute = QPushButton("Compute", dialog)
+        close = QPushButton("Close", dialog)
+        buttons.addStretch(1)
+        buttons.addWidget(compute)
+        buttons.addWidget(close)
+        layout.addLayout(buttons)
+
+        output = QPlainTextEdit(dialog)
+        output.setReadOnly(True)
+        output.setFont(QFont("monospace"))
+        output.setMinimumHeight(260)
+        layout.addWidget(output)
+
+        def compute_design():
+            try:
+                design = design_pool_riffle(
+                    d50=boxes["d50"].value(), slope=boxes["slope"].value(),
+                    base_width=boxes["width"].value(),
+                    target_residual_depth=boxes["pool_depth"].value(),
+                    bank_slope=boxes["bank_slope"].value(), unit=unit)
+            except ValueError as exc:
+                output.setPlainText("Cannot design this channel:\n%s" % exc)
+                return
+            output.setPlainText(format_design(design))
+
+        compute.clicked.connect(compute_design)
+        close.clicked.connect(dialog.close)
+        compute_design()
+        exec_dialog(dialog)
 
     def show_about(self):
         QMessageBox.about(

@@ -73,6 +73,8 @@ The geometry is numpy and the interpolation is {class}`scipy.interpolate.LinearN
 
 The DEM is a starting point, not a construction drawing: run a 2D model over it, build a condition from the results, and put it through the rest of the chain.
 
+To size the pool-riffle sequence that goes into the channel this generates - the widths and spacing that keep it self-maintaining - use the pool-riffle designer in {doc}`../tools`.
+
 ## Volume Assessment
 
 {mod}`riverarchitect.volume_assessment` - the **Morphology ▸ Volume Assessment** tab.

@@ -48,6 +48,8 @@ Thresholds are in the condition's own unit system. The shipped values are U.S. c
 
 Draw those areas as polygons in QGIS with an integer field set to 1, then rasterise them onto the condition's grid - **Raster ▸ Conversion ▸ Rasterize**, or {func}`riverarchitect.raster.rasterize` - and save the result as `sidech.tif`.
 
+A side channel holds its habitat value only if it maintains itself, which for a gravel reach means a pool-riffle sequence with a velocity reversal. The pool-riffle designer in {doc}`../tools` sizes one.
+
 ```{admonition} The energy-slope approach does not work, and it is worth knowing why
 :class: note
 

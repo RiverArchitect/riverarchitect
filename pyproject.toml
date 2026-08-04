@@ -73,6 +73,7 @@ Issues = "https://github.com/RiverArchitect/riverarchitect/issues"
 riverarchitect = "riverarchitect.gui:main"
 riverarchitect-reconcile-nodata = "riverarchitect.tools.reconcile_nodata:main"
 riverarchitect-taux = "riverarchitect.tools.taux:main"
+riverarchitect-pool-riffle = "riverarchitect.tools.pool_riffle:main"
 riverarchitect-lyrx2qml = "riverarchitect.tools.lyrx2qml:main"
 
 [tool.setuptools.dynamic]

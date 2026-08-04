@@ -44,5 +44,5 @@ The questions that come up most often. If something has already gone wrong, {doc
 **Can I use the modules without the interface?**
 : Yes. Every tab is a thin front end over an ordinary Python module. See {doc}`../guide/quickstart` and the {doc}`API reference <../api/index>`.
 
-**What is not implemented?**
-: The pool-riffle morphology designer ({doc}`../tools`), which is a standalone design calculation rather than a raster analysis. Everything else is present, including River Builder ({doc}`../modules/morphology`) and Project Maker ({doc}`../modules/projectmaker`). {doc}`known-issues` lists the rough edges in what *is* implemented.
+**How do I design a pool-riffle sequence?**
+: **Tools ▸ Pool-riffle designer**, or `riverarchitect-pool-riffle`. It sizes pool and riffle widths that reach a target pool depth at the discharge which just mobilises the bed, and checks that the sequence would actually maintain itself. See {doc}`../tools`.
