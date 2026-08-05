@@ -4,7 +4,7 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.7.0] - 2026-08-05
 
 **Every tool is now reachable from the interface.** Two of the four shipped as console
 scripts only, which made them invisible to anyone who does not open a terminal. Both now
@@ -601,7 +601,7 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
-[Unreleased]: https://github.com/RiverArchitect/riverarchitect/compare/v2.6.0...HEAD
+[2.7.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.7.0
 [2.6.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.6.0
 [2.5.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.5.0
 [2.2.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.2.0
