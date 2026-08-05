@@ -4,6 +4,39 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+**Every tool is now reachable from the interface.** Two of the four shipped as console
+scripts only, which made them invisible to anyone who does not open a terminal. Both now
+have a wizard in the **Tools** menu that drives the tool's own module, so the menu and the
+command line cannot disagree about what a tool does.
+
+### Added
+
+- **Tools ▸ Bed shear stress**, a wizard over {mod}`riverarchitect.tools.taux`: it picks the
+  velocity, water depth and grain size rasters, writes the four outputs under a chosen
+  prefix, and reports the resistance-regime split when the run finishes. The computation
+  runs off the interface thread, because a whole condition takes long enough that a frozen
+  window would read as a crash.
+- **Tools ▸ Convert ArcGIS .lyrx to QGIS .qml**, a wizard over
+  {mod}`riverarchitect.tools.lyrx2qml`, surfacing what the conversion found - which
+  colorizer, and how many class breaks came across - instead of discarding it.
+- `riverarchitect.gui.toolsmenu` declares the **Tools** menu once for both front ends, the
+  way `TAB_GROUPS` already declares the tabs. A test drives it off the packaged console
+  scripts, so a tool added without a menu entry fails the suite rather than going unnoticed.
+
+### Changed
+
+- The regime summary reports each resistance regime as a share of the **wetted** cells, with
+  the dry and NoData cells counted separately. Sharing them out against the whole raster made
+  every regime look negligible: on the sample reach 84 % of cells are dry.
+
+### Fixed
+
+- The Qt window keeps its menus in `self.menus`. Reaching a menu back through
+  `QAction.menu()` is a trap - PySide hands that wrapper ownership of the `QMenu` and
+  deletes the C++ object when the wrapper is collected.
+
 ## [2.6.0] - 2026-08-04
 
 **The pool-riffle designer is in, and nothing from 1.x is unported any more.** It sizes a
@@ -568,6 +601,7 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
+[Unreleased]: https://github.com/RiverArchitect/riverarchitect/compare/v2.6.0...HEAD
 [2.6.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.6.0
 [2.5.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.5.0
 [2.2.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.2.0

@@ -5,6 +5,7 @@ tests are skipped when no X server is reachable.
 """
 
 import os
+import pathlib
 
 import pytest
 
@@ -297,3 +298,176 @@ def test_tk_unit_switch_propagates_to_tabs(tk_root):
     window.set_unit("si")
     assert all(tab.unit == "si" for tab in window.module_tabs)
     assert volume_tab.l_lod_unit.cget("text") == "m"
+
+
+# ------------------------------------------------------------------------ Tools menu
+
+def test_every_console_script_tool_is_in_the_tools_menu():
+    """A tool that only has a command line is unreachable for most of the audience.
+
+    Driven off the packaged entry points rather than a hand-kept list, so adding a console
+    script without a menu entry fails here instead of going unnoticed.
+    """
+    import re
+
+    from riverarchitect.gui.toolsmenu import TOOLS
+
+    pyproject = pathlib.Path(__file__).resolve().parents[1] / "pyproject.toml"
+    section = pyproject.read_text(encoding="utf-8").split("[project.scripts]", 1)[1]
+    section = section.split("\n[", 1)[0]
+    scripts = dict(re.findall(r'^([\w-]+)\s*=\s*"([\w.]+):', section, flags=re.M))
+    scripts.pop("riverarchitect", None)      # the interface itself, not a tool
+
+    in_menu = {module for _label, _handler, module in TOOLS}
+    assert set(scripts.values()) - in_menu == set()
+
+
+def test_tools_menu_modules_all_import():
+    """Each entry must name a module that exists; a typo here is a dead menu item."""
+    import importlib
+
+    from riverarchitect.gui.toolsmenu import TOOLS
+
+    for _label, _handler, module in TOOLS:
+        assert importlib.import_module(module) is not None
+
+
+def test_both_front_ends_implement_every_tool_handler():
+    """Neither interface may lack a wizard the other offers."""
+    from riverarchitect.gui.main import RiverArchitectGui
+    from riverarchitect.gui.toolsmenu import handler_names
+
+    for name in handler_names():
+        assert callable(getattr(RiverArchitectGui, name, None)), name
+
+    qtcompat = pytest.importorskip("riverarchitect.gui.qt.qtcompat")
+    if not qtcompat.QT_AVAILABLE:
+        pytest.skip("no Qt binding installed")
+    from riverarchitect.gui.qt.main import RiverArchitectWindow
+
+    for name in handler_names():
+        assert callable(getattr(RiverArchitectWindow, name, None)), name
+
+
+def test_qt_tools_menu_lists_every_tool(qt_app):
+    from riverarchitect.gui.qt.main import RiverArchitectWindow
+    from riverarchitect.gui.toolsmenu import TOOLS
+
+    window = RiverArchitectWindow()
+    menu = window.menus["&Tools"]
+    assert [action.text() for action in menu.actions()] == [label for label, _h, _m in TOOLS]
+
+
+def test_tk_tools_menu_lists_every_tool(tk_root):
+    from riverarchitect.gui.main import RiverArchitectGui
+    from riverarchitect.gui.toolsmenu import TOOLS
+
+    RiverArchitectGui(tk_root)
+    menu_bar = tk_root.nametowidget(tk_root.cget("menu"))
+    tools = menu_bar.nametowidget(menu_bar.entrycget("Tools", "menu"))
+    labels = [tools.entrycget(index, "label") for index in range(tools.index("end") + 1)]
+    assert labels == [label for label, _handler, _module in TOOLS]
+
+
+def test_format_taux_reports_paths_and_regime_shares(tmp_path):
+    from riverarchitect.gui.toolsmenu import format_taux
+
+    report = format_taux({
+        "theta84": str(tmp_path / "q_theta84.tif"),
+        "regime": str(tmp_path / "q_regime.tif"),
+        "_summary": {"invalid": 0, "Rickenmann-Recking": 30, "blended": 10,
+                     "Keulegan-Einstein": 60},
+    })
+    assert "q_theta84.tif" in report
+    assert "_summary" not in report
+    # 30, 10 and 60 of 100 wetted cells; the invalid ones stay out of the denominator.
+    assert "30.0 %" in report and "10.0 %" in report and "60.0 %" in report
+
+
+LYRX = """{"layerDefinitions": [{"name": "lf_sym", "colorizer": {
+  "type": "CIMRasterClassifyColorizer", "field": "Value", "classBreaks": [
+    {"upperBound": 10, "label": "0 - 10", "color": {"type": "CIMRGBColor",
+     "values": [255, 0, 0, 100]}},
+    {"upperBound": 20, "label": "10 - 20", "color": {"type": "CIMRGBColor",
+     "values": [0, 255, 0, 100]}}]}}]}"""
+
+
+def test_tk_lyrx_wizard_writes_a_qml(tk_root, tmp_path, monkeypatch):
+    """The wizard drives the same convert() the console script does."""
+    from riverarchitect.gui import main as tk_main
+    from riverarchitect.gui.main import RiverArchitectGui
+
+    source = tmp_path / "symbology.lyrx"
+    source.write_text(LYRX, encoding="utf-8")
+    target = tmp_path / "symbology.qml"
+    shown = {}
+
+    monkeypatch.setattr(tk_main, "askopenfilename", lambda **kw: str(source))
+    monkeypatch.setattr(tk_main, "asksaveasfilename", lambda **kw: str(target))
+    monkeypatch.setattr(tk_main, "showinfo", lambda title, text: shown.update(text=text))
+
+    RiverArchitectGui(tk_root).run_lyrx2qml()
+
+    assert target.is_file()
+    assert "singlebandpseudocolor" in target.read_text(encoding="utf-8")
+    # convert() reports what it found on stdout; the wizard must surface that, not drop it.
+    assert "2 class breaks" in shown["text"]
+
+
+def test_tk_lyrx_wizard_reports_an_unusable_file(tk_root, tmp_path, monkeypatch):
+    from riverarchitect.gui import main as tk_main
+    from riverarchitect.gui.main import RiverArchitectGui
+
+    source = tmp_path / "empty.lyrx"
+    source.write_text('{"layerDefinitions": []}', encoding="utf-8")
+    warned = {}
+
+    monkeypatch.setattr(tk_main, "askopenfilename", lambda **kw: str(source))
+    monkeypatch.setattr(tk_main, "asksaveasfilename", lambda **kw: str(tmp_path / "o.qml"))
+    monkeypatch.setattr(tk_main, "showwarning", lambda title, text: warned.update(text=text))
+
+    RiverArchitectGui(tk_root).run_lyrx2qml()
+
+    assert not (tmp_path / "o.qml").exists()
+    assert "no colorizer" in warned["text"]
+
+
+def test_tk_taux_wizard_rejects_missing_rasters(tk_root, tmp_path):
+    """Bad input must be refused on the interface thread, before any work starts."""
+    import tkinter
+    from tkinter import ttk
+
+    pytest.importorskip("rasterio")
+    from riverarchitect.gui.main import RiverArchitectGui
+
+    window = RiverArchitectGui(tk_root)
+    window.run_taux()
+    tk_root.update()
+
+    def walk(widget):
+        for child in widget.winfo_children():
+            yield child
+            yield from walk(child)
+
+    dialog = [w for w in walk(tk_root) if isinstance(w, tkinter.Toplevel)][-1]
+    # ttk.Combobox subclasses tkinter.Entry, so the grain-kind picker has to be excluded.
+    entries = [w for w in walk(dialog)
+               if isinstance(w, tkinter.Entry) and not isinstance(w, ttk.Entry)]
+    assert len(entries) == 4
+
+    text = [w for w in walk(dialog) if isinstance(w, tkinter.Text)][0]
+    button = [w for w in walk(dialog)
+              if isinstance(w, tkinter.Button) and w.cget("text") == "Compute"][0]
+
+    entries[3].insert(0, str(tmp_path / "out"))
+    button.invoke()
+    assert "Not a readable file" in text.get("1.0", "end")
+
+    # A prefix left empty is refused too, rather than writing "_theta84.tif" into the cwd.
+    # The three rasters only have to exist for this check; they are never opened.
+    for index, name in enumerate(("u.tif", "h.tif", "d.tif")):
+        (tmp_path / name).touch()
+        entries[index].insert(0, str(tmp_path / name))
+    entries[3].delete(0, "end")
+    button.invoke()
+    assert "output prefix" in text.get("1.0", "end")

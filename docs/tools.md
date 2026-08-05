@@ -1,6 +1,6 @@
 # Tools
 
-Utility routines that sit beside the analysis modules: things a project needs occasionally, that do not belong in a tab. Each is an importable module with a console-script entry point, and two of them also have an entry in the interface's **Tools** menu.
+Utility routines that sit beside the analysis modules: things a project needs occasionally, that do not belong in a tab. Each is an importable module with a console-script entry point and an entry in the interface's **Tools** menu, which opens a small wizard over the same code the console script runs. Nothing here is command-line only.
 
 ## Pool-riffle designer
 
@@ -65,6 +65,8 @@ riverarchitect-taux --velocity u000550.tif --depth h000550.tif --grains dmean.ti
     --unit us --output-prefix out/q000550
 ```
 
+Also **Tools ▸ Bed shear stress** in the interface, which picks the three rasters and the output prefix and reports the regime shares when the run finishes.
+
 Runs the Shields stress calculation of {mod}`riverarchitect.shear` on one set of rasters, outside a condition folder - useful for checking model output before it is organised as a condition, or for comparing the closure against measured stress. It writes `<prefix>_theta84.tif`, `<prefix>_ustar2.tif`, `<prefix>_h_over_ks.tif` and `<prefix>_regime.tif`, and prints how many cells fell into each resistance regime.
 
 Depth and grain size are resampled onto the velocity raster's grid, so the three need not share an extent. They **must** share a unit system, and `--unit` must name it. Pass `--grain-kind d84` when the grain raster holds a measured $D_{84}$; the default `dmean` estimates it as $2.2\,D_{\mathrm{mean}}$, which is what the analysis modules do.
@@ -75,7 +77,9 @@ Depth and grain size are resampled onto the velocity raster's grid, so the three
 riverarchitect-lyrx2qml input.lyrx output.qml
 ```
 
-Converts an ArcGIS Pro layer file to a QGIS layer style, so a project that already has symbology does not have to rebuild it for {doc}`modules/maps`.
+Also **Tools ▸ Convert ArcGIS .lyrx to QGIS .qml** in the interface.
+
+Converts an ArcGIS Pro layer file to a QGIS layer style, so a project that already has symbology does not have to rebuild it for {doc}`modules/maps`. Classified and unique-value colorizers are supported; anything else is reported rather than half-converted.
 
 ## Flow analysis
 

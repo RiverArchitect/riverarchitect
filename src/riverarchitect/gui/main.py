@@ -19,12 +19,14 @@ import glob
 import logging
 import os
 import sys
+import threading
 import tkinter as tk
 from tkinter import ttk
-from tkinter.filedialog import askdirectory
-from tkinter.messagebox import askokcancel, showinfo, showwarning
+from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
+from tkinter.messagebox import askokcancel, showerror, showinfo, showwarning
 
 from .. import __version__, config, guide
+from .toolsmenu import TOOLS, format_taux, unit_name
 from .getstarted_tab import GetStartedGui
 from .lifespan_tab import LifespanGui
 from .mapping_tab import MappingGui
@@ -130,10 +132,8 @@ class RiverArchitectGui(tk.Frame):
 
         tools_menu = tk.Menu(menu_bar, tearoff=0)
         menu_bar.add_cascade(label="Tools", menu=tools_menu)
-        tools_menu.add_command(label="Reconcile NoData in a condition ...",
-                               command=self.run_reconcile_nodata)
-        tools_menu.add_command(label="Pool-riffle designer ...",
-                               command=self.run_pool_riffle)
+        for label, handler, _module in TOOLS:
+            tools_menu.add_command(label=label, command=getattr(self, handler))
 
         help_menu = tk.Menu(menu_bar, tearoff=0)
         menu_bar.add_cascade(label="Help", menu=help_menu)
@@ -221,6 +221,161 @@ class RiverArchitectGui(tk.Frame):
         if failed:
             message += "\n%d could not be read; see the log." % failed
         showinfo("Reconcile NoData", message)
+
+    def run_taux(self):
+        """Compute the regime-aware dimensionless bed shear stress from three rasters.
+
+        A dialog rather than a tab because it works on loose rasters: the point of the tool
+        is to check model output *before* it has been organised into a condition folder,
+        which is what the Get Started tab would require.
+        """
+        from ..tools import taux
+
+        if not taux.dependencies_available():
+            showerror("Bed shear stress",
+                      "This tool needs numpy and rasterio, which could not be imported.")
+            return
+
+        unit = self.unit.get()
+        window = tk.Toplevel(self)
+        window.title("Bed shear stress")
+        tk.Label(window, justify="left", anchor="w", wraplength=520,
+                 text="Shields stress from depth-averaged velocity, water depth and grain "
+                      "size. The velocity raster defines the output grid; the other two "
+                      "are resampled onto it, so they need not share an extent. All three "
+                      "must be in %s." % unit_name(unit)
+                 ).grid(row=0, column=0, columnspan=3, sticky="w", padx=8, pady=(8, 6))
+
+        fields = (("velocity", "Velocity raster"), ("depth", "Water depth raster"),
+                  ("grains", "Grain size raster"))
+        entries = {}
+        for row, (name, label) in enumerate(fields, start=1):
+            tk.Label(window, text=label, anchor="w").grid(row=row, column=0, sticky="w",
+                                                         padx=8, pady=2)
+            entry = tk.Entry(window, width=44)
+            entry.grid(row=row, column=1, sticky="we", padx=4, pady=2)
+            tk.Button(window, text="Browse ...",
+                      command=lambda e=entry, l=label: self._browse_raster(e, l)
+                      ).grid(row=row, column=2, padx=(0, 8), pady=2)
+            entries[name] = entry
+
+        row = len(fields) + 1
+        tk.Label(window, text="The grain raster holds", anchor="w").grid(
+            row=row, column=0, sticky="w", padx=8, pady=2)
+        grain_kind = tk.StringVar(value="dmean")
+        ttk.Combobox(window, textvariable=grain_kind, state="readonly", width=42,
+                     values=("dmean", "d50", "d84")).grid(row=row, column=1, sticky="we",
+                                                          padx=4, pady=2)
+
+        row += 1
+        tk.Label(window, text="Output prefix", anchor="w").grid(row=row, column=0,
+                                                                sticky="w", padx=8, pady=2)
+        prefix = tk.Entry(window, width=44)
+        prefix.grid(row=row, column=1, sticky="we", padx=4, pady=2)
+        tk.Button(window, text="Browse ...",
+                  command=lambda: self._browse_prefix(prefix)).grid(row=row, column=2,
+                                                                    padx=(0, 8), pady=2)
+
+        output = tk.Text(window, width=64, height=14, font=("TkFixedFont",))
+        output.grid(row=row + 2, column=0, columnspan=3, padx=8, pady=8, sticky="we")
+        output.insert("1.0", "Choose three rasters and an output prefix, then Compute.")
+
+        def show(text):
+            output.delete("1.0", tk.END)
+            output.insert("1.0", text)
+
+        def compute():
+            paths = {name: entry.get().strip() for name, entry in entries.items()}
+            missing = [name for name, path in paths.items() if not os.path.isfile(path)]
+            if missing:
+                show("Not a readable file: %s." % ", ".join(sorted(missing)))
+                return
+            target = prefix.get().strip()
+            if not target:
+                show("Give an output prefix; the four rasters are named after it.")
+                return
+            # Every widget is read here, on the thread that owns them. Reading one from
+            # inside work() raises "main thread is not in main loop".
+            kind = grain_kind.get()
+            run_button.config(state="disabled")
+            show("Computing ...")
+
+            def work():
+                try:
+                    written = taux.compute(paths["velocity"], paths["depth"],
+                                           paths["grains"], target,
+                                           grain_kind=kind, unit=unit)
+                    text = format_taux(written)
+                except Exception as exc:  # surfaced to the user in the output box
+                    self.logger.error("Could not compute bed shear stress: %s", exc)
+                    text = "Could not compute:\n%s" % exc
+                # Tk widgets may only be touched from the thread that owns them.
+                window.after(0, lambda: (show(text), run_button.config(state="normal")))
+
+            threading.Thread(target=work, daemon=True).start()
+
+        buttons = tk.Frame(window)
+        buttons.grid(row=row + 1, column=0, columnspan=3, sticky="e", padx=8)
+        run_button = tk.Button(buttons, text="Compute", command=compute)
+        run_button.pack(side="left", padx=4)
+        tk.Button(buttons, text="Close", command=window.destroy).pack(side="left")
+
+    def run_lyrx2qml(self):
+        """Convert an ArcGIS Pro layer file to a QGIS layer style."""
+        import contextlib
+        import io
+
+        from ..tools import lyrx2qml
+
+        source = askopenfilename(title="Select an ArcGIS Pro layer file",
+                                 initialdir=config.project_home(),
+                                 filetypes=[("ArcGIS layer files", "*.lyrx"),
+                                            ("All files", "*")])
+        if not source:
+            return
+        target = asksaveasfilename(title="Write the QGIS layer style to",
+                                   initialfile=os.path.basename(
+                                       os.path.splitext(source)[0] + ".qml"),
+                                   initialdir=os.path.dirname(source),
+                                   defaultextension=".qml",
+                                   filetypes=[("QGIS layer styles", "*.qml")])
+        if not target:
+            return
+
+        # convert() reports what it found on stdout, which is the useful part of the
+        # answer: which colorizer, and how many class breaks came across.
+        log = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(log):
+                written = lyrx2qml.convert(source, target)
+        except Exception as exc:  # pragma: no cover - surfaced to the user
+            self.logger.error("Could not convert %s: %s", source, exc)
+            showerror("lyrx to qml", "Could not convert:\n%s" % exc)
+            return
+
+        if written is None:
+            showwarning("lyrx to qml",
+                        "Nothing was written.\n\n%s" % log.getvalue().strip())
+            return
+        showinfo("lyrx to qml", "Wrote %s\n\n%s" % (written, log.getvalue().strip()))
+
+    @staticmethod
+    def _browse_raster(entry, label):
+        path = askopenfilename(title="Select the %s" % label.lower(),
+                               initialdir=config.dir_conditions(),
+                               filetypes=[("Raster files", "*.tif *.tiff *.flt *.asc"),
+                                          ("All files", "*")])
+        if path:
+            entry.delete(0, tk.END)
+            entry.insert(0, path)
+
+    @staticmethod
+    def _browse_prefix(entry):
+        path = asksaveasfilename(title="Output prefix (the suffixes are added for you)",
+                                 initialdir=config.project_home())
+        if path:
+            entry.delete(0, tk.END)
+            entry.insert(0, path)
 
     def run_pool_riffle(self):
         """Size a self-maintaining pool-riffle sequence from a channel and a target depth.
