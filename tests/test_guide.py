@@ -24,8 +24,14 @@ def test_the_guide_covers_the_whole_chain_in_order():
                     "recruitment", "costs", "maps", "tools", "next"]
 
 
-def test_the_guide_reaches_every_tab_the_interface_has():
-    """A tab nothing points at is a tab nobody finds."""
+def test_the_guide_reaches_every_tab_the_interface_has(qt_app):
+    """A tab nothing points at is a tab nobody finds.
+
+    Takes ``qt_app`` for the skip it carries, not for the application: importing
+    ``gui.qt.main`` pulls in the Qt widgets, so without a binding this raises ImportError
+    rather than skipping. ``TAB_GROUPS`` is plain data, and ``test_gui`` asserts the two
+    front ends declare the same one, so checking either is checking both.
+    """
     from riverarchitect.gui.qt.main import TAB_GROUPS
 
     named = {pair for step in guide.STEPS for pair in step.tabs()}
