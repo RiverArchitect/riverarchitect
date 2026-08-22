@@ -4,7 +4,7 @@ import os
 import threading
 import tkinter as tk
 from tkinter import ttk
-from tkinter.filedialog import askdirectory
+from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
 from tkinter.messagebox import showerror, showwarning
 
 from .base import RaModuleGui
@@ -21,6 +21,8 @@ class LifespanGui(RaModuleGui):
     def __init__(self, master=None):
         super().__init__(master)
         self.output_dir = ""
+        #: A threshold workbook the user chose, or "" for the packaged defaults.
+        self.thresholds_path = ""
         self._build()
 
     def _build(self):
@@ -64,6 +66,19 @@ class LifespanGui(RaModuleGui):
         self._populate_features()
 
         row += 1
+        tk.Label(self, text="Threshold values:").grid(row=row, column=0, sticky=tk.W,
+                                                      padx=self.pad_x, pady=self.pad_y)
+        thresholds = tk.Frame(self)
+        thresholds.grid(row=row, column=1, sticky=tk.W, padx=self.pad_x)
+        self.b_thresholds = tk.Button(thresholds, width=26, text="packaged defaults",
+                                      command=self.select_thresholds)
+        self.b_thresholds.pack(side=tk.LEFT)
+        self.b_save_thresholds = tk.Button(thresholds, width=18,
+                                           text="Save the defaults ...",
+                                           command=self.save_thresholds)
+        self.b_save_thresholds.pack(side=tk.LEFT, padx=(6, 0))
+
+        row += 1
         tk.Label(self, text="Output directory (optional):").grid(
             row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         self.b_output = tk.Button(self, width=40, text="Select directory ...",
@@ -83,21 +98,32 @@ class LifespanGui(RaModuleGui):
                           padx=self.pad_x, pady=self.pad_y)
         self._check_dependencies()
 
-    def _populate_features(self):
+    def _populate_features(self, features=None):
+        """Fill the feature list, from a loaded threshold workbook or from the defaults.
+
+        Selections are preserved across a reload, so choosing a workbook does not silently
+        reset a selection the user has just made.
+        """
+        selected = set(self.selected_features()) if getattr(self, "feature_ids", None) \
+            else {"rocks"}
         self.feature_ids = []
         self.feature_box.delete(0, tk.END)
         try:
             from ..lifespan import feature_groups
         except ImportError:
             return
-        for group, features in feature_groups().items():
+        for group, features in feature_groups(features).items():
             for feature in features:
                 if not feature.lifespan_mapping:
                     continue
                 self.feature_box.insert(tk.END, "%-24s %s" % (feature.name, group))
                 self.feature_ids.append(feature.fid)
-                if feature.fid == "rocks":
+                if feature.fid in selected:
                     self.feature_box.selection_set(tk.END)
+
+    def selected_features(self):
+        """Feature ids the user has selected."""
+        return [self.feature_ids[i] for i in self.feature_box.curselection()]
 
     def _check_dependencies(self):
         try:
@@ -120,8 +146,58 @@ class LifespanGui(RaModuleGui):
             self.output_dir = path
             self.b_output.config(fg="forest green", text=os.path.basename(path))
 
+    def select_thresholds(self):
+        """Choose a threshold_values.xlsx to map against instead of the defaults."""
+        path = askopenfilename(title="Select a threshold_values.xlsx",
+                               initialdir=config.project_home(),
+                               filetypes=[("Excel workbooks", "*.xlsx"),
+                                          ("All files", "*")])
+        if not path:
+            return
+        try:
+            features = self.load_thresholds(path)
+        except Exception as exc:
+            showerror("Could not read the thresholds", str(exc))
+            return
+        self.thresholds_path = path
+        self.b_thresholds.config(fg="forest green", text=os.path.basename(path))
+        self._populate_features(features)
+        self._write("Loaded %d feature(s) from %s.\n\nThe values are used exactly as the "
+                    "workbook holds them - they are not converted." % (len(features), path))
+
+    def load_thresholds(self, path=None):
+        """Features to map with: the workbook the user chose, or the defaults.
+
+        Returns:
+            dict: feature id -> Feature, or None to let the analysis use its own defaults.
+        """
+        path = path if path is not None else self.thresholds_path
+        if not path:
+            return None
+        from ..lifespan import load_threshold_workbook
+        return load_threshold_workbook(path)
+
+    def save_thresholds(self):
+        """Write the built-in thresholds out as a workbook the user can edit."""
+        path = asksaveasfilename(title="Save the default thresholds as",
+                                 initialdir=config.project_home(),
+                                 initialfile="threshold_values.xlsx",
+                                 defaultextension=".xlsx",
+                                 filetypes=[("Excel workbooks", "*.xlsx")])
+        if not path:
+            return
+        try:
+            from ..lifespan import write_threshold_workbook
+            write_threshold_workbook(path)
+        except Exception as exc:
+            showerror("Could not write the workbook", str(exc))
+            return
+        self._write("Default thresholds written to:\n%s\n\nEdit it, then load it back "
+                    "with the Threshold values button. Its values are U.S. customary and "
+                    "are used as written, so do not convert them." % path)
+
     def run_analysis(self):
-        selected = [self.feature_ids[i] for i in self.feature_box.curselection()]
+        selected = self.selected_features()
         if not selected:
             showwarning("No feature selected", "Select at least one feature to map.")
             return
@@ -136,6 +212,11 @@ class LifespanGui(RaModuleGui):
             return
 
         unit = self.unit
+        try:
+            thresholds = self.load_thresholds()
+        except Exception as exc:
+            showerror("Could not read the thresholds", str(exc))
+            return
         output_dir = self.output_dir or os.path.join(
             config.dir_output("LifespanDesign"), name)
 
@@ -145,7 +226,8 @@ class LifespanGui(RaModuleGui):
         def work():
             try:
                 from ..lifespan import LifespanDesign
-                analysis = LifespanDesign(name, unit=unit, manning_n=manning)
+                analysis = LifespanDesign(name, unit=unit, manning_n=manning,
+                                          features=thresholds)
                 results = analysis.run(selected, output_dir=output_dir)
                 self.after(0, lambda: self._finish(results, output_dir))
             except Exception as exc:

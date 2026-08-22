@@ -153,7 +153,9 @@ Read `regime<Q>.tif` before trusting a stress map. On the bundled sample reach a
 
 ### Threshold values
 
-Defaults live in {data}`riverarchitect.lifespan.FEATURES` as **Python rather than a binary workbook**, so they are diffable and reviewable; {doc}`features` describes each of them. {func}`riverarchitect.lifespan.load_threshold_workbook` reads a project's own customised `threshold_values.xlsx` where one is preferred.
+Defaults live in {data}`riverarchitect.lifespan.FEATURES` as **Python rather than a binary workbook**, so they are diffable and reviewable; {doc}`features` describes each of them. {func}`riverarchitect.lifespan.load_threshold_workbook` reads a project's own customised `threshold_values.xlsx` where one is preferred, and {func}`riverarchitect.lifespan.write_threshold_workbook` writes the defaults out in that layout to start from.
+
+Both are reachable without writing Python: the **Lifespan Design** tab's *Save the defaults ...* button exports the workbook and its *Threshold values* button loads one back, after which the run uses it. An unedited round trip reproduces the default result exactly, which is the check worth making before changing any number.
 
 ```{admonition} Length thresholds are unconverted
 :class: warning

@@ -553,7 +553,8 @@ class Mapper:
 
         Replaces copy_template_project(), which duplicated river_template.aprx. If a QGIS
         template exists at 02_Maps/templates/river_template.qgz it is used as the starting
-        point; otherwise an empty project is created and the layout is composed in code.
+        point - see :meth:`template_path` - otherwise an empty project is created and the
+        layout is composed in code.
         """
         project = QgsProject.instance()
         project.clear()
@@ -565,8 +566,8 @@ class Mapper:
                 return project
             self.logger.info("WARNING: Could not read %s - starting a new project." % target)
 
-        template = _p(config.templates_dir(), "river_template.qgz")
-        if os.path.isfile(template):
+        template = self.template_path()
+        if template:
             if project.read(template):
                 self.logger.info(" >> Started from QGIS template: " + template)
             else:
@@ -576,6 +577,22 @@ class Mapper:
 
         project.setFileName(target)
         return project
+
+    @staticmethod
+    def template_path():
+        """Path of the QGIS template project to start from, or ``""``.
+
+        The project's own ``02_Maps/templates/river_template.qgz`` wins, which is what the
+        documentation has always described and what makes house styling and base layers
+        travel with a project. The packaged copy is the fallback, for an installation that
+        ships one.
+        """
+        candidates = (_p(config.dir_maps(), "templates", "river_template.qgz"),
+                      _p(config.templates_dir(), "river_template.qgz"))
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                return candidate
+        return ""
 
     def save_project(self):
         try:

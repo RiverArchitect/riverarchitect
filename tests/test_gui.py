@@ -147,6 +147,89 @@ def test_qt_lifespan_tab_offers_the_plant_species(qt_app):
         assert name in labels
 
 
+# ------------------------------------------------- user-supplied criteria workbooks
+
+def test_qt_lifespan_tab_maps_with_a_workbook_the_user_chose(qt_app, tmp_path):
+    """The picker has to reach the analysis, not just relabel a button."""
+    pytest.importorskip("rasterio")
+    pytest.importorskip("openpyxl")
+    from riverarchitect.gui.qt.main import RiverArchitectWindow
+    from riverarchitect.lifespan import write_threshold_workbook
+
+    window = RiverArchitectWindow()
+    tab = find_tab(window, "LifespanTab")
+    assert tab.load_thresholds() is None      # nothing chosen: the analysis uses defaults
+
+    path = tmp_path / "threshold_values.xlsx"
+    write_threshold_workbook(str(path))
+    tab.thresholds_path = str(path)
+    features = tab.load_thresholds()
+    assert features is not None and features["cot"].h_max == 2.1
+
+
+def test_qt_lifespan_tab_keeps_ticks_when_a_workbook_is_loaded(qt_app, tmp_path):
+    pytest.importorskip("rasterio")
+    pytest.importorskip("openpyxl")
+    from riverarchitect.gui.qt.main import RiverArchitectWindow
+    from riverarchitect.lifespan import load_threshold_workbook, write_threshold_workbook
+
+    window = RiverArchitectWindow()
+    tab = find_tab(window, "LifespanTab")
+    tab._check_all(True)
+    before = tab.selected_features()
+    assert len(before) > 1
+
+    path = tmp_path / "threshold_values.xlsx"
+    write_threshold_workbook(str(path))
+    tab._populate_features(load_threshold_workbook(str(path)))
+    assert tab.selected_features() == before
+
+
+def test_qt_sharc_tab_takes_curves_from_a_workbook_the_user_chose(qt_app):
+    pytest.importorskip("rasterio")
+    pytest.importorskip("openpyxl")
+    from riverarchitect.gui.qt.main import RiverArchitectWindow
+    from riverarchitect.sharc import default_fish_database
+
+    window = RiverArchitectWindow()
+    tab = find_tab(window, "SharcTab")
+    tab.species.setCurrentText("Lamprey")
+
+    assert tab._load_fish(default_fish_database())
+    # The chosen species survives a reload; silently moving to another one would change
+    # the analysis without saying so.
+    assert tab.species.currentText() == "Lamprey"
+    assert tab.lifestage.count() > 0
+
+
+def test_qt_sharc_tab_keeps_its_database_when_a_bad_workbook_is_chosen(qt_app, tmp_path,
+                                                                      monkeypatch):
+    pytest.importorskip("rasterio")
+    pytest.importorskip("openpyxl")
+    from riverarchitect.gui.qt.main import RiverArchitectWindow
+
+    window = RiverArchitectWindow()
+    tab = find_tab(window, "SharcTab")
+    before = tab._fish
+    # fail() is a modal dialog; nothing must block a headless run.
+    monkeypatch.setattr(type(tab), "fail", lambda self, title, text: None)
+    assert tab._load_fish(str(tmp_path / "nothing-here.xlsx")) is False
+    assert tab._fish is before
+
+
+def test_tk_tabs_offer_the_same_workbook_pickers(tk_root):
+    """Both front ends, or the walkthrough describes a button one of them lacks."""
+    from riverarchitect.gui.main import RiverArchitectGui
+
+    window = RiverArchitectGui(tk_root)
+    tabs = {tab.title: tab for tab in window.module_tabs}
+    lifespan = tabs["Lifespan Design"]
+    assert lifespan.b_thresholds.cget("text") == "packaged defaults"
+    assert lifespan.b_save_thresholds.cget("text") == "Save the defaults ..."
+    assert lifespan.load_thresholds() is None
+    assert tabs["Habitat Area (SHArC)"].b_curves.cget("text") == "packaged Fish.xlsx"
+
+
 def test_qt_max_lifespan_tab_finds_the_plant_rasters(qt_app, tmp_path):
     """Pointed at a folder of plant lifespan maps, the tab lists them and enables the run.
 

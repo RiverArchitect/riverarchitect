@@ -320,3 +320,21 @@ def test_the_prefix_matches_the_bindings_that_loaded():
         pytest.skip("QGIS not discovered on this machine")
     assert mapping.QGIS_PREFIX
     assert os.path.isdir(mapping.QGIS_PREFIX)
+
+
+# ------------------------------------------------------------------ layout template
+
+def test_a_project_local_template_beats_the_packaged_one(tmp_path, monkeypatch):
+    """The documentation has always told users to drop a template into
+    ``02_Maps/templates/``. The lookup used to read only the *package* templates
+    directory, so a project-local one was silently ignored."""
+    from riverarchitect import config
+
+    monkeypatch.setattr(config, "project_home", lambda: str(tmp_path))
+    assert mapping.Mapper.template_path() == ""
+
+    templates = tmp_path / "02_Maps" / "templates"
+    templates.mkdir(parents=True)
+    template = templates / "river_template.qgz"
+    template.write_bytes(b"")
+    assert same_path(mapping.Mapper.template_path(), str(template))

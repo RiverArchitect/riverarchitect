@@ -26,7 +26,7 @@ The methods are documented in:
 ```{admonition} The interface can walk you through it
 :class: tip
 
-**Help ▸ Live Guide: Example** opens a seven-step walkthrough of the sample reach *inside* the program: it sets the project directory to the sample data, and each step brings the tab it talks about to the front. The same content is at {doc}`guide/example_walkthrough`.
+**Help ▸ Live Guide: Example** opens a fifteen-step walkthrough of a whole project *inside* the program: it sets the project directory to the sample data, brings the tab each step talks about to the front, plays itself if you let it, and remembers where you stopped. The same content is at {doc}`guide/example_walkthrough`.
 ```
 
 ## Contents

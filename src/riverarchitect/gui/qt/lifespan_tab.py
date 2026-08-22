@@ -4,9 +4,9 @@ import os
 
 from ... import config
 from .base import RaTab
-from .qtcompat import (QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QHBoxLayout,
-                       QLabel, QLocale, QPlainTextEdit, QProgressBar, QPushButton,
-                       Qt, QVBoxLayout, QtWidgets)
+from .qtcompat import (QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox,
+                       QHBoxLayout, QLabel, QLocale, QPlainTextEdit, QProgressBar,
+                       QPushButton, Qt, QVBoxLayout, QtWidgets)
 
 __all__ = ["LifespanTab"]
 
@@ -23,6 +23,8 @@ class LifespanTab(RaTab):
         super().__init__(parent)
         self.output_dir = ""
         self.results_data = []
+        #: A threshold workbook the user chose, or "" for the packaged defaults.
+        self.thresholds_path = ""
         self._build()
 
     def _build(self):
@@ -48,6 +50,20 @@ class LifespanTab(RaTab):
         self.manning.setToolTip("Manning's n in s/m^(1/3). Converted internally for U.S. "
                                 "customary units.")
         form.addRow("Manning's n:", self.manning)
+
+        thresholds = QHBoxLayout()
+        self.b_thresholds = QPushButton("packaged defaults")
+        self.b_thresholds.clicked.connect(self.select_thresholds)
+        self.b_thresholds.setToolTip(
+            "A threshold_values.xlsx holding this project's own criteria. The packaged "
+            "defaults are published values; a design you have to defend runs on yours.")
+        thresholds.addWidget(self.b_thresholds, 1)
+        self.b_save_thresholds = QPushButton("Save the defaults ...")
+        self.b_save_thresholds.clicked.connect(self.save_thresholds)
+        self.b_save_thresholds.setToolTip(
+            "Write the built-in thresholds out as a workbook to edit and load back.")
+        thresholds.addWidget(self.b_save_thresholds)
+        form.addRow("Threshold values:", thresholds)
 
         self.b_output = QPushButton("Select directory ... (optional)")
         self.b_output.clicked.connect(self.select_output)
@@ -104,13 +120,19 @@ class LifespanTab(RaTab):
 
     # ------------------------------------------------------------------- features
 
-    def _populate_features(self):
+    def _populate_features(self, features=None):
+        """Fill the feature list, from a loaded threshold workbook or from the defaults.
+
+        Ticks are preserved across a reload, so choosing a workbook does not silently
+        reset a selection the user has just made.
+        """
+        ticked = set(self.selected_features()) if self.feature_list.count() else {"rocks"}
         self.feature_list.clear()
         try:
             from ...lifespan import feature_groups
         except ImportError:
             return
-        for group, features in feature_groups().items():
+        for group, features in feature_groups(features).items():
             header = QtWidgets.QListWidgetItem(group.upper())
             header.setFlags(Qt.ItemFlag.NoItemFlags)
             font = header.font()
@@ -122,7 +144,7 @@ class LifespanTab(RaTab):
                     continue
                 item = QtWidgets.QListWidgetItem("   %s" % feature.name)
                 item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
-                item.setCheckState(Qt.CheckState.Checked if feature.fid == "rocks"
+                item.setCheckState(Qt.CheckState.Checked if feature.fid in ticked
                                    else Qt.CheckState.Unchecked)
                 item.setData(Qt.ItemDataRole.UserRole, feature.fid)
                 self.feature_list.addItem(item)
@@ -186,6 +208,57 @@ class LifespanTab(RaTab):
             self.output_dir = path
             self.b_output.setText(self.elide(path))
 
+    def select_thresholds(self):
+        """Choose a threshold_values.xlsx to map against instead of the defaults."""
+        path = self.choose_file("Select a threshold_values.xlsx",
+                                "Excel workbooks (*.xlsx);;All files (*)")
+        if not path:
+            return
+        try:
+            features = self.load_thresholds(path)
+        except Exception as exc:
+            self.fail("Could not read the thresholds", str(exc))
+            return
+        self.thresholds_path = path
+        self.b_thresholds.setText(self.elide(path))
+        self._populate_features(features)
+        self.results.setPlainText("Loaded %d feature(s) from %s.\n\nThe values are used "
+                                  "exactly as the workbook holds them - they are not "
+                                  "converted." % (len(features), path))
+
+    def load_thresholds(self, path=None):
+        """Features to map with: the workbook the user chose, or the defaults.
+
+        Returns:
+            dict: feature id -> Feature, or None to let the analysis use its own defaults.
+        """
+        path = path if path is not None else self.thresholds_path
+        if not path:
+            return None
+        from ...lifespan import load_threshold_workbook
+        return load_threshold_workbook(path)
+
+    def save_thresholds(self):
+        """Write the built-in thresholds out as a workbook the user can edit."""
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save the default thresholds as",
+            os.path.join(config.project_home(), "threshold_values.xlsx"),
+            "Excel workbooks (*.xlsx)")
+        if not path:
+            return
+        if not path.lower().endswith(".xlsx"):
+            path += ".xlsx"
+        try:
+            from ...lifespan import write_threshold_workbook
+            write_threshold_workbook(path)
+        except Exception as exc:
+            self.fail("Could not write the workbook", str(exc))
+            return
+        self.results.setPlainText(
+            "Default thresholds written to:\n%s\n\nEdit it, then load it back with the "
+            "Threshold values button. Its values are U.S. customary and are used as "
+            "written, so do not convert them." % path)
+
     # -------------------------------------------------------------------- analysis
 
     def run_analysis(self):
@@ -200,6 +273,11 @@ class LifespanTab(RaTab):
 
         unit = self.unit
         manning = self.manning.value()
+        try:
+            thresholds = self.load_thresholds()
+        except Exception as exc:
+            self.fail("Could not read the thresholds", str(exc))
+            return
         output_dir = self.output_dir or os.path.join(
             config.dir_output("LifespanDesign"), name)
 
@@ -212,7 +290,8 @@ class LifespanTab(RaTab):
 
         def work():
             from ...lifespan import LifespanDesign
-            analysis = LifespanDesign(name, unit=unit, manning_n=manning)
+            analysis = LifespanDesign(name, unit=unit, manning_n=manning,
+                                      features=thresholds)
             return analysis.run(features, output_dir=output_dir), output_dir
 
         self.run_in_background(work, self._finish, self._error)

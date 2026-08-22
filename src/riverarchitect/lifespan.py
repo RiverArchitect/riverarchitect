@@ -46,7 +46,7 @@ from . import config, raster, shear
 from .condition import Condition
 
 __all__ = ["Feature", "FEATURES", "LifespanDesign", "load_threshold_workbook",
-           "feature_groups"]
+           "write_threshold_workbook", "THRESHOLD_ROWS", "feature_groups"]
 
 logger = logging.getLogger("riverarchitect")
 
@@ -211,11 +211,64 @@ def feature_groups(features=None):
     return groups
 
 
+#: Row of ``threshold_values.xlsx`` holding each :class:`Feature` attribute, in the layout
+#: the original used. Row 3 is the feature group and row 6 the original's "bed shear"
+#: toggle; neither is a :class:`Feature` argument, and both are handled separately.
+THRESHOLD_ROWS = {
+    7: "tau_cr", 8: "d2w_min", 9: "d2w_max", 10: "det_min",
+    11: "det_max", 12: "h_max", 13: "u_max", 14: "froude_max", 15: "grain_max",
+    16: "design_frequency", 17: "mu_avoid", 18: "mu_relevant", 19: "mu_method",
+    20: "safety_factor", 21: "terrain_slope", 22: "inverse_tcd", 23: "fill_rate",
+    24: "scour_rate", 25: "lifespan_mapping", 26: "design_mapping",
+}
+
+#: Attributes written and read as booleans rather than numbers.
+_THRESHOLD_FLAGS = ("inverse_tcd", "lifespan_mapping", "design_mapping")
+#: Attributes holding a comma-separated list of morphological units.
+_THRESHOLD_LISTS = ("mu_avoid", "mu_relevant")
+
+#: Row labels, written into column A so the workbook is legible without this source file.
+_THRESHOLD_LABELS = {
+    1: "River Architect - lifespan threshold values",
+    2: "US customary units. Values are used as written; do not convert them.",
+    3: "Feature group",
+    4: "Feature name",
+    5: "Feature id",
+    6: "Bed shear stress analysis",
+    7: "Critical dimensionless bed shear stress (-)",
+    8: "Min. depth to water table",
+    9: "Max. depth to water table",
+    10: "Min. detrended elevation",
+    11: "Max. detrended elevation",
+    12: "Max. water depth",
+    13: "Max. flow velocity",
+    14: "Max. Froude number (-)",
+    15: "Max. grain size",
+    16: "Design return period (years)",
+    17: "Morphological units: avoid",
+    18: "Morphological units: relevance",
+    19: "Morphological unit method (0 avoid, 1 relevance)",
+    20: "Safety factor for mobile grains (-)",
+    21: "Max. terrain slope (-)",
+    22: "Inverse topographic change (0/1)",
+    23: "Max. fill rate",
+    24: "Max. scour rate",
+    25: "Lifespan mapping (0/1)",
+    26: "Design mapping (0/1)",
+}
+
+
 def load_threshold_workbook(path):
     """Read a ``threshold_values.xlsx`` in the original layout.
 
     Lets a project keep using a workbook it has already calibrated. Row 5 holds the feature
     id and each following row one threshold, exactly as the original expected.
+    :func:`write_threshold_workbook` produces one, so a project can start from the defaults
+    rather than from a blank sheet.
+
+    A feature id that :data:`FEATURES` also knows inherits its group from there when the
+    workbook leaves row 3 empty, so a customised workbook still lists its features under
+    the right headings in the interface rather than collapsing them all into "Other".
 
     Args:
         path (str): path to the workbook.
@@ -225,13 +278,6 @@ def load_threshold_workbook(path):
     """
     import openpyxl
 
-    rows = {
-        6: "bed_shear", 7: "tau_cr", 8: "d2w_min", 9: "d2w_max", 10: "det_min",
-        11: "det_max", 12: "h_max", 13: "u_max", 14: "froude_max", 15: "grain_max",
-        16: "design_frequency", 17: "mu_avoid", 18: "mu_relevant", 19: "mu_method",
-        20: "safety_factor", 21: "terrain_slope", 22: "inverse_tcd", 23: "fill_rate",
-        24: "scour_rate", 25: "lifespan_mapping", 26: "design_mapping",
-    }
     workbook = openpyxl.load_workbook(path, data_only=True)
     sheet = workbook.active
 
@@ -240,22 +286,92 @@ def load_threshold_workbook(path):
         fid = sheet.cell(5, column).value
         if not fid:
             continue
-        kwargs = {"name": sheet.cell(4, column).value or str(fid)}
-        for row, attribute in rows.items():
+        fid = str(fid)
+        default = FEATURES.get(fid)
+        group = sheet.cell(3, column).value
+        kwargs = {"name": sheet.cell(4, column).value or fid,
+                  "group": str(group) if group else (default.group if default else "")}
+        for row, attribute in THRESHOLD_ROWS.items():
             value = sheet.cell(row, column).value
-            if value is None or attribute == "bed_shear":
+            if value is None:
                 continue
-            if attribute in ("mu_avoid", "mu_relevant"):
+            if attribute in _THRESHOLD_LISTS:
                 items = [item.strip() for item in str(value).split(",") if item.strip()]
                 kwargs[attribute] = [item for item in items if item.lower() != "na"]
-            elif attribute in ("inverse_tcd", "lifespan_mapping", "design_mapping"):
-                kwargs[attribute] = bool(value)
+            elif attribute in _THRESHOLD_FLAGS:
+                kwargs[attribute] = _as_flag(value)
             elif attribute == "mu_method":
                 kwargs[attribute] = int(value)
             else:
                 kwargs[attribute] = float(value)
-        features[str(fid)] = Feature(str(fid), **kwargs)
+        features[fid] = Feature(fid, **kwargs)
     return features
+
+
+def _as_flag(value):
+    """Read a workbook cell as a boolean.
+
+    ``bool()`` alone is wrong here: a spreadsheet that spells a flag ``"no"`` or ``"FALSE"``
+    hands back a non-empty string, and every non-empty string is true. Text is matched
+    explicitly and everything else falls back to ``bool``.
+    """
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "0", "no", "n", "false", "na", "-")
+    return bool(value)
+
+
+def write_threshold_workbook(path, features=None):
+    """Write a ``threshold_values.xlsx`` that :func:`load_threshold_workbook` can read.
+
+    The defaults live in :data:`FEATURES` as Python, which makes them diffable but not
+    editable by someone who does not write Python. This writes them out in the workbook
+    layout so a project can export, adjust and load them back through the interface.
+
+    Values are written **exactly as :data:`FEATURES` holds them**, which is U.S. customary
+    and unconverted. The analysis expects that; converting them here would double-apply the
+    factor and silently shift every threshold.
+
+    Args:
+        path (str): where to write the workbook.
+        features (dict): feature id -> :class:`Feature`. Defaults to :data:`FEATURES`.
+
+    Returns:
+        str: the path written.
+    """
+    import openpyxl
+
+    features = features or FEATURES
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "thresholds"
+
+    for row, label in _THRESHOLD_LABELS.items():
+        sheet.cell(row, 1).value = label
+    sheet.column_dimensions["A"].width = 44
+
+    for offset, feature in enumerate(features.values()):
+        column = 5 + offset
+        sheet.cell(3, column).value = feature.group
+        sheet.cell(4, column).value = feature.name
+        sheet.cell(5, column).value = feature.fid
+        # Row 6 is the original's analysis toggle. Nothing reads it back - the analysis
+        # branches on whether tau_cr or safety_factor is set - but it is written so the
+        # sheet reads the way the original's did.
+        sheet.cell(6, column).value = "yes" if feature.tau_cr is not None else "no"
+        for row, attribute in THRESHOLD_ROWS.items():
+            value = getattr(feature, attribute)
+            if attribute in _THRESHOLD_LISTS:
+                sheet.cell(row, column).value = ", ".join(value) if value else "NA"
+            elif attribute in _THRESHOLD_FLAGS:
+                sheet.cell(row, column).value = 1 if value else 0
+            elif value is not None:
+                sheet.cell(row, column).value = value
+
+    directory = os.path.dirname(os.path.abspath(path))
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    workbook.save(path)
+    return path
 
 
 class LifespanDesign:
