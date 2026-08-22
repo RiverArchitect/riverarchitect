@@ -66,6 +66,8 @@ Two hydraulic raster naming forms are accepted: plain integers (`h000550.tif` mo
 | `the flow record has too few days in the <year> recession period` | the record does not cover that season | choose a year the record covers |
 | `no cell falls into any morphological unit` | depth and velocity are in different units from the threshold table | check the unit system |
 | `DLL load failed while importing ...` (Windows) | the QGIS bindings were found but their Qt, GDAL and PROJ libraries were not | set `QGIS_PREFIX_PATH`, or start from an OSGeo4W shell |
+| `no fish database at <path>` | the workbook chosen for **Suitability curves** is not there | pick the file again; the packaged copy is used until one is chosen successfully |
+| a threshold workbook loads with no features | the sheet is not in the `threshold_values.xlsx` layout - row 5 must hold the feature ids | start from **Save the defaults ...** and edit that file rather than building one from scratch |
 
 ## Warning messages
 
@@ -83,6 +85,14 @@ These do not stop an analysis. They are the ones worth reading anyway, because e
 | `no wetted cell in <raster> - cannot locate a thalweg` | the reference discharge is dry; choose a higher one |
 | `QGIS (qgis.core) is not available - mapping is disabled` | every analysis still works; only the Maps tab is off. The message names what was searched and what to install |
 | `QGIS bindings found in <dir> and added to sys.path` | not a problem: discovery worked, and the directory went to the *end* of the path so your own packages keep priority |
+
+## Things that look wrong and are not
+
+**The Live Guide does not start at step 0.** It resumes where you last left it, on purpose, so a walkthrough can be spread over several sittings. *Restart* clears the saved position. The position lives with your user account rather than with the project, so changing project directory does not reset it.
+
+**Two features report exactly the same mapped area.** Their hydraulic criteria differ, but at the largest modelled floods every cell inside their shared depth-to-water-table band fails eventually, so the extent is the same even though the lifespans within it are not.
+
+**Max Lifespan shares add up to more than 100 %.** Ties are kept rather than broken: a cell where two features both reach the maximum lifespan appears in both layers, because the choice between them is yours to make.
 
 ## Getting help
 

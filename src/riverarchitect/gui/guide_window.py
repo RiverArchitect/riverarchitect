@@ -1,11 +1,13 @@
 """The Live Guide window for the tkinter front end.
 
-Renders :data:`riverarchitect.guide.STEPS` one step at a time, and does the two things a
-printed walkthrough cannot: point the project directory at the bundled sample data, and
-bring the tab a step talks about to the front, so the reader is looking at the right
-controls while they read about them.
+Renders :data:`riverarchitect.guide.STEPS` one step at a time, and does the things a
+printed walkthrough cannot: point the project directory at the bundled sample data, bring
+the tab a step talks about to the front so the reader is looking at the right controls
+while they read about them, play itself, and remember where the reader stopped.
 
-See :mod:`riverarchitect.gui.qt.guide_window` for the Qt rendering of the same data.
+See :mod:`riverarchitect.gui.qt.guide_window` for the Qt rendering of the same data. The
+two are kept feature-identical on purpose - a walkthrough that can play itself in one front
+end and not the other would be two different products.
 """
 
 import tkinter as tk
@@ -25,15 +27,25 @@ class GuideWindow(tk.Toplevel):
             project directory changes.
         app (riverarchitect.gui.main.RiverArchitectGui): the application frame, when the
             window should drive it. Optional; without it the guide is read-only.
+        resume (bool): open at the step last left off on. False starts at the beginning.
     """
 
-    def __init__(self, master=None, app=None):
+    def __init__(self, master=None, app=None, resume=True):
         super().__init__(master)
         self.app = app
+        self.resumed = False
         self.index = 0
+        if resume:
+            key = guide.load_progress()
+            if key:
+                self.index = guide.step_index(key)
+                self.resumed = self.index > 0
+
+        #: id of the pending `after` callback while playing, or None.
+        self._timer = None
 
         self.title(guide.TITLE)
-        self.geometry("720x640")
+        self.geometry("720x700")
         self.minsize(560, 480)
 
         self._build()
@@ -45,8 +57,17 @@ class GuideWindow(tk.Toplevel):
         outer = ttk.Frame(self, padding=14)
         outer.pack(expand=True, fill=tk.BOTH)
 
-        self.progress = ttk.Label(outer, foreground="dim gray")
-        self.progress.pack(anchor=tk.W)
+        top = ttk.Frame(outer)
+        top.pack(fill=tk.X)
+        self.progress = ttk.Label(top, foreground="dim gray")
+        self.progress.pack(side=tk.LEFT, anchor=tk.W)
+        self.jump = ttk.Combobox(top, state="readonly", width=44,
+                                 values=guide.step_titles())
+        self.jump.pack(side=tk.RIGHT)
+        self.jump.current(self.index)
+        ttk.Label(top, text="Go to:").pack(side=tk.RIGHT, padx=(0, 6))
+        # Bound after `current()`, so populating the box cannot fire the handler.
+        self.jump.bind("<<ComboboxSelected>>", self._on_jump)
 
         self.heading = ttk.Label(outer, font=("TkDefaultFont", 13, "bold"),
                                  wraplength=660, justify=tk.LEFT)
@@ -86,12 +107,16 @@ class GuideWindow(tk.Toplevel):
         self.open_button = ttk.Button(actions, text="Open this tab",
                                       command=self.open_tab)
         self.open_button.pack(side=tk.LEFT, padx=6)
+        self.restart_button = ttk.Button(actions, text="Restart", command=self.restart)
+        self.restart_button.pack(side=tk.LEFT)
 
         ttk.Button(actions, text="Close", command=self.destroy).pack(side=tk.RIGHT)
         self.next_button = ttk.Button(actions, text="Next >", command=self.next_step)
         self.next_button.pack(side=tk.RIGHT, padx=6)
         self.back_button = ttk.Button(actions, text="< Back", command=self.previous_step)
         self.back_button.pack(side=tk.RIGHT)
+        self.play_button = ttk.Button(actions, text="Play", command=self.toggle_play)
+        self.play_button.pack(side=tk.RIGHT, padx=6)
 
     # ----------------------------------------------------------------------- render
 
@@ -103,9 +128,8 @@ class GuideWindow(tk.Toplevel):
         step = self.step
         self.progress.config(text="Step %d of %d" % (self.index + 1, len(guide.STEPS)))
         self.heading.config(text=step.title)
-        location = step.group if step.tab == step.group \
-            else "%s > %s" % (step.group, step.tab)
-        self.location.config(text="Tab:  %s" % location)
+        self.location.config(text=("Tab:  %s" if step.has_tab else "Menu:  %s")
+                             % step.location)
 
         self.body.config(state=tk.NORMAL)
         self.body.delete("1.0", tk.END)
@@ -125,31 +149,102 @@ class GuideWindow(tk.Toplevel):
         self.body.config(state=tk.DISABLED)
         self.body.yview_moveto(0.0)
 
+        if self.jump.current() != self.index:
+            self.jump.current(self.index)
+
         self.back_button.state(["disabled"] if self.index == 0 else ["!disabled"])
         self.next_button.config(
             text="Finish" if self.index == len(guide.STEPS) - 1 else "Next >")
-        self.open_button.state(["!disabled"] if self.app is not None else ["disabled"])
+        self.restart_button.state(["disabled"] if self.index == 0 else ["!disabled"])
+        # A step that is only about a menu has no tab to raise.
+        self.open_button.state(["!disabled"] if self.app is not None and step.has_tab
+                               else ["disabled"])
+        guide.save_progress(step.key)
         self._update_status()
 
     def _update_status(self):
         ready, message = guide.sample_data_status()
+        if self.resumed:
+            message = ("Resumed where you left off. Restart begins again from step 1. "
+                       + message)
         self.status.config(text=message)
         self.sample_button.state(["!disabled"] if ready and self.app is not None
                                  else ["disabled"])
 
-    # ---------------------------------------------------------------------- actions
+    # ------------------------------------------------------------------- navigation
 
     def next_step(self):
+        self.pause()
         if self.index >= len(guide.STEPS) - 1:
             self.destroy()
             return
-        self.index += 1
-        self._show_step()
+        self._go(self.index + 1)
 
     def previous_step(self):
+        self.pause()
         if self.index > 0:
-            self.index -= 1
-            self._show_step()
+            self._go(self.index - 1)
+
+    def jump_to(self, index):
+        """Show a step chosen from the jump list."""
+        self.pause()
+        self._go(index)
+
+    def _on_jump(self, _event=None):
+        self.jump_to(self.jump.current())
+
+    def restart(self):
+        """Return to the first step and forget the saved position."""
+        self.pause()
+        guide.clear_progress()
+        self._go(0)
+
+    def _go(self, index):
+        self.index = max(0, min(int(index), len(guide.STEPS) - 1))
+        self.resumed = False
+        self._show_step()
+
+    # --------------------------------------------------------------------- playback
+
+    def playing(self):
+        """True while the guide is advancing by itself."""
+        return self._timer is not None
+
+    def toggle_play(self):
+        """Start or stop advancing by itself."""
+        self.pause() if self.playing() else self.play()
+
+    def play(self):
+        if self.index >= len(guide.STEPS) - 1:
+            # Nothing to advance to; starting the timer here would only look broken.
+            return
+        self.pause()
+        self._timer = self.after(guide.AUTOPLAY_SECONDS * 1000, self._advance)
+        self.play_button.config(text="Pause")
+
+    def pause(self):
+        if self._timer is not None:
+            self.after_cancel(self._timer)
+            self._timer = None
+        self.play_button.config(text="Play")
+
+    def _advance(self):
+        """Timer tick: move on, and stop at the end rather than closing the window."""
+        self._timer = None
+        if self.index >= len(guide.STEPS) - 1:
+            self.pause()
+            return
+        self._go(self.index + 1)
+        if self.index < len(guide.STEPS) - 1:
+            self.play()
+        else:
+            self.pause()
+
+    def destroy(self):
+        self.pause()
+        super().destroy()
+
+    # ---------------------------------------------------------------------- actions
 
     def use_sample_data(self):
         """Point the project directory at the bundled sample data."""
@@ -171,8 +266,9 @@ class GuideWindow(tk.Toplevel):
 
     def open_tab(self):
         """Bring the tab this step talks about to the front of the main window."""
-        if self.app is None:
+        if self.app is None or not self.step.has_tab:
             return
+        self.pause()
         if not self.app.select_tab(self.step.group, self.step.tab):
             showerror(guide.TITLE,
                       "Could not find the %s tab. It may have failed to load; see the log."

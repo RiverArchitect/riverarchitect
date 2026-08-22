@@ -391,6 +391,83 @@ def test_plant_thresholds_are_the_workbook_ones():
         assert feature.lifespan_mapping and not feature.design_mapping
 
 
+# ------------------------------------------------------- the threshold workbook
+
+def test_the_threshold_workbook_round_trips(tmp_path):
+    """Export, read back, and every feature must be identical.
+
+    This is the loop the Lifespan tab offers: save the defaults, edit them, load them
+    back. If the round trip is lossy then an unedited workbook silently changes the
+    analysis, and a user editing one threshold would be changing others without knowing.
+    """
+    pytest.importorskip("openpyxl")
+    from riverarchitect.lifespan import load_threshold_workbook, write_threshold_workbook
+
+    path = tmp_path / "threshold_values.xlsx"
+    assert write_threshold_workbook(str(path)) == str(path)
+
+    reloaded = load_threshold_workbook(str(path))
+    assert set(reloaded) == set(FEATURES)
+    for fid, original in FEATURES.items():
+        assert vars(reloaded[fid]) == vars(original), fid
+
+
+def test_a_workbook_keeps_the_feature_group_so_the_interface_can_group_it(tmp_path):
+    """The original's layout had no group row, so a loaded workbook used to lose it and
+    the interface listed every feature under "Other"."""
+    pytest.importorskip("openpyxl")
+    from riverarchitect.lifespan import (feature_groups, load_threshold_workbook,
+                                         write_threshold_workbook)
+
+    path = tmp_path / "threshold_values.xlsx"
+    write_threshold_workbook(str(path))
+    loaded = load_threshold_workbook(str(path))
+    assert loaded["cot"].group == "Vegetation plantings"
+    assert set(feature_groups(loaded)) == set(feature_groups())
+
+
+def test_an_edited_threshold_is_what_the_analysis_uses(tmp_path):
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    from riverarchitect.lifespan import load_threshold_workbook, write_threshold_workbook
+
+    path = tmp_path / "threshold_values.xlsx"
+    write_threshold_workbook(str(path))
+
+    book = openpyxl.load_workbook(str(path))
+    sheet = book.active
+    column = next(c for c in range(5, sheet.max_column + 1)
+                  if sheet.cell(5, c).value == "cot")
+    sheet.cell(12, column).value = 9.5          # row 12 is h_max
+    book.save(str(path))
+
+    assert load_threshold_workbook(str(path))["cot"].h_max == 9.5
+    assert FEATURES["cot"].h_max == 2.1          # the defaults are untouched
+
+
+def test_a_flag_spelled_as_text_is_read_as_written(tmp_path):
+    """``bool("no")`` is True. A workbook that spells a flag out must not invert it."""
+    pytest.importorskip("openpyxl")
+    import openpyxl
+
+    from riverarchitect.lifespan import load_threshold_workbook, write_threshold_workbook
+
+    path = tmp_path / "threshold_values.xlsx"
+    write_threshold_workbook(str(path))
+    book = openpyxl.load_workbook(str(path))
+    sheet = book.active
+    column = next(c for c in range(5, sheet.max_column + 1)
+                  if sheet.cell(5, c).value == "cot")
+    sheet.cell(26, column).value = "no"          # row 26 is design_mapping
+    sheet.cell(25, column).value = "yes"         # row 25 is lifespan_mapping
+    book.save(str(path))
+
+    loaded = load_threshold_workbook(str(path))["cot"]
+    assert loaded.design_mapping is False
+    assert loaded.lifespan_mapping is True
+
+
 def test_cottonwood_fails_at_the_first_flood_exceeding_depth_or_velocity(project):
     """Depth stays at 2.0 below the 2.1 threshold; velocity first passes 3.0 at the third
     discharge, whose return period is 10 years."""

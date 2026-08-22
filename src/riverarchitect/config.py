@@ -14,7 +14,7 @@ import os
 
 __all__ = ["NODATA", "FT2AC", "FT2M", "CFS2CMS", "UNITS",
            "package_dir", "templates_dir", "symbology_dir",
-           "project_home", "set_project_home",
+           "project_home", "set_project_home", "user_config_dir",
            "dir_conditions", "dir_flows", "dir_maps", "dir_output",
            "area_unit", "unit_labels"]
 
@@ -96,6 +96,33 @@ def dir_output(module=""):
     """Output directory, optionally for a named module."""
     return os.path.join(project_home(), "Output", module) if module \
         else os.path.join(project_home(), "Output")
+
+
+def user_config_dir():
+    """Directory for per-user state that does not belong to any project.
+
+    The Live Guide's place in the walkthrough is remembered here rather than under
+    :func:`project_home`, because it is a property of the person reading, not of the data
+    they happen to be looking at: switching project directories must not lose it, and a
+    project directory shared between people must not carry one reader's position to
+    another.
+
+    Resolution order: :envvar:`RIVERARCHITECT_CONFIG_HOME`, then the platform convention -
+    ``%APPDATA%`` on Windows, ``$XDG_CONFIG_HOME`` or ``~/.config`` elsewhere.
+
+    Returns:
+        str: the directory. It is not created; callers that write make it themselves.
+    """
+    override = os.environ.get("RIVERARCHITECT_CONFIG_HOME")
+    if override:
+        return os.path.abspath(override)
+    if os.name == "nt":
+        base = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"),
+                                                         "AppData", "Roaming")
+    else:
+        base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"),
+                                                                 ".config")
+    return os.path.join(os.path.abspath(base), "riverarchitect")
 
 
 def area_unit(unit="us"):

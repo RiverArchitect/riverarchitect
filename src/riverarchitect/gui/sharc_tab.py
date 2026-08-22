@@ -4,7 +4,7 @@ import os
 import threading
 import tkinter as tk
 from tkinter import ttk
-from tkinter.filedialog import askdirectory
+from tkinter.filedialog import askdirectory, askopenfilename
 from tkinter.messagebox import showerror, showwarning
 
 from .base import RaModuleGui
@@ -22,6 +22,8 @@ class SharcGui(RaModuleGui):
         super().__init__(master)
         self.output_dir = ""
         self._fish = None
+        #: A suitability workbook the user chose, or "" for the packaged Fish.xlsx.
+        self.curves_path = ""
         self._build()
 
     def _build(self):
@@ -43,6 +45,13 @@ class SharcGui(RaModuleGui):
         if self.condition_list:
             self.condition_box.current(0)
         self.condition_box.grid(row=row, column=1, sticky=tk.W, padx=self.pad_x)
+
+        row += 1
+        tk.Label(self, text="Suitability curves:").grid(row=row, column=0, sticky=tk.W,
+                                                        padx=self.pad_x, pady=self.pad_y)
+        self.b_curves = tk.Button(self, width=40, text="packaged Fish.xlsx",
+                                  command=self.select_curves)
+        self.b_curves.grid(row=row, column=1, sticky=tk.W, padx=self.pad_x)
 
         row += 1
         tk.Label(self, text="Species:").grid(row=row, column=0, sticky=tk.W,
@@ -101,19 +110,52 @@ class SharcGui(RaModuleGui):
                           padx=self.pad_x, pady=self.pad_y)
         self._load_fish()
 
-    def _load_fish(self):
+    def _load_fish(self, path=None):
+        """Load the suitability curves and fill the species list from them.
+
+        Args:
+            path (str): a workbook to read instead of the packaged one.
+
+        Returns:
+            bool: True when the database loaded.
+        """
         try:
             from ..sharc import FishDatabase
-            self._fish = FishDatabase()
+            fish = FishDatabase(path or None)
+            species = fish.species
         except Exception as exc:
+            if path:
+                # A bad choice must not throw away the database already in use.
+                showerror("Could not read the curves", str(exc))
+                return False
             self.b_run.config(state=tk.DISABLED)
             self._write("The habitat suitability database could not be loaded (%s).\n\n"
                         "Use the `ra-env` environment for analysis." % exc)
-            return
-        self.species_box.config(values=self._fish.species)
-        if self._fish.species:
-            self.species_box.current(0)
+            return False
+        self._fish = fish
+        # Keep the selection when the new workbook still has it - editing a curve should
+        # not silently move the analysis to a different species.
+        current = self.species_var.get()
+        self.species_box.config(values=species)
+        if species:
+            self.species_box.current(species.index(current) if current in species else 0)
             self._populate_lifestages()
+        return True
+
+    def select_curves(self):
+        """Choose a Fish.xlsx to take the suitability curves from."""
+        path = askopenfilename(title="Select a Fish.xlsx",
+                               initialdir=config.project_home(),
+                               filetypes=[("Excel workbooks", "*.xlsx"),
+                                          ("All files", "*")])
+        if not path or not self._load_fish(path):
+            return
+        self.curves_path = path
+        self.b_curves.config(fg="forest green", text=os.path.basename(path))
+        self.b_run.config(state=tk.NORMAL)
+        self._write("Suitability curves loaded from:\n%s\n\n%d species available. "
+                    "Stranding Risk reads its minimum swimming depths from the packaged "
+                    "workbook, not from this one." % (path, len(self._fish.species)))
 
     def _populate_lifestages(self):
         if self._fish is None:
@@ -152,6 +194,7 @@ class SharcGui(RaModuleGui):
         method = self.method_var.get()
         weighted = self.weighted_var.get()
         output_dir = self.output_dir or None
+        fish = self._fish
 
         self.b_run.config(state=tk.DISABLED, text="Calculating ...")
         self._write("Calculating habitat suitability for %s - %s ..." % (species, lifestage))
@@ -160,7 +203,7 @@ class SharcGui(RaModuleGui):
             try:
                 from ..sharc import SHArC
                 analysis = SHArC(name, unit=unit, combine_method=method,
-                                 threshold=threshold)
+                                 threshold=threshold, fish=fish)
                 result = analysis.run(species, lifestage, output_dir=output_dir,
                                       weighted=weighted)
                 self.after(0, lambda: self._finish(result))

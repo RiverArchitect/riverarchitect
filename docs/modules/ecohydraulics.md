@@ -64,12 +64,20 @@ Names are matched **ignoring case and spacing**, so `"Chinook salmon"` and the w
 
 ### The Fish workbook
 
-{class}`riverarchitect.sharc.FishDatabase` reads `Fish.xlsx`, either the copy packaged with River Architect ({func}`riverarchitect.sharc.default_fish_database`) or one kept with a project and passed explicitly. Its layout is fixed, and worth knowing before editing:
+{class}`riverarchitect.sharc.FishDatabase` reads `Fish.xlsx`, either the copy packaged with River Architect ({func}`riverarchitect.sharc.default_fish_database`) or one kept with a project and passed explicitly - in Python as `FishDatabase(path)` handed to `SHArC(..., fish=...)`, and in the interface through the **Suitability curves** button on the **Habitat Area (SHArC)** tab, after which the Species and Lifestage lists come from your workbook. Its layout is fixed, and worth knowing before editing:
 
 * **Columns.** Each species occupies a block of eight columns starting at column C. Row 2 holds the species name and row 5 the lifestage labels, at offsets 1, 3, 5 and 7 within the block ({data}`riverarchitect.sharc.LIFESTAGE_OFFSETS`). The gaps are deliberate; do not close them up.
 * **Rows.** Each curve starts at a fixed row, listed in {data}`riverarchitect.sharc.PARAMETER_ROWS`: velocity at 9, water depth at 38, substrate at 72, cobbles at 81, boulders at 82, plants at 84, streamwood at 85. Row 6 and row 7 give the season's start and end date, and rows 87 and 88 the minimum swimming depth and maximum swimming velocity.
 
 To **add a species**, copy an existing eight-column block to the right of the last one and edit the name, the lifestage labels and the curve values. To **add or change a curve**, edit the values in place; a curve is a list of x values with a suitability below each. To **drop a lifestage**, leave its columns empty rather than deleting them.
+
+```{admonition} Renaming a species breaks the SHArea lookup
+:class: warning
+
+The seasonal flow duration workbooks are found by the four-letter code {func}`riverarchitect.sharc.FishDatabase.shortname` derives from the species and lifestage - `chsp` for Chinook Salmon, spawning. Rename the species in your workbook and `flow_duration_chsp.xlsx` no longer matches: usable areas keep being reported and SHArea quietly stops.
+```
+
+Stranding Risk reads its minimum swimming depths from the packaged workbook rather than from a curve set chosen on the SHArC tab, so a custom `h_min` has to be entered there directly with the *Custom* species entry.
 
 Lifestage *labels are read from the workbook* rather than assumed, so a species may name its lifestages whatever suits it: offset 3 is `fry` for salmon and `ammocoetes` for lamprey, and the All Aquatic block uses `hydrological year`, `season`, `depth > x` and `velocity > x`. Only the row and column *positions* are fixed. Inserting or deleting rows shifts the curves out from under `PARAMETER_ROWS`, which is the one edit that will silently produce wrong suitabilities.
 

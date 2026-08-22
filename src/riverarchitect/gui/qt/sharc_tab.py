@@ -23,6 +23,8 @@ class SharcTab(RaTab):
         super().__init__(parent)
         self.output_dir = ""
         self._fish = None
+        #: A suitability workbook the user chose, or "" for the packaged Fish.xlsx.
+        self.curves_path = ""
         self._build()
 
     def _build(self):
@@ -36,6 +38,13 @@ class SharcTab(RaTab):
         self.condition.addItems(self.condition_list)
         self.condition.currentTextChanged.connect(self._scan_condition)
         form.addRow("Condition:", self.condition)
+
+        self.b_curves = QPushButton("packaged Fish.xlsx")
+        self.b_curves.clicked.connect(self.select_curves)
+        self.b_curves.setToolTip(
+            "A workbook of habitat suitability curves in the Fish.xlsx layout. The "
+            "packaged curves are published Californian ones; your river has its own.")
+        form.addRow("Suitability curves:", self.b_curves)
 
         self.species = QComboBox()
         self.species.currentTextChanged.connect(self._populate_lifestages)
@@ -99,18 +108,57 @@ class SharcTab(RaTab):
 
     # ------------------------------------------------------------------- database
 
-    def _load_fish(self):
+    def _load_fish(self, path=None):
+        """Load the suitability curves and fill the species list from them.
+
+        Args:
+            path (str): a workbook to read instead of the packaged one.
+
+        Returns:
+            bool: True when the database loaded.
+        """
         try:
             from ...sharc import FishDatabase
-            self._fish = FishDatabase()
+            fish = FishDatabase(path or None)
+            species = fish.species
         except Exception as exc:
+            if path:
+                # A bad choice must not throw away the database already in use: report
+                # it and leave the tab on whatever it was working with.
+                self.fail("Could not read the curves", str(exc))
+                return False
             self.b_run.setEnabled(False)
             self.results.setPlainText(
                 "The habitat suitability database could not be loaded (%s).\n\n"
                 "SHArC needs Fish.xlsx and the geospatial stack; use the `ra-env` "
                 "environment for analysis." % exc)
+            return False
+        self._fish = fish
+        # Keep the selection when the new workbook still has it - editing a curve should
+        # not silently move the analysis to a different species.
+        current = self.species.currentText()
+        was = self.species.blockSignals(True)
+        self.species.clear()
+        self.species.addItems(species)
+        if current in species:
+            self.species.setCurrentText(current)
+        self.species.blockSignals(was)
+        self._populate_lifestages()
+        return True
+
+    def select_curves(self):
+        """Choose a Fish.xlsx to take the suitability curves from."""
+        path = self.choose_file("Select a Fish.xlsx",
+                                "Excel workbooks (*.xlsx);;All files (*)")
+        if not path or not self._load_fish(path):
             return
-        self.species.addItems(self._fish.species)
+        self.curves_path = path
+        self.b_curves.setText(self.elide(path))
+        self.b_run.setEnabled(True)
+        self.results.setPlainText(
+            "Suitability curves loaded from:\n%s\n\n%d species available. Stranding "
+            "Risk reads its minimum swimming depths from the packaged workbook, not from "
+            "this one." % (path, len(self._fish.species)))
 
     def _populate_lifestages(self):
         if self._fish is None:
@@ -175,9 +223,12 @@ class SharcTab(RaTab):
                                   "This evaluates every discharge and may take a while."
                                   % (species, lifestage))
 
+        fish = self._fish
+
         def work():
             from ...sharc import SHArC
-            analysis = SHArC(name, unit=unit, combine_method=method, threshold=threshold)
+            analysis = SHArC(name, unit=unit, combine_method=method, threshold=threshold,
+                             fish=fish)
             return analysis.run(species, lifestage, output_dir=output_dir,
                                 weighted=weighted)
 

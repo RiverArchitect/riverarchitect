@@ -4,6 +4,56 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-08-22
+
+**The Live Guide walks a whole project, and can be watched rather than clicked through.**
+It covered nine steps of the analysis chain and stopped there: nothing showed how to set a
+project up from your own model output, how to replace the default thresholds or suitability
+curves with your own, what a project costs, or what the Tools menu is for. It also always
+restarted at step 0, so a walkthrough had to be finished in one sitting.
+
+### Added
+
+- **Six new guide steps**, taking the walkthrough to fifteen: setting up a project and
+  importing model output, user-defined lifespan thresholds, user-defined habitat
+  suitability criteria, project costs in **Project Maker**, the Tools menu and the optional
+  outputs starting with the bed shear stress map, and a closing pointer to the
+  documentation. Every tab the interface has is now reached by some step, and a test holds
+  it that way.
+- **Playback controls in both front ends.** *Play* advances the guide by itself and any
+  other navigation pauses it; *Go to* jumps to any step by name; *Restart* returns to the
+  beginning. Closing the window keeps your place - the position is saved per user, so
+  switching project directories does not lose it - and reopening resumes there.
+- **Lifespan Design ▸ Threshold values** loads a project's own `threshold_values.xlsx`, and
+  **Save the defaults ...** writes one out to edit. {func}`riverarchitect.lifespan.write_threshold_workbook`
+  is the exact inverse of `load_threshold_workbook`, verified by a round trip over every
+  feature and every attribute. The `features=` argument of `LifespanDesign` existed and was
+  never reachable from the interface; now it is.
+- **Habitat Area (SHArC) ▸ Suitability curves** loads a project's own `Fish.xlsx` and
+  repopulates the species and lifestage lists from it, reaching the `fish=` argument of
+  `SHArC` the same way. A workbook that cannot be read leaves the database already in use
+  in place rather than emptying the tab.
+- `GuideStep` gained `menu` and `extra_tabs`, so a step can point at a menu instead of a
+  tab, or name the neighbouring tab it sends the reader to. `riverarchitect.config.user_config_dir`
+  resolves per-user state, honouring `RIVERARCHITECT_CONFIG_HOME`, `%APPDATA%` and
+  `$XDG_CONFIG_HOME`.
+
+### Fixed
+
+- `load_threshold_workbook` dropped the feature group, because the original's layout had no
+  row for it, so every feature in a customised workbook was listed under "Other" in the
+  interface. The group is now read from row 3 and, where the workbook leaves it blank,
+  inherited from the built-in feature of the same id.
+- `load_threshold_workbook` read flags with `bool()`, so a workbook spelling one `"no"` or
+  `"false"` got `True` - every non-empty string is truthy. Text flags are now matched
+  explicitly.
+- The Qt `open_guide` reused a stored dialog without checking it was alive, which would
+  raise `RuntimeError: wrapped C/C++ object has been deleted` if the C++ object had gone.
+  Reopening is routine now that the guide resumes, so it falls back to a fresh dialog.
+- `docs/index.md` and `docs/guide/gui.md` still described a seven-step guide, and the
+  gui.md list omitted Terraforming and renumbered every step after it. Both now match the
+  code, and `docs/guide/example_walkthrough.md` is numbered section-for-step with it.
+
 ## [2.7.0] - 2026-08-05
 
 **Every tool is now reachable from the interface.** Two of the four shipped as console
@@ -601,6 +651,7 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
+[2.8.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.8.0
 [2.7.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.7.0
 [2.6.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.6.0
 [2.5.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.5.0

@@ -157,7 +157,9 @@ features["myrock"] = Feature("myrock", "Local quarry rock", "Nature-based engine
 LifespanDesign("2100_sample", unit="us", features=features).run(["myrock"])
 ```
 
-For a project-specific set that travels with the project rather than the code, keep a `threshold_values.xlsx` and read it with {func}`riverarchitect.lifespan.load_threshold_workbook`.
+For a project-specific set that travels with the project rather than the code, keep a `threshold_values.xlsx` and read it with {func}`riverarchitect.lifespan.load_threshold_workbook`. {func}`riverarchitect.lifespan.write_threshold_workbook` writes the defaults out in that layout, so a project starts from them rather than from a blank sheet; in the interface the two are the *Save the defaults ...* and *Threshold values* buttons on the **Lifespan Design** tab.
+
+The workbook carries the feature group in row 3, which the original's layout had no room for. A workbook that leaves it blank inherits the group from {data}`riverarchitect.lifespan.FEATURES` where the feature id is a known one, so a customised set still lists under the right headings in the interface.
 
 ```{admonition} Length thresholds in the workbook are unconverted
 :class: warning

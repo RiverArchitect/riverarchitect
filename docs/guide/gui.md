@@ -160,7 +160,7 @@ In the stranding tab, `h_min` moves the result more than anything else, and it i
 
 **Units** switches every tab between U.S. customary and SI. It changes the labels and the default level of detection; it does **not** convert your rasters, which must already be in the unit system you select.
 
-**Tools** runs `reconcile_nodata` over a condition folder, normalising inconsistent NoData sentinels. The NoData mask is preserved exactly; only the sentinel changes. 
+**Tools** holds the four utilities that are not tabs. *Reconcile NoData in a condition* runs `reconcile_nodata` over a condition folder, normalising inconsistent NoData sentinels; the NoData mask is preserved exactly, only the sentinel changes. *Bed shear stress* computes the dimensionless Shields stress from three loose rasters, before they have been organised into a condition. *Pool-riffle designer* sizes a pool-riffle sequence from grain size, slope and channel geometry. *Convert ArcGIS .lyrx to QGIS .qml* brings layer styling over from an ArcGIS project.
 
 **Help** has three entries. *Documentation* opens this documentation in a web browser (`F1` in the Qt front end). *About* reports the version, the front end in use and the current project directory.
 
@@ -168,22 +168,37 @@ In the stranding tab, `h_min` moves the result more than anything else, and it i
 
 ### The Live Guide
 
-The modules chain together, and the step people get stuck on is the first one: a condition that has not been prepared produces either an error or - worse - an empty map that looks like an answer. The Live Guide walks through the whole chain on the sample reach, in seven steps, without leaving the program:
+The modules chain together, and the step people get stuck on is the first one: a condition that has not been prepared produces either an error or - worse - an empty map that looks like an answer. The Live Guide walks through a whole project on the sample reach, in fifteen steps, without leaving the program:
 
 0. what the chain is and why the order matters
-1. preparing the condition in **Get Started**
-2. lifespan and design mapping
-3. best feature per cell in **Max Lifespan**
-4. habitat suitability and usable area in **SHArC**
-5. stranding risk
-6. riparian recruitment
-7. maps, and what to check before trusting any of it on your own data
+1. setting a project up from your own model output, in **Project ▸ Set project directory**
+2. preparing the condition in **Get Started**
+3. lifespan and design mapping
+4. replacing the default thresholds with your own workbook
+5. best feature per cell in **Max Lifespan**
+6. terraforming and earthworks in **Morphology**, and the volume it moves
+7. habitat suitability and usable area in **SHArC**
+8. replacing the default habitat suitability curves with your own
+9. stranding risk
+10. riparian recruitment
+11. costs and habitat gain in **Project Maker**
+12. maps, in **Maps**
+13. the **Tools** menu and the optional outputs, starting with the bed shear stress map
+14. where to go next in the documentation
 
-Each step names the tab it belongs to, the settings to enter, what the result should look like so you can tell it worked, and the files it writes. Two buttons make it live rather than printed:
+Each step names the tab or menu it belongs to, the settings to enter, what the result should look like so you can tell it worked, and the files it writes. Steps 1, 4, 8 and 11 are the ones about your own project rather than about the sample reach; the rest can be followed literally against the bundled data.
+
+Five controls make it live rather than printed:
 
 **Use the sample data** points the project directory at `sample-data/` and sets the units to U.S. customary, which is what those rasters are in.
 
-**Open this tab** brings the tab the current step talks about to the front, so you are looking at the right controls while you read about them.
+**Open this tab** brings the tab the current step talks about to the front, so you are looking at the right controls while you read about them. It is disabled on the two steps that are about a menu rather than a tab.
+
+**Play** advances the guide by itself, roughly every half minute, so it can be watched rather than clicked through. Any other navigation - Back, Next, or the step list - pauses it, so you are never racing the timer.
+
+**Go to** jumps straight to any step by name, for coming back to one part rather than starting over.
+
+**Restart** returns to step 0 and forgets the saved position. It is the counterpart to the fact that closing the window **keeps your place**: the guide remembers which step you were on and reopens there, so a walkthrough can be spread over several sittings. The position is stored per user rather than per project, so switching project directories does not lose it.
 
 The window is not modal, so leave it open beside the main window and work through it. The same content is on this site as {doc}`example_walkthrough`, with the numbers each step produces; both render {mod}`riverarchitect.guide`, so they cannot disagree.
 
