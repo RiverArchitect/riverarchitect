@@ -4,6 +4,21 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.1] - 2026-09-06
+
+A test-only fix. The library, the interface and the documentation are byte-for-byte those
+of 2.8.0; only the suite changes, so there is nothing to gain by upgrading unless you run
+the tests from a checkout.
+
+### Fixed
+
+- `test_the_guide_reaches_every_tab_the_interface_has` imported `riverarchitect.gui.qt.main`
+  without a guard. It wants only `TAB_GROUPS`, which is plain data, but the module pulls in
+  the Qt widgets on the way and `qtcompat` defines those only when a binding is present. On
+  a machine with neither PySide6 nor PyQt5 the import raised `ImportError` instead of
+  skipping, so `pytest` failed on a checkout of 2.8.0 without Qt installed. It now takes the
+  `qt_app` fixture, as every other Qt test in that file does.
+
 ## [2.8.0] - 2026-08-22
 
 **The Live Guide walks a whole project, and can be watched rather than clicked through.**
@@ -651,6 +666,7 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
+[2.8.1]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.8.1
 [2.8.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.8.0
 [2.7.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.7.0
 [2.6.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.6.0
