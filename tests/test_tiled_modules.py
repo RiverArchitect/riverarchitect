@@ -125,8 +125,10 @@ def test_lifespan_every_criterion(sample_home, modes, tmp_path):
     whole, parts = modes(run)
     assert [r["feature"] for r in whole] == [r["feature"] for r in parts]
     assert len(whole) == len(LIFESPAN_FEATURES)
+    blocks_dir, whole_dir = str(tmp_path / "blocks"), str(tmp_path / "whole")
     for a, b in zip(whole, parts):
-        assert a == {k: v.replace("/blocks/", "/whole/") if isinstance(v, str) else v
+        # Only the output folder may differ, whatever the platform's separator.
+        assert a == {k: v.replace(blocks_dir, whole_dir) if isinstance(v, str) else v
                      for k, v in b.items()}
         for key in ("lifespan_raster", "design_raster"):
             if key in a:
