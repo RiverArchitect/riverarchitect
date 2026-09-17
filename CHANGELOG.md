@@ -4,6 +4,21 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.1] - 2026-09-17
+
+A test fix, and one warning fewer. The analyses, the interface and the documentation give
+the results of 2.9.0; upgrade if you run the tests on Windows or use affine 3.
+
+### Fixed
+
+- `test_lifespan_every_criterion` compared the block-wise and in-memory results after
+  swapping `/blocks/` for `/whole/` in their output paths, which does nothing where the
+  separator is a backslash. On Windows the test failed although every value and every
+  raster matched. It now replaces the two output folders themselves.
+- Block-wise reads of rasters on another grid applied the inverse transform with
+  `inverse * (x, y)`. affine 3 deprecates `*` for `@`, which affine 2 lacks, and the
+  warning repeated for every block. The transform is now applied by hand.
+
 ## [2.9.0] - 2026-09-17
 
 **Reaches too large for memory are analysed block by block.** Every module read each raster
@@ -725,6 +740,7 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
+[2.9.1]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.9.1
 [2.9.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.9.0
 [2.8.1]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.8.1
 [2.8.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.8.0
