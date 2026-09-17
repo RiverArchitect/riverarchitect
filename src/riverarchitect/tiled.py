@@ -373,8 +373,11 @@ def _source_window(src_transform, src_crs, src_height, src_width, profile, windo
         left, bottom, right, top = transform_bounds(profile["crs"], src_crs,
                                                     left, bottom, right, top,
                                                     densify_pts=21)
-    inverse = ~src_transform
-    corners = [inverse * (x, y) for x in (left, right) for y in (bottom, top)]
+    # Written out rather than `inverse * (x, y)`, which newer affine releases deprecate in
+    # favour of `@`, which older ones do not have.
+    t = ~src_transform
+    corners = [(t.a * x + t.b * y + t.c, t.d * x + t.e * y + t.f)
+               for x in (left, right) for y in (bottom, top)]
     cols = [c for c, _ in corners]
     rows = [r for _, r in corners]
     c0 = max(0, int(math.floor(min(cols))) - _REPROJECT_PAD)
