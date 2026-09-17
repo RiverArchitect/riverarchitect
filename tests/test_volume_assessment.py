@@ -9,10 +9,10 @@ from riverarchitect import config
 from riverarchitect.volume_assessment import VolumeAssessment
 
 
-def _dem(path, array, cell=1.0, origin=(1000.0, 2000.0)):
+def _dem(path, array, cell=1.0, origin=(1000.0, 2000.0), crs="EPSG:3857"):
     prof = {
         "driver": "GTiff", "height": array.shape[0], "width": array.shape[1], "count": 1,
-        "dtype": "float32", "crs": "EPSG:3857", "nodata": config.NODATA,
+        "dtype": "float32", "crs": crs, "nodata": config.NODATA,
         "transform": from_origin(origin[0], origin[1], cell, cell),
     }
     with rasterio.open(path, "w", **prof) as dst:
@@ -48,8 +48,8 @@ def test_level_of_detection_suppresses_small_changes(tmp_path):
 
 def test_us_units_report_cubic_yards(tmp_path):
     """27 cubic feet make one cubic yard."""
-    original = _dem(tmp_path / "a.tif", np.full((11, 11), 100.0))
-    modified = _dem(tmp_path / "b.tif", np.full((11, 11), 103.0))
+    original = _dem(tmp_path / "a.tif", np.full((11, 11), 100.0), crs="EPSG:2226")
+    modified = _dem(tmp_path / "b.tif", np.full((11, 11), 103.0), crs="EPSG:2226")
     result = VolumeAssessment(original, modified, unit="us", level_of_detection=0.99).run()
     assert result["fill_volume"] == pytest.approx(300.0 / 27.0)
     assert result["volume_unit"] == "cubic yard"
@@ -75,10 +75,36 @@ def test_writes_output_rasters(tmp_path):
     assert "rasters" in result
 
 
-def test_invalid_unit_falls_back_to_us(tmp_path):
+def test_an_invalid_unit_is_refused(tmp_path):
+    """There is no fallback: guessing a unit system is how wrong volumes are reported."""
     original = _dem(tmp_path / "a.tif", np.full((5, 5), 100.0))
     modified = _dem(tmp_path / "b.tif", np.full((5, 5), 100.0))
-    assert VolumeAssessment(original, modified, unit="furlongs").unit == "us"
+    with pytest.raises(ValueError, match="furlongs"):
+        VolumeAssessment(original, modified, unit="furlongs")
+
+
+def test_the_default_unit_is_si(tmp_path):
+    original = _dem(tmp_path / "a.tif", np.full((5, 5), 100.0))
+    modified = _dem(tmp_path / "b.tif", np.full((5, 5), 100.0))
+    assert VolumeAssessment(original, modified).unit == "si"
+
+
+def test_dems_in_feet_are_refused_in_si(tmp_path):
+    from riverarchitect.units import UnitMismatchError
+
+    original = _dem(tmp_path / "a.tif", np.full((5, 5), 100.0), crs="EPSG:2226")
+    modified = _dem(tmp_path / "b.tif", np.full((5, 5), 100.0), crs="EPSG:2226")
+    with pytest.raises(UnitMismatchError, match="U.S. customary"):
+        VolumeAssessment(original, modified, unit="si")
+
+
+def test_dems_in_different_unit_systems_are_refused(tmp_path):
+    from riverarchitect.units import UnitMismatchError
+
+    original = _dem(tmp_path / "a.tif", np.full((5, 5), 100.0), crs="EPSG:3857")
+    modified = _dem(tmp_path / "b.tif", np.full((5, 5), 100.0), crs="EPSG:2226")
+    with pytest.raises(UnitMismatchError, match="mix unit systems"):
+        VolumeAssessment(original, modified, unit="si")
 
 
 def test_nodata_regions_excluded(tmp_path):

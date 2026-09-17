@@ -109,6 +109,7 @@ src/riverarchitect/
 ├── mapping.py           QGIS print layouts, the only module that imports QGIS
 ├── guide.py             the Live Guide, as data both front ends render
 ├── config.py            paths, units, NODATA
+├── units.py             unit-system and CRS consistency checks
 ├── gui/                 tkinter front end, and gui/qt/ the Qt one
 ├── templates/           packaged workbooks and QGIS layer styles
 └── tools/               reconcile_nodata, lyrx2qml

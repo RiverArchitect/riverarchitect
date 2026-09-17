@@ -46,7 +46,7 @@ import os
 
 import numpy as np
 
-from . import config
+from . import config, units
 
 __all__ = ["FlowSeries", "read_flow_series", "seasonal_flow_duration", "return_periods",
            "GUMBEL_EULER"]
@@ -114,7 +114,8 @@ class FlowSeries:
 
     Args:
         series (dict or str): ``{date: discharge}``, or a path to read one from.
-        unit (str): ``"us"`` or ``"si"``; only used for labels.
+        unit (str): ``"si"`` (default) or ``"us"``; only used for labels, so it must match
+            the unit of the flow record.
         fish (riverarchitect.sharc.FishDatabase): the database seasons are read from.
             Built on demand.
 
@@ -122,12 +123,12 @@ class FlowSeries:
         series (dict): the record, ascending by date.
     """
 
-    def __init__(self, series, unit="us", fish=None):
+    def __init__(self, series, unit="si", fish=None):
         self.series = read_flow_series(series) if isinstance(series, str) \
             else dict(sorted(series.items()))
         if not self.series:
             raise ValueError("the flow record is empty")
-        self.unit = str(unit).lower()
+        self.unit = units.check_unit(unit)
         self._fish = fish
         self.logger = logger
 
@@ -309,7 +310,7 @@ class FlowSeries:
         return path
 
 
-def seasonal_flow_duration(series, condition, discharges=None, pairs=None, unit="us",
+def seasonal_flow_duration(series, condition, discharges=None, pairs=None, unit="si",
                            output_dir=None, fish=None):
     """Build a flow duration workbook for every species and lifestage.
 
@@ -325,7 +326,7 @@ def seasonal_flow_duration(series, condition, discharges=None, pairs=None, unit=
             the condition.
         pairs (iterable): ``(species, lifestage)`` tuples. Defaults to every pair the fish
             database defines that has a season.
-        unit (str): ``"us"`` or ``"si"``.
+        unit (str): ``"si"`` (default) or ``"us"``.
         output_dir (str): where the workbooks go. Defaults to ``00_Flows/<condition>/``.
         fish (riverarchitect.sharc.FishDatabase): the database to read seasons from.
 

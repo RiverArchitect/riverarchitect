@@ -11,7 +11,7 @@ import logging
 import os
 import threading
 
-from ... import __version__, config, guide
+from ... import __version__, config, guide, units
 from ..toolsmenu import TOOLS, format_taux, unit_name
 from .qtcompat import (
     QAction, QApplication, QComboBox, QDesktopServices, QDialog, QDoubleSpinBox,
@@ -134,9 +134,9 @@ class RiverArchitectWindow(QMainWindow):
 
         units_menu = self._add_menu("&Units")
         self.unit_actions = {}
-        for unit, label in (("us", "U.S. customary"), ("si", "SI (metric)")):
+        for unit, label in (("si", "SI (metric)"), ("us", "U.S. customary")):
             action = QAction(label, self, checkable=True)
-            action.setChecked(unit == "us")
+            action.setChecked(unit == "si")
             action.triggered.connect(lambda _checked=False, u=unit: self.set_unit(u))
             units_menu.addAction(action)
             self.unit_actions[unit] = action
@@ -221,10 +221,14 @@ class RiverArchitectWindow(QMainWindow):
             tab.on_project_home_change()
         self._update_status()
         conditions = self.module_tabs[0].condition_list if self.module_tabs else []
-        QMessageBox.information(
-            self, "Project directory",
-            "Project directory set to:\n%s\n\n%d condition(s) found."
-            % (directory, len(conditions)))
+        text = ("Project directory set to:\n%s\n\n%d condition(s) found."
+                % (directory, len(conditions)))
+        note = units.project_unit_note(self.current_unit())
+        if note:
+            QMessageBox.warning(self, "Project directory: check the units",
+                                text + "\n\n" + note)
+        else:
+            QMessageBox.information(self, "Project directory", text)
 
     def run_reconcile_nodata(self):
         from ...tools import reconcile_nodata
@@ -449,7 +453,7 @@ class RiverArchitectWindow(QMainWindow):
         source of truth, the same one :meth:`set_unit` drives.
         """
         return next((key for key, action in self.unit_actions.items()
-                     if action.isChecked()), "us")
+                     if action.isChecked()), "si")
 
     def run_pool_riffle(self):
         """Size a self-maintaining pool-riffle sequence from a channel and a target depth.

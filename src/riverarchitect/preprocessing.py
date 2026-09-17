@@ -36,6 +36,7 @@ import rasterio
 from scipy.spatial import cKDTree
 
 from . import config, raster, shear, tiled
+from .units import check_rasters, check_unit
 
 __all__ = ["detrended_dem", "water_level_elevation", "interpolated_depth",
            "depth_to_water_table", "morphological_units", "MorphologicalUnits",
@@ -383,7 +384,7 @@ class MorphologicalUnits:
     _FIRST_ROW = 6
     _LAST_ROW = 44
 
-    def __init__(self, path=None, unit="us"):
+    def __init__(self, path=None, unit="si"):
         import warnings
 
         import openpyxl
@@ -391,7 +392,7 @@ class MorphologicalUnits:
         self.path = path or os.path.join(config.templates_dir(), "morphological_units.xlsx")
         if not os.path.isfile(self.path):
             raise FileNotFoundError("no morphological unit table at %s" % self.path)
-        self.unit = str(unit).lower()
+        self.unit = check_unit(unit)
         # The workbook is metric; 1 m = 1/0.3048 ft, and the same factor applies to m/s.
         self.factor = 1.0 / config.FT2M if self.unit == "us" else 1.0
 
@@ -442,7 +443,7 @@ class MorphologicalUnits:
 
 
 def morphological_units(depth_path, velocity_path, output_path=None, table=None,
-                        unit="us"):
+                        unit="si", strict_units=None):
     """Classify the wetted area into morphological units by depth and velocity.
 
     After Wyrick and Pasternack (2014). A cell takes the unit whose depth *and* velocity
@@ -454,12 +455,17 @@ def morphological_units(depth_path, velocity_path, output_path=None, table=None,
         velocity_path (str): flow velocity raster at the same discharge.
         output_path (str): where to write the result. Optional.
         table (MorphologicalUnits): the threshold table. Built by default.
-        unit (str): unit system of the rasters.
+        unit (str): unit system of the rasters, ``"si"`` (default) or ``"us"``; checked
+            against their CRS.
+        strict_units (bool): raise rather than warn when ``unit`` disagrees with the CRS of
+            the rasters. Defaults to :data:`riverarchitect.config.UNIT_CHECK`.
 
     Returns:
         tuple: ``(mu, profile, table)``. On a grid too large to hold, ``mu`` is
         ``output_path``, which is then required.
     """
+    check_rasters([depth_path, velocity_path], unit, strict=strict_units,
+                  label="the depth and velocity rasters")
     table = table or MorphologicalUnits(unit=unit)
     units = table.classifiable()
     if _blockwise(raster.profile_of(depth_path), 2 * len(units) + 4, output_path):
@@ -632,8 +638,8 @@ class ShearRasterWriters:
         return written
 
 
-def bed_shear_stress(condition, unit="us", discharges=None, output_dir=None,
-                     grain_kind="dmean"):
+def bed_shear_stress(condition, unit="si", discharges=None, output_dir=None,
+                     grain_kind="dmean", strict_units=None):
     """Write the bed shear stress of every modelled discharge into the condition folder.
 
     The counterpart of the original's ``LifespanDesign/helper.py``, which wrote ``ts<Q>.tif``
@@ -658,12 +664,15 @@ def bed_shear_stress(condition, unit="us", discharges=None, output_dir=None,
 
     Args:
         condition (Condition or str): the condition, or its name.
-        unit (str): ``"us"`` or ``"si"``; selects the gravitational acceleration.
+        unit (str): ``"si"`` (default) or ``"us"``; selects the gravitational acceleration
+            and must match the condition's rasters, which is checked against their CRS.
         discharges (list): which discharges to compute. Defaults to every one whose depth
             and velocity raster are both on disk.
         output_dir (str): where to write. Defaults to the condition folder.
         grain_kind (str): what the grain raster holds; see
             :func:`riverarchitect.shear.d84_of`.
+        strict_units (bool): raise rather than warn when ``unit`` disagrees with the CRS of
+            the rasters. Defaults to :data:`riverarchitect.config.UNIT_CHECK`.
 
     Returns:
         list: one dict per discharge, with its ``discharge``, the ``rasters`` written and
@@ -672,6 +681,8 @@ def bed_shear_stress(condition, unit="us", discharges=None, output_dir=None,
     from .condition import Condition, discharge_token
 
     condition = condition if isinstance(condition, Condition) else Condition(condition)
+    unit = check_unit(unit)
+    condition.check_units(unit, strict_units)
     target = output_dir or condition.directory
     gravity = shear.gravity_of(unit)
 
@@ -965,8 +976,8 @@ PRODUCT_NOTES = {
 }
 
 
-def build_product(condition_name, key, discharge=None, method="nearest", unit="us",
-                  output_dir=None, flow_series=None):
+def build_product(condition_name, key, discharge=None, method="nearest", unit="si",
+                  output_dir=None, flow_series=None, strict_units=None):
     """Build one named product for a condition, and report what was written.
 
     The single entry point both the Qt and the tkinter interface call, so neither has to
@@ -977,9 +988,12 @@ def build_product(condition_name, key, discharge=None, method="nearest", unit="u
         key (str): one of the keys in :data:`PRODUCTS`.
         discharge (float): reference discharge, for the products that need one.
         method (str): interpolation method, see :data:`INTERPOLATION_METHODS`.
-        unit (str): unit system of the rasters.
+        unit (str): unit system of the rasters, ``"si"`` (default) or ``"us"``; checked
+            against their CRS before anything is built.
         output_dir (str): where to write. Defaults to the condition folder.
         flow_series (str): path to a daily flow record, for the ``"flows"`` product.
+        strict_units (bool): raise rather than warn when ``unit`` disagrees with the CRS of
+            the rasters. Defaults to :data:`riverarchitect.config.UNIT_CHECK`.
 
     Returns:
         list: lines describing what was written.
@@ -987,6 +1001,8 @@ def build_product(condition_name, key, discharge=None, method="nearest", unit="u
     from .condition import Condition, discharge_token
 
     condition = Condition(condition_name)
+    unit = check_unit(unit)
+    condition.check_units(unit, strict_units)
     target = output_dir or condition.directory
     os.makedirs(target, exist_ok=True)
     dem = condition.path(condition.dem_raster)

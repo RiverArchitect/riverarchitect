@@ -22,7 +22,7 @@ export RIVERARCHITECT_HOME="$PWD/sample-data"
 
 The reach, `2100_sample`, is a real gravel-cobble reach in a Mediterranean climate: 359 x 173 cells at 3 ft resolution, in **U.S. customary units**, with a DEM, mean grain size, a DEM of difference and 60 pairs of modelled depth and velocity rasters between 300 and 88053 cfs.
 
-Set the units to U.S. customary first. A unit mismatch does not raise an error - it quietly applies metric thresholds to rasters in feet.
+Set the units to U.S. customary first: the program starts in SI, and every analysis below stops with a `UnitMismatchError` if the selected units disagree with the CRS of these rasters (EPSG:6418, in U.S. survey feet). In Python, pass `unit="us"` to each call. See {ref}`the unit warning in Get Started <units-warning>`.
 
 ```python
 from riverarchitect import config
@@ -304,7 +304,7 @@ As discharge falls the wetted area shrinks and breaks apart, and pools that lose
 ```python
 from riverarchitect.stranding import StrandingRisk
 
-result = StrandingRisk.for_fish("2100_sample", "Chinook salmon", "fry").run()
+result = StrandingRisk.for_fish("2100_sample", "Chinook salmon", "fry", unit="us").run()
 ```
 
 The minimum swimming depth comes from `Fish.xlsx`: **0.2 ft** for Chinook fry. It is the single most influential parameter in the analysis, so report it alongside any result.
@@ -430,7 +430,7 @@ Two tabs also sit outside the chain. **Morphology ▸ River Builder** synthesise
 
 ## 14. Before trusting this on your own data
 
-**Are the units right?** The whole chain is silent about a unit mismatch.
+**Are the units right?** The chain refuses a unit system that disagrees with the CRS of the rasters, but it cannot tell whether the raster *values* are in the unit of their CRS, nor what unit your discharges and workbooks are in. Check those yourself.
 
 **Is the condition prepared?** A missing `d2w.tif` does not raise; it drops the criterion that needed it.
 

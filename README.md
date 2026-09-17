@@ -40,6 +40,8 @@ Everything except the mapping module works without QGIS. Per-platform instructio
 
 ## Usage
 
+> **Units must agree.** River Architect never converts data. All rasters of a project, their coordinate reference systems, discharges, flow records and workbooks must share one unit system, selected in the **Units** menu or with `unit=`. The default is **SI (metric)**; the bundled sample reach is in U.S. customary units, so pass `unit="us"` for it. A unit system that disagrees with the rasters' CRS, rasters in different unit systems and geographic CRSs stop an analysis with a `UnitMismatchError`. See [the warning in the documentation](https://riverarchitect.readthedocs.io/en/latest/getstarted/index.html).
+
 Launch the graphical interface:
 
 ```bash
@@ -65,7 +67,8 @@ dem, dem_profile = raster.read("sample-data/01_Conditions/2100_sample/dem.tif")
 depth, depth_profile = raster.read("sample-data/01_Conditions/2100_sample/h001000.tif")
 
 # Rasters of differing extent must be aligned explicitly - the silent
-# alternative is a spatially meaningless result.
+# alternative is a spatially meaningless result. CRSs with different
+# linear units (feet against metres) are refused.
 depth = raster.align(depth, depth_profile, dem_profile)
 
 # Water surface elevation where the bed is wet; the false branch is NoData, not zero.
@@ -78,7 +81,7 @@ Earthworks quantities between a pre- and post-project DEM:
 ```python
 from riverarchitect.volume_assessment import VolumeAssessment
 
-result = VolumeAssessment("dem.tif", "dem_modified.tif", unit="us").run()
+result = VolumeAssessment("dem.tif", "dem_modified.tif").run()   # SI; unit="us" for feet
 print(result["fill_volume"], result["excavation_volume"], result["volume_unit"])
 ```
 
@@ -122,6 +125,7 @@ More building blocks in the [quickstart guide](https://riverarchitect.readthedoc
 | `riverarchitect.volume_assessment` | Earthworks quantities from a pair of DEMs |
 | `riverarchitect.mapping` | QGIS print layouts and multi-page PDF map series |
 | `riverarchitect.config` | Paths, units, canonical NoData value |
+| `riverarchitect.units` | Unit-system and CRS consistency checks |
 | `riverarchitect.gui` | Desktop interface: Qt front end with a tkinter fallback |
 | `riverarchitect.tools` | `reconcile_nodata`, `lyrx2qml` command-line tools |
 

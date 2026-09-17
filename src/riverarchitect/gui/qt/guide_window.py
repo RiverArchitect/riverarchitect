@@ -277,7 +277,8 @@ class GuideDialog(QDialog):
         QMessageBox.information(
             self, guide.TITLE,
             "Project directory set to the sample data:\n%s\n\n"
-            "Units set to U.S. customary, which is what these rasters are in." % directory)
+            "Units set to U.S. customary, which is what these rasters are in. "
+            "(The program otherwise starts in SI units.)" % directory)
 
     def open_tab(self):
         """Bring the tab this step talks about to the front of the main window."""

@@ -282,9 +282,10 @@ STEPS = (
         are real published values and they produce a real answer, but a project you have to
         defend runs on criteria you chose.
 
-        Set the units to U.S. customary before you start (Units menu). The sample rasters
-        are in feet and feet per second, and a unit mismatch does not raise an error - it
-        quietly produces wrong thresholds.
+        Set the units to U.S. customary before you start (Units menu). The program starts
+        in SI units, but the sample rasters are in feet and feet per second. River
+        Architect never converts data: an analysis whose unit system disagrees with the
+        coordinate system of its rasters stops with an error saying so.
 
         You do not have to do this in one sitting. Press Play and the guide advances by
         itself, the step list jumps anywhere, and closing the window keeps your place -

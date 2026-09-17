@@ -796,7 +796,7 @@ def test_morphological_unit_criterion_uses_the_packaged_table(project, tmp_path)
     apply at all on a condition that ships no table of its own.
     """
     pytest.importorskip("openpyxl")
-    analysis = LifespanDesign("synthetic", unit="us")
+    analysis = LifespanDesign("synthetic", unit="si")
     codes = analysis._mu_codes()
     assert codes, "no morphological unit codes were found"
     # instream units, delineated by depth and velocity
@@ -863,21 +863,21 @@ def test_juvenile_chinook_travel_thresholds_come_from_the_workbook(sample_home):
     """0.3 ft minimum swimming depth, and a 1.9 fps limit that is recorded, not applied."""
     pytest.importorskip("openpyxl")
 
-    analysis = StrandingRisk.for_fish("2100_sample", "Chinook salmon", "juvenile")
+    analysis = StrandingRisk.for_fish("2100_sample", "Chinook salmon", "juvenile", unit="us")
     assert analysis.h_min == pytest.approx(0.3)
     assert analysis.u_max == pytest.approx(1.9)
     assert analysis.velocity_limited is False
     assert (analysis.species, analysis.lifestage) == ("Chinook salmon", "juvenile")
     # deeper than fry, so a juvenile is stranded by shallower water
     assert analysis.h_min > StrandingRisk.for_fish("2100_sample", "Chinook salmon",
-                                                   "fry").h_min
+                                                   "fry", unit="us").h_min
 
 
 def test_stranding_for_juvenile_chinook_on_the_sample_reach(sample_home, tmp_path):
     """The recession walked at the juvenile's 0.3 ft threshold."""
     pytest.importorskip("openpyxl")
 
-    analysis = StrandingRisk.for_fish("2100_sample", "Chinook salmon", "juvenile")
+    analysis = StrandingRisk.for_fish("2100_sample", "Chinook salmon", "juvenile", unit="us")
     assert len(analysis.discharges) == 60
     assert analysis.target_discharge == 300.0        # the lowest, as the original used
 
@@ -908,7 +908,7 @@ def test_the_component_rule_matches_a_dijkstra_escape_route_search(sample_home):
     pytest.importorskip("scipy")
     pytest.importorskip("openpyxl")
 
-    analysis = StrandingRisk.for_fish("2100_sample", "Chinook salmon", "juvenile")
+    analysis = StrandingRisk.for_fish("2100_sample", "Chinook salmon", "juvenile", unit="us")
     reference = raster.profile_of(analysis._available[analysis.discharges[0]])
     dx, dy = raster.cell_size(reference)
     target = analysis.main_channel(reference)

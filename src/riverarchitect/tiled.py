@@ -61,7 +61,7 @@ from rasterio.windows import bounds as window_bounds
 from rasterio.windows import transform as window_transform
 from scipy import ndimage
 
-from . import config
+from . import config, units
 
 __all__ = ["enabled", "block_shape", "Block", "blocks", "map_blocks", "read", "Writer",
            "has_data", "Summary", "ValueCounts", "nanmean", "label_components", "Components",
@@ -368,6 +368,7 @@ def _read_array(array, src_profile, profile, window, out, resampling):
 
 def _source_window(src_transform, src_crs, src_height, src_width, profile, window):
     """The source cells covering ``window`` of ``profile``, padded, or None."""
+    units.check_crs_pair(src_crs, profile.get("crs"))
     left, bottom, right, top = window_bounds(window, profile["transform"])
     if src_crs != profile["crs"]:
         left, bottom, right, top = transform_bounds(profile["crs"], src_crs,

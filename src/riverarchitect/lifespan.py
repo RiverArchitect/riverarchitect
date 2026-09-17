@@ -43,7 +43,7 @@ import threading
 
 import numpy as np
 
-from . import config, raster, shear, tiled
+from . import config, raster, shear, tiled, units
 from .condition import Condition
 
 __all__ = ["Feature", "FEATURES", "LifespanDesign", "load_threshold_workbook",
@@ -380,7 +380,10 @@ class LifespanDesign:
 
     Args:
         condition (Condition or str): the condition, or its name.
-        unit (str): ``"us"`` or ``"si"``; must match the condition's rasters.
+        unit (str): ``"si"`` (default) or ``"us"``; must match the condition's rasters,
+            which is checked against their CRS.
+        strict_units (bool): raise when ``unit`` disagrees with the CRS of the rasters
+            rather than warn. Defaults to :data:`riverarchitect.config.UNIT_CHECK`.
         manning_n (float): Manning's n in s/m^(1/3); converted for U.S. customary units.
         features (dict): feature id -> :class:`Feature`. Defaults to :data:`FEATURES`.
 
@@ -388,10 +391,12 @@ class LifespanDesign:
         error (bool): True when at least one feature could not be mapped.
     """
 
-    def __init__(self, condition, unit="us", manning_n=MANNING_N, features=None):
+    def __init__(self, condition, unit="si", manning_n=MANNING_N, features=None,
+                 strict_units=None):
         self.condition = condition if isinstance(condition, Condition) \
             else Condition(condition)
-        self.unit = str(unit).lower()
+        self.unit = units.check_unit(unit)
+        self.condition.check_units(self.unit, strict_units)
         self.features = features or FEATURES
         self.error = False
         self.logger = logger

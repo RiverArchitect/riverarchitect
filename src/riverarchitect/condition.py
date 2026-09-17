@@ -226,6 +226,44 @@ class Condition:
                 continue
             yield periods[index], self.path(depth_name), self.path(velocity_name)
 
+    def raster_paths(self):
+        """Paths of every input raster of this condition that exists on disk."""
+        names = [self.dem_raster, self.detrended_raster, self.grain_raster, self.d2w_raster,
+                 self.mu_raster] + list(self.dod_rasters) \
+            + self.all_depth_rasters() + self.all_velocity_rasters()
+        paths = []
+        for name in names:
+            if self.exists(name) and self.path(name) not in paths:
+                paths.append(self.path(name))
+        return paths
+
+    def unit_system(self):
+        """The unit system this condition's rasters are in, judged by their CRS.
+
+        Returns:
+            str or None: ``"si"``, ``"us"``, or ``None`` when it cannot be told.
+
+        Raises:
+            riverarchitect.units.UnitMismatchError: if the rasters disagree.
+        """
+        from . import units
+        return units.infer_unit_system(self.raster_paths())
+
+    def check_units(self, unit, strict=None):
+        """Refuse to analyse this condition in a unit system its rasters are not in.
+
+        See :func:`riverarchitect.units.check_rasters`.
+
+        Returns:
+            str or None: the unit system of the rasters, if it can be told.
+
+        Raises:
+            riverarchitect.units.UnitMismatchError: on any inconsistency.
+        """
+        from . import units
+        return units.check_rasters(self.raster_paths(), unit, strict=strict,
+                                   label="the rasters of condition %r" % self.name)
+
     @property
     def max_lifespan(self):
         """Longest return period in the condition; the cap on any lifespan it can support."""

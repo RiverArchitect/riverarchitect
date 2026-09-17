@@ -34,7 +34,7 @@ import os
 
 import numpy as np
 
-from . import config, raster, tiled
+from . import config, raster, tiled, units
 from .condition import Condition, discharge_token
 
 __all__ = ["FishDatabase", "apply_curve", "cover_hsi", "SHArC", "COMBINE_METHODS",
@@ -326,7 +326,7 @@ MINERAL_COVER_RULES = ("radius", "fraction")
 COVER_WINDOW = 1
 
 
-def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=None,
+def cover_hsi(species, lifestage, layers, profile, unit="si", fish=None, depth=None,
               mineral_rule="radius", window=COVER_WINDOW, quiet=False):
     """Cover habitat suitability: shelter from substrate, cobbles, boulders, plants and wood.
 
@@ -359,7 +359,7 @@ def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=N
         layers (dict): ``{cover type: array}``. ``cobbles`` and ``boulders`` may be omitted
             and derived from a ``substrate`` grain size raster instead.
         profile (dict): the raster profile the layers are on, for the cell size.
-        unit (str): ``"us"`` or ``"si"``; the grain limits are converted accordingly.
+        unit (str): ``"si"`` (default) or ``"us"``; the grain limits are converted accordingly.
         fish (FishDatabase): the curve database. Built by default.
         depth (numpy.ndarray): water depth. When given, cover is cropped to cells at least as
             deep as the first point of the depth curve, as the original's
@@ -555,7 +555,10 @@ class SHArC:
 
     Args:
         condition (Condition or str): the condition, or its name.
-        unit (str): ``"us"`` or ``"si"``; must match the condition's rasters.
+        unit (str): ``"si"`` (default) or ``"us"``; must match the condition's rasters,
+            which is checked against their CRS.
+        strict_units (bool): raise when ``unit`` disagrees with the CRS of the rasters
+            rather than warn. Defaults to :data:`riverarchitect.config.UNIT_CHECK`.
         combine_method (str): ``"geometric_mean"`` or ``"product"``.
         fish (FishDatabase): the curve database. Defaults to the packaged ``Fish.xlsx``.
         threshold (float): cHSI above which a cell counts as usable habitat.
@@ -566,11 +569,13 @@ class SHArC:
         error (bool): True when at least one discharge could not be processed.
     """
 
-    def __init__(self, condition, unit="us", combine_method="geometric_mean", fish=None,
-                 threshold=0.4, mineral_rule="radius", cover_window=COVER_WINDOW):
+    def __init__(self, condition, unit="si", combine_method="geometric_mean", fish=None,
+                 threshold=0.4, mineral_rule="radius", cover_window=COVER_WINDOW,
+                 strict_units=None):
         self.condition = condition if isinstance(condition, Condition) \
             else Condition(condition)
-        self.unit = str(unit).lower()
+        self.unit = units.check_unit(unit)
+        self.condition.check_units(self.unit, strict_units)
         if combine_method not in COMBINE_METHODS:
             raise ValueError("combine_method must be one of %s" % (COMBINE_METHODS,))
         self.combine_method = combine_method

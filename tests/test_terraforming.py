@@ -14,7 +14,7 @@ from riverarchitect.terraforming import DEFAULT_D2W_MAX, Terraforming, planting_
 def make_profile(width=4, height=2, cell=1.0):
     from affine import Affine
     return {"driver": "GTiff", "height": height, "width": width, "count": 1,
-            "dtype": "float32", "crs": "EPSG:32633",
+            "dtype": "float32", "crs": "EPSG:2226",   # U.S. survey feet
             "transform": Affine(cell, 0.0, 0.0, 0.0, -cell, height * cell)}
 
 
@@ -150,11 +150,11 @@ def test_the_result_feeds_a_volume_assessment(bench):
     from riverarchitect.volume_assessment import VolumeAssessment
 
     home, actions = bench
-    result = Terraforming("bench", str(actions), unit="si", d2w_max=7.0) \
+    result = Terraforming("bench", str(actions), unit="us", d2w_max=7.0) \
         .run(output_dir=str(home / "out"))
 
     original = str(home / "01_Conditions" / "bench" / "dem.tif")
-    assessment = VolumeAssessment(original, result["dem_raster"], unit="si",
+    assessment = VolumeAssessment(original, result["dem_raster"], unit="us",
                                   level_of_detection=0.0)
     volumes = assessment.volumes()
     # Lowering the ground can never place fill.
@@ -182,7 +182,7 @@ def test_an_empty_action_directory_says_what_to_do(bench):
     empty = home / "empty"
     empty.mkdir()
     with pytest.raises(FileNotFoundError, match="Run Max Lifespan first"):
-        Terraforming("bench", str(empty))
+        Terraforming("bench", str(empty), unit="us")
 
 
 def test_a_condition_without_a_water_table_is_refused(tmp_path, monkeypatch):
@@ -198,6 +198,6 @@ def test_a_condition_without_a_water_table_is_refused(tmp_path, monkeypatch):
     config.set_project_home(str(tmp_path))
     try:
         with pytest.raises(FileNotFoundError, match="depth to water table"):
-            Terraforming("bare", str(actions))
+            Terraforming("bare", str(actions), unit="us")
     finally:
         config.set_project_home(None)

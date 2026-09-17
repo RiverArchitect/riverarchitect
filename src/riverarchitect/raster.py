@@ -44,7 +44,7 @@ from rasterio.warp import reproject
 from scipy import ndimage
 from scipy.spatial import cKDTree
 
-from . import config
+from . import config, units
 
 __all__ = [
     "read", "write", "profile_of", "cell_size", "align", "resample",
@@ -156,7 +156,13 @@ def align(array, src_prof, ref_prof, resampling=Resampling.nearest):
 
     Returns:
         numpy.ndarray: array on the reference grid, NoData as ``numpy.nan``.
+
+    Raises:
+        riverarchitect.units.UnitMismatchError: if the two CRSs have different linear
+            units, one is geographic, or only one of them has a CRS. Differing CRSs with the
+            same unit are reprojected with a logged warning.
     """
+    units.check_crs_pair(src_prof.get("crs"), ref_prof.get("crs"))
     dst = np.full((ref_prof["height"], ref_prof["width"]), np.nan, dtype="float64")
     reproject(source=np.ascontiguousarray(array),
               destination=dst,

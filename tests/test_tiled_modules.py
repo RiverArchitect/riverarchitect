@@ -283,7 +283,7 @@ def test_stranding_components(sample_home, modes, tmp_path, target):
 
     def run(tag):
         analysis = StrandingRisk("2100_sample", discharges=STRANDING_Q, h_min=0.3,
-                                 target_discharge=target)
+                                 target_discharge=target, unit="us")
         return analysis.run(output_dir=str(tmp_path / tag))
 
     whole, parts = modes(run)
@@ -307,7 +307,8 @@ def test_stranding_escape_routes(sample_home, modes, tmp_path, target):
 
     def run(tag):
         analysis = StrandingRisk("2100_sample", discharges=STRANDING_Q[1:], h_min=0.3,
-                                 u_max=1.5, velocity_field=field, target_discharge=target)
+                                 u_max=1.5, velocity_field=field, target_discharge=target,
+                                 unit="us")
         assert analysis.velocity_limited
         return analysis.run(output_dir=str(tmp_path / tag), write_escape_routes=True)
 
@@ -472,7 +473,7 @@ def test_get_started_water_product(sample_home, modes, tmp_path):
 
     def run(tag):
         out = tmp_path / tag
-        pre.build_product("2100_sample", "water", 750.0, output_dir=str(out))
+        pre.build_product("2100_sample", "water", 750.0, output_dir=str(out), unit="us")
         return out
 
     whole, parts = modes(run)

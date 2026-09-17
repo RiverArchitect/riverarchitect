@@ -11,8 +11,8 @@ Both analyses are packaged modules with a tab in the interface, {mod}`riverarchi
 from riverarchitect.lifespan import LifespanDesign
 from riverarchitect.stranding import StrandingRisk
 
-LifespanDesign("2100_sample").run(["rocks"])
-StrandingRisk.for_fish("2100_sample", "Chinook salmon", "fry").run()
+LifespanDesign("2100_sample", unit="us").run(["rocks"])
+StrandingRisk.for_fish("2100_sample", "Chinook salmon", "fry", unit="us").run()
 ```
 
 This page takes the long way round instead, building both analyses out of the raster primitives. That is worth reading once: it shows exactly what the modules do, which assumptions they make, and where you would change them for a river that behaves differently. The physical background is in {doc}`../modules/lifespans`, {doc}`../modules/features` and {doc}`../modules/ecohydraulics`.

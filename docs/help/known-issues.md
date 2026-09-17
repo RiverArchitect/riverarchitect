@@ -48,12 +48,18 @@ Two hydraulic raster naming forms are accepted: plain integers (`h000550.tif` mo
 
 **4. Reduce it.** Run one feature, one discharge, one species. The modules take explicit arguments precisely so a problem can be isolated.
 
-**5. Check the units.** A unit mismatch never raises. If every threshold seems to bite in the wrong place by a factor near 3.28, this is why.
+**5. Check the units.** A mismatch between the Units menu and the CRS of the rasters raises, but raster values in a different unit from their CRS (depths in feet on a metric grid) cannot be detected. If every threshold seems to bite in the wrong place by a factor near 3.28, this is why.
 
 ## Error messages
 
 | Message | What it means | What to do |
 |---|---|---|
+| `... are in U.S. customary units ..., but the analysis is set to SI (metric)` (or the reverse) | the Units menu, or `unit=`, disagrees with the linear unit of the rasters' CRS | select the unit system the rasters are in; set `RIVERARCHITECT_UNIT_CHECK=warn` only if their vertical unit deliberately differs from the CRS |
+| `the rasters mix unit systems: ...` | some rasters of the condition have a CRS in feet, others in metres | convert and reproject them to one unit system |
+| `cannot combine a raster in ... with one in ...` | two rasters combined in an analysis have CRSs with different linear units, or only one of them has a CRS | reproject, convert, or assign the missing CRS |
+| `... is a geographic coordinate system` | a raster is in latitude and longitude | reproject it to a projected CRS in metres or feet |
+| `... have no coordinate reference system while the others do` | some rasters of the condition carry no CRS | assign the CRS of the others to them |
+| `unit must be one of ['si', 'us'], not ...` | an unknown unit system was passed | use `"si"` or `"us"` |
 | `no such condition folder: ...` | the condition name does not match a folder under `01_Conditions/` | check the project directory in the status bar |
 | `condition <x> has no usable raster to define the grid` | no grain, DEM or depth raster was found | the condition is empty or misnamed; see the naming conventions |
 | `condition <x> has no d2w raster` (Terraforming) | `d2w.tif` is missing | run **Get Started ▸ water surface, depth and depth to water table** |
@@ -66,7 +72,7 @@ Two hydraulic raster naming forms are accepted: plain integers (`h000550.tif` mo
 | `no flow in the record falls inside the season given` | the flow record does not cover that lifestage's season | use a longer record, or a lifestage whose season it covers |
 | `a Gumbel fit needs at least 10 annual peaks` | too short a record for a return period estimate | use a longer record, or supply return periods from a formal analysis |
 | `the flow record has too few days in the <year> recession period` | the record does not cover that season | choose a year the record covers |
-| `no cell falls into any morphological unit` | depth and velocity are in different units from the threshold table | check the unit system |
+| `no cell falls into any morphological unit` | depth and velocity are in different units from the threshold table | check the unit system, and that the raster values are in the unit of their CRS |
 | `Unable to allocate ... GiB for an array` | an older version read a raster larger than memory whole | update; see {doc}`../guide/large_reaches` |
 | `... cells are too large to return in memory - pass output_path` | a preprocessing function was called on a grid it processes block by block, without a file to write to | pass `output_path`; the function then returns that path |
 | `DLL load failed while importing ...` (Windows) | the QGIS bindings were found but their Qt, GDAL and PROJ libraries were not | set `QGIS_PREFIX_PATH`, or start from an OSGeo4W shell |
@@ -79,6 +85,8 @@ These do not stop an analysis. They are the ones worth reading anyway, because e
 
 | Message | What it means |
 |---|---|
+| `Reprojecting a raster from ... onto ...` | two rasters are in different CRSs with the same linear unit and are reprojected onto one grid; check they really belong together |
+| `... carry no coordinate reference system, so their unit system cannot be verified` | no raster of the condition has a CRS; nothing protects you from a unit mismatch |
 | `<feature>: no code for morphological unit(s) ...` | those units are not in the morphological unit table, so they are not part of the criterion |
 | `no morphological-unit code table - skipping the MU criterion` | neither a condition-local nor the packaged table could be read |
 | `no discharge reaches the <n>-year design flood for <feature>` | no design map is written, because the condition models nothing that rare |
