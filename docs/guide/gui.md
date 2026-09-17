@@ -158,7 +158,7 @@ In the stranding tab, `h_min` moves the result more than anything else, and it i
 
 **Project** sets the project directory - the root that `01_Conditions/`, `00_Flows/`, `02_Maps/` and `Output/` resolve against. The status bar shows the current one. It can also be set with `RIVERARCHITECT_HOME` or as an argument to the launcher.
 
-**Units** switches every tab between U.S. customary and SI. It changes the labels and the default level of detection; it does **not** convert your rasters, which must already be in the unit system you select.
+**Units** switches every tab between SI (the default) and U.S. customary. It changes the labels, thresholds and the default level of detection; it does **not** convert your rasters, which must already be in the unit system you select. A run whose rasters have a CRS in the other unit system stops with an error naming the raster, and setting a project directory whose conditions do not match the menu shows a warning listing them. See {ref}`the unit warning in Get Started <units-warning>`.
 
 **Tools** holds the four utilities that are not tabs. *Reconcile NoData in a condition* runs `reconcile_nodata` over a condition folder, normalising inconsistent NoData sentinels; the NoData mask is preserved exactly, only the sentinel changes. *Bed shear stress* computes the dimensionless Shields stress from three loose rasters, before they have been organised into a condition. *Pool-riffle designer* sizes a pool-riffle sequence from grain size, slope and channel geometry. *Convert ArcGIS .lyrx to QGIS .qml* brings layer styling over from an ArcGIS project.
 
@@ -216,10 +216,11 @@ from riverarchitect.recruitment import RecruitmentPotential
 from riverarchitect.sharc import SHArC
 from riverarchitect.stranding import StrandingRisk
 
-preprocessing.build_product("2100_sample", "detrended", discharge=300)
-LifespanDesign("2100_sample").run(["rocks", "wood", "cot"])
-MaxLifespan("sample-data/Output/LifespanDesign/2100_sample").run()
-SHArC("2100_sample").run("Chinook Salmon", "juvenile")
-StrandingRisk.for_fish("2100_sample", "Chinook salmon", "fry").run()
-RecruitmentPotential("2100_sample", "daily_flows.csv", year=2020).run()
+# The sample reach is in U.S. customary units; the default is unit="si".
+preprocessing.build_product("2100_sample", "detrended", discharge=300, unit="us")
+LifespanDesign("2100_sample", unit="us").run(["rocks", "wood", "cot"])
+MaxLifespan("sample-data/Output/LifespanDesign/2100_sample", unit="us").run()
+SHArC("2100_sample", unit="us").run("Chinook Salmon", "juvenile")
+StrandingRisk.for_fish("2100_sample", "Chinook salmon", "fry", unit="us").run()
+RecruitmentPotential("2100_sample", "daily_flows.csv", year=2020, unit="us").run()
 ```

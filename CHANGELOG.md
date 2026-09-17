@@ -4,6 +4,43 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2026-09-17
+
+**Units are checked, not assumed, and the default is SI.** The unit system only stated
+what the rasters were, and a wrong statement applied thresholds in feet to data in metres
+without a word. Analyses also defaulted to U.S. customary units, and rasters in different
+CRSs were reprojected silently, feet onto metres included.
+
+### Changed
+
+- **The default unit system is SI** in every analysis (`unit="si"`), in
+  `config.unit_labels` and `config.area_unit`, and in both interfaces, whose Units menu
+  now lists SI first. The sample reach is still U.S. customary: pass `unit="us"` for it;
+  the Live Guide switches the menu for you. Code that relied on the old default has to
+  say `unit="us"`.
+- `VolumeAssessment` no longer falls back to U.S. customary on an unknown unit; it raises
+  `ValueError`, as every other analysis now does.
+
+### Added
+
+- **`riverarchitect.units`**: `UnitMismatchError`, and checks that read the unit system
+  from the linear unit of each raster's CRS. Lifespan Design, SHArC, Stranding Risk,
+  Riparian Recruitment, Terraforming, Max Lifespan, Volume Assessment, the Get Started
+  products, `bed_shear_stress`, `morphological_units` and the taux tool refuse to run when
+  the selected unit system disagrees with the rasters, when the rasters disagree with each
+  other, when only some of them carry a CRS, or when a CRS is geographic. The first of
+  these can be downgraded to a warning with `strict_units=False` or
+  `RIVERARCHITECT_UNIT_CHECK=warn` (`config.UNIT_CHECK`); the others cannot.
+- `raster.align` and the block-wise reads in `tiled` apply the same CRS checks before
+  reprojecting, and log a warning when rasters in different CRSs of one unit are
+  reprojected onto each other.
+- `Condition.unit_system()`, `Condition.check_units()` and `Condition.raster_paths()`.
+- Setting a project directory in either interface warns about conditions whose rasters do
+  not match the Units menu.
+- A warning at the top of *Get Started* and on the documentation start page that all
+  geodata, CRSs, discharges, flow records and workbooks must share one unit system, and
+  what is and is not checked.
+
 ## [2.9.1] - 2026-09-17
 
 A test fix, and one warning fewer. The analyses, the interface and the documentation give

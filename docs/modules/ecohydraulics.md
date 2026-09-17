@@ -108,7 +108,7 @@ The minimum swimming depth comes from `Fish.xlsx` (0.2 ft for Chinook fry). **It
 A fish cannot swim upstream against more than `u_max`, so fast water is a one-way door: it can be drifted down but not climbed back up. That makes the escape-route graph **directed**, and a directed graph needs the flow *direction*. Conditions ship `u<Q>.tif`, a speed, so the criterion applies only when the components are supplied as well:
 
 ```python
-StrandingRisk.for_fish("2100_sample", "Chinook salmon", "juvenile",
+StrandingRisk.for_fish("2100_sample", "Chinook salmon", "juvenile", unit="us",
                        velocity_field={7250.0: ("ux007250.tif", "uy007250.tif")})
 ```
 

@@ -55,7 +55,7 @@ Three things it does that are worth knowing about:
 
 **Level of detection.** Elevation changes smaller than this threshold are treated as survey noise and zeroed before integration. Defaults to 0.99 ft (`unit="us"`) or 0.30 m (`unit="si"`), matching the original module. Set it from your own survey error analysis; it directly scales the reported quantities.
 
-**Unit handling.** With `unit="us"` inputs are read as feet and volumes reported in cubic yards; with `unit="si"`, metres and cubic metres. The raster's own units are not inspected, so this must match your data.
+**Unit handling.** With `unit="si"` (the default) inputs are read as metres and volumes reported in cubic metres; with `unit="us"`, feet and cubic yards. The unit is checked against the linear unit of both DEMs' CRS, and a mismatch raises `UnitMismatchError`, as do two DEMs in different unit systems. Elevation values in a different unit from their CRS cannot be detected; see {ref}`the unit warning in Get Started <units-warning>`.
 
 ## Verification
 

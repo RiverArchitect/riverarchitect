@@ -7,6 +7,7 @@ API reference
    raster
    tiled
    condition
+   units
    shear
    preprocessing
    lifespan

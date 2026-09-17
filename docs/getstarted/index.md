@@ -1,5 +1,18 @@
 # Get started, terminology and signposts
 
+(units-warning)=
+```{admonition} Units must agree before anything else
+:class: danger
+
+**River Architect never converts data.** Every raster of a condition (DEM, detrended DEM, grain size, depth, velocity, DEM of difference, depth to water table), the coordinate reference system (CRS) of each of them, the discharges in the file names and in `input_definitions.inp`, the daily flow record and any threshold or suitability workbook must all be in **one unit system**, and that system must be the one you select in the **Units** menu or pass as `unit=`.
+
+The default is **SI (metric)**: metres, m/s and m³/s. The sample reach `2100_sample` is in **U.S. customary** units (feet, ft/s, cfs), so switch to U.S. customary for it.
+
+What is checked: the linear unit of each raster's CRS must match the selected unit system, all rasters that are combined must share that unit, a raster without a CRS cannot be combined with one that has a CRS, and geographic CRSs (degrees) are refused. Any of these stops the analysis with a `UnitMismatchError` that names the raster. Rasters in different CRSs with the same unit are reprojected, with a warning in the log.
+
+What cannot be checked: raster *values* in a different unit from their CRS (for example water depths in feet on a grid in metres), and discharges or workbook values, which carry no unit at all. Convert such data before you start. If the vertical unit of your data really differs from its CRS on purpose, set the environment variable `RIVERARCHITECT_UNIT_CHECK=warn` (or pass `strict_units=False`) to turn the unit-system check into a warning; rasters that disagree with each other are refused regardless.
+```
+
 This section explains River Architect vocabularly, like what a *Condition* is, what the file naming conventions mean, how to prepare the input rasters, and how to analyse a flow record; that is, everything that has to exist before an analysis can run with River Architect.
 
 The module is {mod}`riverarchitect.preprocessing` (with {mod}`riverarchitect.flows` for the flow side), and the **Get Started** tab of the interface.
@@ -35,7 +48,7 @@ The last four are written by **Get Started ▸ dimensionless bed shear stress (t
 ```{admonition} Units are in the data, not in the name
 :class: warning
 
-The original distinguished `dmean.tif` from `dmean_ft.tif`. This release does not: a condition is in one unit system throughout, stated once, and mixing them within a folder is the error the naming convention was papering over.
+File names carry no unit (`dmean.tif`, never `dmean_ft.tif`). A condition is in one unit system throughout, and the CRS of its rasters is what tells River Architect which one; see {ref}`the warning at the top of this page <units-warning>`.
 ```
 
 ```{admonition} Record the grain-size statistic

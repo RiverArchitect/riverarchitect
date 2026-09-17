@@ -29,7 +29,7 @@ import os
 
 import numpy as np
 
-from . import config, raster, tiled, volume
+from . import config, raster, tiled, units, volume
 
 __all__ = ["VolumeAssessment"]
 
@@ -43,22 +43,24 @@ class VolumeAssessment:
     Args:
         original_dem (str): path to the pre-project DEM.
         modified_dem (str): path to the post-project DEM.
-        unit (str): ``"us"`` (feet, reported in cubic yards) or ``"si"`` (metres, cubic
-            metres).
+        unit (str): ``"si"`` (default; metres, reported in cubic metres) or ``"us"`` (feet,
+            cubic yards). Checked against the CRS of both DEMs.
+        strict_units (bool): raise rather than warn when ``unit`` disagrees with that CRS.
+            Defaults to :data:`riverarchitect.config.UNIT_CHECK`.
         level_of_detection (float): elevation changes with a magnitude below this threshold
             are treated as survey noise and ignored. Defaults to 0.99 ft for ``"us"`` and
             0.3 m for ``"si"``, matching the original module.
     """
 
-    def __init__(self, original_dem, modified_dem, unit="us", level_of_detection=None):
+    def __init__(self, original_dem, modified_dem, unit="si", level_of_detection=None,
+                 strict_units=None):
         self.logger = logging.getLogger("riverarchitect")
         self.original_dem = original_dem
         self.modified_dem = modified_dem
 
-        if str(unit).lower() not in config.UNITS:
-            self.logger.warning("Invalid unit %r - falling back to 'us'.", unit)
-            unit = "us"
-        self.unit = str(unit).lower()
+        self.unit = units.check_unit(unit)
+        units.check_rasters([original_dem, modified_dem], self.unit, strict=strict_units,
+                            label="the two DEMs")
         self.labels = config.unit_labels(self.unit)
 
         if self.unit == "us":

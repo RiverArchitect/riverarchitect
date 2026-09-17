@@ -52,7 +52,7 @@ import tempfile
 
 import numpy as np
 
-from . import config, raster, tiled
+from . import config, raster, tiled, units
 from .condition import Condition, discharge_token
 
 __all__ = ["TRAVEL_THRESHOLDS", "travel_thresholds", "StrandingRisk"]
@@ -123,7 +123,10 @@ class StrandingRisk:
         discharges (list): discharges to walk, highest first. Defaults to every hydraulic
             raster in the condition, sorted descending.
         h_min (float): minimum swimming depth. Below it a cell does not count as wetted.
-        unit (str): ``"us"`` or ``"si"``; must match the condition's rasters.
+        unit (str): ``"si"`` (default) or ``"us"``; must match the condition's rasters,
+            which is checked against their CRS.
+        strict_units (bool): raise when ``unit`` disagrees with the CRS of the rasters
+            rather than warn. Defaults to :data:`riverarchitect.config.UNIT_CHECK`.
         connectivity (int): 4 (arcpy's ``RegionGroup`` default) or 8.
         target_discharge (float): the discharge whose main channel every other discharge is
             judged against. Defaults to the **lowest** analysed discharge, which is what the
@@ -148,12 +151,14 @@ class StrandingRisk:
     species = None
     lifestage = None
 
-    def __init__(self, condition, discharges=None, h_min=0.2, unit="us", connectivity=4,
-                 target_discharge=None, u_max=None, velocity_field=None):
+    def __init__(self, condition, discharges=None, h_min=0.2, unit="si", connectivity=4,
+                 target_discharge=None, u_max=None, velocity_field=None,
+                 strict_units=None):
         self.condition = condition if isinstance(condition, Condition) \
             else Condition(condition)
         self.h_min = float(h_min)
-        self.unit = str(unit).lower()
+        self.unit = units.check_unit(unit)
+        self.condition.check_units(self.unit, strict_units)
         self.connectivity = int(connectivity)
         self.u_max = None if u_max is None else float(u_max)
         self.logger = logger

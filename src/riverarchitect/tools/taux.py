@@ -36,7 +36,7 @@ import os
 import sys
 
 try:
-    from riverarchitect import config, raster, shear, tiled
+    from riverarchitect import config, raster, shear, tiled, units
 except ImportError:  # pragma: no cover - exercised only without the geospatial stack
     config = raster = shear = tiled = None
 
@@ -47,7 +47,7 @@ def dependencies_available():
 
 
 def compute(velocity_path, depth_path, grains_path, output_prefix, grain_kind="dmean",
-            unit="si", ks_factor=None, low_limit=None, high_limit=None):
+            unit="si", ks_factor=None, low_limit=None, high_limit=None, strict_units=None):
     """Write the four shear rasters and return ``{quantity: path}``.
 
     Args:
@@ -56,13 +56,19 @@ def compute(velocity_path, depth_path, grains_path, output_prefix, grain_kind="d
         grains_path (str): grain size raster; see ``grain_kind``.
         output_prefix (str): path prefix of the four outputs.
         grain_kind (str): ``"dmean"``, ``"d50"`` or ``"d84"``.
-        unit (str): ``"si"`` or ``"us"``, selecting the gravitational acceleration.
+        unit (str): ``"si"`` or ``"us"``, selecting the gravitational acceleration; checked
+            against the CRS of the three rasters.
         ks_factor, low_limit, high_limit (float): closure parameters; see
             :func:`riverarchitect.shear.calculate_taux`.
+        strict_units (bool): raise rather than warn when ``unit`` disagrees with the CRS.
+            Defaults to :data:`riverarchitect.config.UNIT_CHECK`.
 
     Returns:
         dict: quantity name -> path written.
     """
+    unit = units.check_unit(unit)
+    units.check_rasters([velocity_path, depth_path, grains_path], unit, strict=strict_units,
+                        label="the velocity, depth and grain rasters")
     kwargs = {}
     if ks_factor is not None:
         kwargs["ks_factor"] = ks_factor

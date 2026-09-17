@@ -16,6 +16,12 @@ The methods are documented in:
 
 ## Where to start
 
+```{admonition} Check your units first
+:class: danger
+
+River Architect never converts data. All geodata, their coordinate reference systems, the discharges, the flow record and the workbooks of a project must share **one unit system**, which you select in the **Units** menu. The default is **SI (metric)**; the sample reach is in U.S. customary units. A raster whose CRS disagrees with the selected units, or with the other rasters, stops the analysis with an error. Read {ref}`the full warning <units-warning>` before preparing a condition.
+```
+
 | | |
 |---|---|
 | {doc}`setup/index` | install it, and what it needs |

@@ -41,7 +41,7 @@ class RaModuleGui(tk.Frame):
         self.condition = ""
         self.condition_list = []
         self.errors = False
-        self.unit = "us"
+        self.unit = "si"
         self.labels = config.unit_labels(self.unit)
 
         self.pad_x = 5

@@ -193,7 +193,7 @@ class ProjectMaker:
 
     Args:
         name (str): project name, used for the output folder.
-        unit (str): ``"us"`` or ``"si"``; selects the rate column and the units it is per.
+        unit (str): ``"si"`` (default) or ``"us"``; selects the rate column and the units it is per.
         quantities (dict): ``{item key: quantity}`` in the unit each item is priced per.
             Anything not given is zero, so a partial bill still totals.
         rates (tuple): percentage rates. Defaults to :data:`RATES`.
@@ -204,7 +204,7 @@ class ProjectMaker:
         error (bool): True when something could not be quantified.
     """
 
-    def __init__(self, name="project", unit="us", quantities=None, rates=RATES,
+    def __init__(self, name="project", unit="si", quantities=None, rates=RATES,
                  log_length=LOG_LENGTH):
         self.name = str(name)
         self.unit = str(unit).lower()

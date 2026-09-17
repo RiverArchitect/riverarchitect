@@ -40,7 +40,7 @@ import threading
 
 import numpy as np
 
-from . import config, raster, shear, tiled
+from . import config, raster, shear, tiled, units
 from .condition import Condition
 # Reading a daily flow record lives in `flows`; it is re-exported here because this module
 # was the first to need one and callers import it from here. One implementation, not two.
@@ -153,7 +153,10 @@ class RecruitmentPotential:
         flow_series (dict or str): ``{date: discharge}``, or a path to read one from.
         year (int): the season to analyse. Defaults to the last year in the record.
         parameters (RecruitmentParameters): thresholds. Defaults to the template values.
-        unit (str): ``"us"`` or ``"si"``; must match the condition's rasters.
+        unit (str): ``"si"`` (default) or ``"us"``; must match the condition's rasters,
+            which is checked against their CRS.
+        strict_units (bool): raise when ``unit`` disagrees with the CRS of the rasters
+            rather than warn. Defaults to :data:`riverarchitect.config.UNIT_CHECK`.
         manning_n (float): Manning's n in s/m^(1/3), for the shear stress.
         existing_vegetation (str): optional raster; cells that already carry vegetation are
             excluded from the recruitment area.
@@ -163,8 +166,9 @@ class RecruitmentPotential:
         error (bool): True when a step could not be completed.
     """
 
-    def __init__(self, condition, flow_series, year=None, parameters=None, unit="us",
-                 manning_n=0.0473934, existing_vegetation=None, grading_extent=None):
+    def __init__(self, condition, flow_series, year=None, parameters=None, unit="si",
+                 manning_n=0.0473934, existing_vegetation=None, grading_extent=None,
+                 strict_units=None):
         self.condition = condition if isinstance(condition, Condition) \
             else Condition(condition)
         self.flow_series = read_flow_series(flow_series) \
@@ -173,7 +177,8 @@ class RecruitmentPotential:
             raise ValueError("the flow record is empty")
 
         self.parameters = parameters or RecruitmentParameters()
-        self.unit = str(unit).lower()
+        self.unit = units.check_unit(unit)
+        self.condition.check_units(self.unit, strict_units)
         self.n = manning_n / 1.49 if self.unit == "us" else manning_n
         self.g = shear.gravity_of(self.unit)
         self.cm_per_length = CM_PER_FOOT if self.unit == "us" else CM_PER_METRE

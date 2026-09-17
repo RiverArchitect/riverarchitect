@@ -45,6 +45,8 @@ Modules
     QGIS print layouts and multi-page PDF map series.
 :mod:`riverarchitect.config`
     Paths, units and the canonical NoData value.
+:mod:`riverarchitect.units`
+    Unit-system and CRS consistency checks.
 :mod:`riverarchitect.guide`
     The Live Guide: the sample-data walkthrough both front ends render.
 :mod:`riverarchitect.tools`
@@ -54,7 +56,7 @@ The graphical interface lives in :mod:`riverarchitect.gui` and is started with t
 ``riverarchitect`` console script, or with ``python -m riverarchitect``.
 """
 
-__version__ = "2.9.1"
+__version__ = "2.10.0"
 __author__ = "River Architect Development Team"
 __license__ = "BSD-3-Clause"
 
@@ -63,7 +65,7 @@ from . import config  # noqa: F401
 __all__ = ["config", "guide", "condition", "raster", "tiled", "shear", "volume",
            "volume_assessment", "lifespan", "maxlifespan", "terraforming",
            "riverbuilder", "stranding", "sharc", "preprocessing", "recruitment",
-           "flows", "projectmaker", "poolriffle", "mapping", "tools", "__version__"]
+           "flows", "projectmaker", "poolriffle", "mapping", "units", "tools", "__version__"]
 
 
 def __getattr__(name):
@@ -76,7 +78,7 @@ def __getattr__(name):
     if name in ("raster", "tiled", "shear", "volume", "volume_assessment", "condition", "lifespan",
                 "maxlifespan", "terraforming", "riverbuilder", "stranding", "sharc",
                 "preprocessing", "recruitment", "flows", "projectmaker", "mapping",
-                "guide", "tools"):
+                "guide", "units", "tools"):
         import importlib
         module = importlib.import_module("." + name, __name__)
         globals()[name] = module

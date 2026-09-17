@@ -35,6 +35,7 @@ The defaults suit most machines. They can be changed through environment variabl
 | {data}`config.TILING <riverarchitect.config.TILING>` | `RIVERARCHITECT_TILING` | `auto` | `auto` decides per run, `always` and `never` force the choice |
 | {data}`config.BLOCK_SIZE <riverarchitect.config.BLOCK_SIZE>` | `RIVERARCHITECT_BLOCK_SIZE` | `4096` | block edge in cells; shrunk automatically when blocks would not fit |
 | {data}`config.WORKERS <riverarchitect.config.WORKERS>` | `RIVERARCHITECT_WORKERS` | up to 4 | blocks processed in parallel |
+| {data}`config.UNIT_CHECK <riverarchitect.config.UNIT_CHECK>` | `RIVERARCHITECT_UNIT_CHECK` | `strict` | `warn` logs a unit-system mismatch instead of raising; block by block and in memory alike |
 
 On Windows, set a variable for one session in the *Anaconda Prompt* before starting the program:
 

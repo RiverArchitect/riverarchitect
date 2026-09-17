@@ -44,7 +44,7 @@ import os
 
 import numpy as np
 
-from . import config, raster, tiled
+from . import config, raster, tiled, units
 from .condition import Condition
 
 __all__ = ["Terraforming", "planting_depth_limit", "DEFAULT_D2W_MAX"]
@@ -95,7 +95,10 @@ class Terraforming:
         action_dir (str): directory holding the ``best_<feature>.tif`` masks of
             :class:`riverarchitect.maxlifespan.MaxLifespan`, which say where each feature is
             planned. Any raster whose finite cells mark an area will do.
-        unit (str): ``"us"`` or ``"si"``; must match the condition's rasters.
+        unit (str): ``"si"`` (default) or ``"us"``; must match the condition's rasters,
+            which is checked against their CRS.
+        strict_units (bool): raise when ``unit`` disagrees with the CRS of the rasters
+            rather than warn. Defaults to :data:`riverarchitect.config.UNIT_CHECK`.
         d2w_max (float): deepest tolerable depth to the water table. Defaults to
             :func:`planting_depth_limit`.
         features (list): feature ids to apply, in order. Defaults to every mask found,
@@ -105,13 +108,15 @@ class Terraforming:
         error (bool): True when at least one feature could not be applied.
     """
 
-    def __init__(self, condition, action_dir, unit="us", d2w_max=None, features=None):
+    def __init__(self, condition, action_dir, unit="si", d2w_max=None, features=None,
+                 strict_units=None):
         self.condition = condition if isinstance(condition, Condition) \
             else Condition(condition)
         self.action_dir = str(action_dir)
         if not os.path.isdir(self.action_dir):
             raise FileNotFoundError("no such directory: %s" % self.action_dir)
-        self.unit = str(unit).lower()
+        self.unit = units.check_unit(unit)
+        self.condition.check_units(self.unit, strict_units)
         self.d2w_max = float(d2w_max) if d2w_max is not None else planting_depth_limit()
         self.logger = logger
         self.error = False

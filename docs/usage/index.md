@@ -56,4 +56,4 @@ The three ecohydraulic analyses are independent of one another, but all of them 
 
 ## Units
 
-Set the unit system before anything else, from the **Units** menu or the `unit` argument. It does **not** convert your rasters - it states what they already are. A mismatch does not raise an error anywhere in the chain; it silently applies metric thresholds to data in feet.
+Set the unit system before anything else, from the **Units** menu or the `unit` argument. The default is **SI (metric)**. It does **not** convert your rasters - it states what they already are. Every analysis compares it with the linear unit of the rasters' coordinate reference system and stops with a `UnitMismatchError` when they disagree, when the rasters disagree with each other, or when a CRS is geographic; opening a project directory whose conditions do not match the Units menu shows a warning straight away. Raster values in a different unit from their CRS cannot be detected, so convert those beforehand. The details, and the `RIVERARCHITECT_UNIT_CHECK=warn` override, are in {ref}`the warning that opens Get Started <units-warning>`.

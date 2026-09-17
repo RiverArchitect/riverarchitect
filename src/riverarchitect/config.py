@@ -17,7 +17,7 @@ __all__ = ["NODATA", "FT2AC", "FT2M", "CFS2CMS", "UNITS",
            "project_home", "set_project_home", "user_config_dir",
            "dir_conditions", "dir_flows", "dir_maps", "dir_output",
            "area_unit", "unit_labels",
-           "TILING", "BLOCK_SIZE", "WORKERS", "memory_budget", "set_memory_budget"]
+           "UNIT_CHECK", "TILING", "BLOCK_SIZE", "WORKERS", "memory_budget", "set_memory_budget"]
 
 APP_ID = "org.riverarchitect.RiverArchitect"
 
@@ -36,8 +36,20 @@ FT2M = 0.3048
 #: Cubic feet per second to cubic metres per second.
 CFS2CMS = 0.0283168466
 
-#: Supported unit systems.
-UNITS = ("us", "si")
+#: Supported unit systems. ``"si"`` is the default everywhere.
+UNITS = ("si", "us")
+
+#: What happens when the stated unit system disagrees with the linear unit of the rasters'
+#: CRS: ``"strict"`` raises :class:`riverarchitect.units.UnitMismatchError`, ``"warn"`` logs
+#: a warning. Read from :envvar:`RIVERARCHITECT_UNIT_CHECK`. Disagreements *between*
+#: rasters always raise. See :mod:`riverarchitect.units`.
+UNIT_CHECK = os.environ.get("RIVERARCHITECT_UNIT_CHECK", "strict").strip().lower()
+if UNIT_CHECK not in ("strict", "warn"):
+    import logging
+    logging.getLogger("riverarchitect").warning(
+        "RIVERARCHITECT_UNIT_CHECK=%r is neither 'strict' nor 'warn' - using 'strict'",
+        UNIT_CHECK)
+    UNIT_CHECK = "strict"
 
 _PROJECT_HOME = None
 
@@ -219,12 +231,12 @@ def user_config_dir():
     return os.path.join(os.path.abspath(base), "riverarchitect")
 
 
-def area_unit(unit="us"):
+def area_unit(unit="si"):
     """Area unit label for a unit system: ``'sqft'`` or ``'sqm'``."""
     return "sqft" if str(unit).lower() == "us" else "sqm"
 
 
-def unit_labels(unit="us"):
+def unit_labels(unit="si"):
     """Discharge, depth, velocity, length and volume labels for a unit system.
 
     Returns:

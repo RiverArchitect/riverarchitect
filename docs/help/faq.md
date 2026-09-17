@@ -33,7 +33,10 @@ The questions that come up most often. If something has already gone wrong, {doc
 : Lifespan mapping uses only the discharges listed in `input_definitions.inp`, because only those carry a flood return period. The ecohydraulic modules scan the condition folder and use every `h<Q>.tif` on disk. On the sample reach that is 17 against 60.
 
 **Do I have to convert my rasters when I switch the unit system?**
-: No - and the switch does not convert them either. The Units menu *states* what your data already is. A mismatch does not raise an error anywhere; it silently applies the wrong thresholds.
+: The switch does not convert anything: the Units menu *states* what your data already is, and the default is SI. If your rasters are in the other system, switch the menu, not the data. Data that genuinely mixes systems (a DEM in feet with depths in metres) must be converted before use. An analysis whose unit system disagrees with the CRS of its rasters stops with a `UnitMismatchError`; see {ref}`the unit warning in Get Started <units-warning>`.
+
+**Why does an analysis refuse to run with `UnitMismatchError`?**
+: The unit system you selected does not match the linear unit of the rasters' coordinate reference system, the rasters of the condition are in different unit systems or one of them has no CRS, or a CRS is geographic (degrees). The message names the raster. Select the matching unit system, or reproject and convert the offending raster. Only if the vertical unit of your data differs from its CRS on purpose, set `RIVERARCHITECT_UNIT_CHECK=warn`.
 
 **How do I add a fish species, or change a habitat suitability curve?**
 : Edit the packaged `Fish.xlsx`, or a copy kept with your project. The layout is described under *The Fish workbook* in {doc}`../modules/ecohydraulics`.

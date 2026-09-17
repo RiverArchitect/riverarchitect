@@ -23,7 +23,7 @@ import os
 
 import numpy as np
 
-from . import config, raster, tiled
+from . import config, raster, tiled, units
 
 __all__ = ["MaxLifespan"]
 
@@ -37,17 +37,19 @@ class MaxLifespan:
         lifespan_dir (str): directory holding ``lf_<feature>.tif`` rasters, normally the
             output of :class:`riverarchitect.lifespan.LifespanDesign`.
         features (list): feature ids to consider. Defaults to every ``lf_*.tif`` present.
-        unit (str): ``"us"`` or ``"si"``, for the area unit in the summary.
+        unit (str): ``"si"`` (default) or ``"us"``, for the area unit in the summary; checked
+            against the CRS of the lifespan rasters.
+        strict_units (bool): raise rather than warn when it disagrees with them.
 
     Attributes:
         error (bool): True when at least one feature could not be processed.
     """
 
-    def __init__(self, lifespan_dir, features=None, unit="us"):
+    def __init__(self, lifespan_dir, features=None, unit="si", strict_units=None):
         self.lifespan_dir = str(lifespan_dir)
         if not os.path.isdir(self.lifespan_dir):
             raise FileNotFoundError("no such directory: %s" % self.lifespan_dir)
-        self.unit = str(unit).lower()
+        self.unit = units.check_unit(unit)
         self.logger = logger
         self.error = False
 
@@ -58,6 +60,8 @@ class MaxLifespan:
                 self.rasters[fid] = path
         if not self.rasters:
             raise FileNotFoundError("no lf_*.tif rasters in %s" % self.lifespan_dir)
+        units.check_rasters(self.rasters.values(), self.unit, strict=strict_units,
+                            label="the lifespan rasters in %s" % self.lifespan_dir)
 
     @property
     def feature_ids(self):

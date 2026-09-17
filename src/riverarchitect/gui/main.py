@@ -25,7 +25,7 @@ from tkinter import ttk
 from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
 from tkinter.messagebox import askokcancel, showerror, showinfo, showwarning
 
-from .. import __version__, config, guide
+from .. import __version__, config, guide, units
 from .toolsmenu import TOOLS, format_taux, unit_name
 from .getstarted_tab import GetStartedGui
 from .lifespan_tab import LifespanGui
@@ -81,7 +81,7 @@ class RiverArchitectGui(tk.Frame):
             self.groups[group] = inner
             self.notebook.add(inner, text=group)
 
-        self.unit = tk.StringVar(value="us")
+        self.unit = tk.StringVar(value="si")
         self._build_menus()
 
         self.status = tk.Label(self, anchor=tk.W, relief=tk.SUNKEN, fg="dim gray")
@@ -125,10 +125,10 @@ class RiverArchitectGui(tk.Frame):
 
         unit_menu = tk.Menu(menu_bar, tearoff=0)
         menu_bar.add_cascade(label="Units", menu=unit_menu)
-        unit_menu.add_radiobutton(label="U.S. customary", value="us", variable=self.unit,
-                                  command=lambda: self.set_unit("us"))
         unit_menu.add_radiobutton(label="SI (metric)", value="si", variable=self.unit,
                                   command=lambda: self.set_unit("si"))
+        unit_menu.add_radiobutton(label="U.S. customary", value="us", variable=self.unit,
+                                  command=lambda: self.set_unit("us"))
 
         tools_menu = tk.Menu(menu_bar, tearoff=0)
         menu_bar.add_cascade(label="Tools", menu=tools_menu)
@@ -187,9 +187,13 @@ class RiverArchitectGui(tk.Frame):
             tab.on_project_home_change()
         self._update_status()
         conditions = self.module_tabs[0].condition_list if self.module_tabs else []
-        showinfo("Project directory",
-                 "Project directory set to:\n%s\n\n%d condition(s) found."
-                 % (directory, len(conditions)))
+        text = ("Project directory set to:\n%s\n\n%d condition(s) found."
+                % (directory, len(conditions)))
+        note = units.project_unit_note(self.unit.get())
+        if note:
+            showwarning("Project directory: check the units", text + "\n\n" + note)
+        else:
+            showinfo("Project directory", text)
 
     def run_reconcile_nodata(self):
         """Run the NoData reconciliation tool on a chosen condition folder."""

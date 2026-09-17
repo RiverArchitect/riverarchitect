@@ -38,7 +38,7 @@ class RaTab(QWidget):
         super().__init__(parent)
         self.logger = logging.getLogger("riverarchitect")
 
-        self.unit = "us"
+        self.unit = "si"
         self.labels = config.unit_labels(self.unit)
         self.condition_list = []
         self.refresh_conditions()
