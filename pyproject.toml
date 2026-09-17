@@ -87,4 +87,9 @@ riverarchitect = ["templates/**/*", "assets/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-filterwarnings = ["ignore::DeprecationWarning"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    # pytest resets warning filters per test; see the same filter in riverarchitect.tiled.
+    "ignore:Dataset has no geotransform:rasterio.errors.NotGeoreferencedWarning:rasterio.warp",
+    "ignore:Dataset has no geotransform:rasterio.errors.NotGeoreferencedWarning:rasterio.features",
+]

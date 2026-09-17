@@ -82,13 +82,25 @@ def remove_sidecars(path, dry_run):
                         print("        WARNING: could not remove %s (%s)" % (stale, e))
 
 
+def _windows(profile):
+    """The whole raster as one window, or blocks of it when it does not fit in memory."""
+    from rasterio.windows import Window
+
+    from riverarchitect import tiled
+
+    if not tiled.enabled(profile, 3):
+        return [Window(0, 0, profile["width"], profile["height"])]
+    return [block.window for block in tiled.blocks(profile, layers=3)]
+
+
 def reconcile(path, dry_run=False):
     """Rewrite one raster so that its NoData value is NODATA. Returns True if changed."""
     with rasterio.open(path) as src:
         old_nodata = src.nodata
         profile = src.profile.copy()
-        band = src.read(1, masked=True)
-        n_masked = int(np.ma.count_masked(band))
+        windows = _windows(profile)
+        n_masked = sum(int(np.ma.count_masked(src.read(1, window=window, masked=True)))
+                       for window in windows)
 
     name = os.path.basename(path)
 
@@ -116,19 +128,24 @@ def reconcile(path, dry_run=False):
         return True
 
     profile.update(dtype=new_dtype, nodata=NODATA)
-    filled = band.astype(new_dtype).filled(NODATA)
+    if len(windows) > 1:
+        profile.update(BIGTIFF="IF_SAFER")
 
     tmp = path + ".reconcile.tmp"
-    with rasterio.open(tmp, "w", **profile) as dst:
-        dst.write(filled, 1)
+    with rasterio.open(path) as src, rasterio.open(tmp, "w", **profile) as dst:
+        # Window by window, so that a raster larger than memory can be reconciled too.
+        for window in windows:
+            band = src.read(1, window=window, masked=True)
+            dst.write(band.astype(new_dtype).filled(NODATA), 1, window=window)
 
     # Verify before replacing the original.
     with rasterio.open(tmp) as check:
-        verify = check.read(1, masked=True)
-        if int(np.ma.count_masked(verify)) != n_masked:
+        verified = sum(int(np.ma.count_masked(check.read(1, window=window, masked=True)))
+                       for window in windows)
+        if verified != n_masked:
             os.remove(tmp)
             raise RuntimeError("mask changed for %s (%d -> %d NoData cells); aborted"
-                               % (name, n_masked, int(np.ma.count_masked(verify))))
+                               % (name, n_masked, verified))
 
     os.replace(tmp, path)
     remove_sidecars(path, dry_run)

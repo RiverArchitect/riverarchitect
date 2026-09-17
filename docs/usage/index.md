@@ -7,6 +7,7 @@ How to actually run River Architect, once {doc}`../setup/index` is done. Three w
 | {doc}`../guide/example_walkthrough` | to run the whole chain on the sample reach, module by module, with the numbers each step should produce |
 | {doc}`../guide/quickstart` | to call the modules from Python and see the API in a page |
 | {doc}`../guide/gui` | to know what each tab, field and menu does |
+| {doc}`../guide/large_reaches` | to analyse a reach whose rasters do not fit in memory |
 
 ```{admonition} The interface can walk you through it
 :class: tip
@@ -22,6 +23,7 @@ How to actually run River Architect, once {doc}`../setup/index` is done. Three w
 ../guide/quickstart
 ../guide/gui
 ../guide/tutorial
+../guide/large_reaches
 ```
 
 ## The order the modules go in

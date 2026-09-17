@@ -28,14 +28,18 @@ alternatives the original could not offer.
 import logging
 import os
 import re
+import threading
 
 import numpy as np
 
-from . import config, raster, shear
+import rasterio
+from scipy.spatial import cKDTree
+
+from . import config, raster, shear, tiled
 
 __all__ = ["detrended_dem", "water_level_elevation", "interpolated_depth",
            "depth_to_water_table", "morphological_units", "MorphologicalUnits",
-           "bed_shear_stress", "write_input_definitions", "align_condition",
+           "bed_shear_stress", "ShearRasterWriters", "write_input_definitions", "align_condition",
            "build_product", "INTERPOLATION_METHODS", "MU_ALIASES", "PRODUCTS"]
 
 logger = logging.getLogger("riverarchitect")
@@ -44,15 +48,132 @@ logger = logging.getLogger("riverarchitect")
 INTERPOLATION_METHODS = ("nearest", "idw", "kriging")
 
 
-def _interpolate(points, values, profile, method="nearest", **kwargs):
+def _interpolate(points, values, profile, method="nearest", window=None, tree=None,
+                 **kwargs):
     """Dispatch to the requested interpolator in :mod:`riverarchitect.raster`."""
     if method == "nearest":
-        return raster.nearest_neighbour(points, values, profile)
+        return raster.nearest_neighbour(points, values, profile, window=window, tree=tree)
     if method == "idw":
-        return raster.idw(points, values, profile, **kwargs)
+        return raster.idw(points, values, profile, window=window, tree=tree, **kwargs)
     if method == "kriging":
-        return raster.kriging(points, values, profile, **kwargs)
+        return raster.kriging(points, values, profile, window=window, **kwargs)
     raise ValueError("method must be one of %s" % (INTERPOLATION_METHODS,))
+
+
+#: Bytes per sampled point while a surface is interpolated block by block: coordinates,
+#: value and the KD-tree over them.
+_BYTES_PER_POINT = 64
+
+
+def _blockwise(profile, layers, output_path):
+    """Whether a preprocessing function runs block by block.
+
+    Only with a file to write to: without one the result is returned as an array, which a
+    grid that fits in memory can still be even when block-wise processing is forced.
+    """
+    if not tiled.enabled(profile, layers):
+        return False
+    if output_path:
+        return True
+    forced = str(config.TILING).lower() == "always"
+    need = int(profile["height"]) * int(profile["width"]) * 8 * layers
+    if forced and need <= config.memory_budget():
+        return False
+    raise ValueError("%d x %d cells are too large to return in memory - pass output_path"
+                     % (profile["height"], profile["width"]))
+
+
+def _surface_blockwise(dem_path, depth_path, output_path, method, step, kind, what,
+                       dtype="float32", clip=False):
+    """:func:`detrended_dem` or :func:`water_level_elevation` for a grid too large to hold.
+
+    The sample points are gathered in row-major strips, so ``step`` picks exactly the cells
+    it picks from the whole array. When even the sample would not fit in the memory budget,
+    ``step`` is raised, and that is logged. Blocks without a single DEM cell are left
+    NoData: an extrapolated surface far from any terrain serves no analysis. ``clip``
+    leaves every cell without terrain NoData, for a surface that is only ever compared
+    with the DEM.
+    """
+    from rasterio.windows import Window
+
+    profile = raster.profile_of(dem_path)
+    height, width = int(profile["height"]), int(profile["width"])
+    logger.info("   >> %d x %d cells exceed the memory budget - processing block by block",
+                height, width)
+
+    def strips(with_dem=True):
+        for row in range(0, height, 64):
+            window = Window(0, row, width, min(64, height - row))
+            if tiled.has_data(depth_path, profile, window):
+                dem = tiled.read(dem_path, profile, window) if with_dem else None
+                yield window, dem, tiled.read(depth_path, profile, window)
+
+    wet_cells = sum(int((np.nan_to_num(d) > 0.0).sum())
+                    for _w, _z, d in strips(with_dem=False))
+    affordable = max(1, config.memory_budget() // 2 // _BYTES_PER_POINT)
+    if wet_cells // max(1, step) > affordable:
+        raised = -(-wet_cells // affordable)
+        logger.warning("   >> %d wetted cells do not fit in the memory budget - sampling "
+                       "every %d-th instead of every %d-th", wet_cells, raised, step)
+        step = raised
+
+    points, values = [], []
+    seen = 0
+    for window, dem, depth in strips():
+        wetted = np.nan_to_num(depth) > 0.0
+        sampled = raster.con(wetted, dem + depth if kind == "wle" else dem)
+        rows, cols = np.where(np.isfinite(sampled))
+        # The ordinal of each finite cell in the whole raster decides whether it is taken.
+        take = (seen + np.arange(rows.size)) % step == 0
+        seen += rows.size
+        rows, cols = rows[take], cols[take]
+        xs, ys = rasterio.transform.xy(profile["transform"], rows + int(window.row_off),
+                                       cols)
+        points.append(np.column_stack([xs, ys]).reshape(-1, 2))
+        values.append(sampled[rows, cols])
+    points = np.concatenate(points) if points else np.zeros((0, 2))
+    values = np.concatenate(values) if values else np.zeros(0)
+    if points.size == 0:
+        raise ValueError("no wetted cell in %s - cannot %s" % (depth_path, what))
+    logger.info("   >> interpolating from %d wetted cells (%s)", len(values), method)
+    # One tree for every block; kriging keeps its own search.
+    tree = None if method == "kriging" else cKDTree(points)
+
+    def work(block):
+        dem = tiled.read(dem_path, profile, block.window)
+        if not np.isfinite(dem).any():
+            return
+        surface = _interpolate(points, values, profile, method=method, window=block.window,
+                               tree=tree)
+        if kind != "wle":
+            surface = dem - surface
+        elif clip:
+            surface = np.where(np.isfinite(dem), surface, np.nan)
+        out.write(block, surface)
+
+    options = {"predictor": 3} if dtype.startswith("float") else {}
+    with tiled.Writer(output_path, profile, dtype=dtype, **options) as out:
+        tiled.map_blocks(work, profile, label="interpolating", needs=[dem_path])
+    return output_path, profile
+
+
+def _copy_raster(source, target, dtype="float32"):
+    """Copy a raster block by block, as :func:`riverarchitect.raster.write` would write it."""
+    profile = raster.profile_of(source)
+    with tiled.Writer(target, profile, dtype=dtype) as out:
+        tiled.map_blocks(lambda block: out.write(
+            block, tiled.read(source, profile, block.window)), profile, needs=[source])
+    return target
+
+
+def _as_surface(wle, profile, window=None):
+    """A water surface given as an array or a raster path, on ``profile``."""
+    if isinstance(wle, str):
+        if window is None:
+            array, wle_profile = raster.read(wle)
+            return raster.align(array, wle_profile, profile)
+        return tiled.read(wle, profile, window)
+    return wle if window is None else wle[window.toslices()]
 
 
 def _sample_points(array, profile, step=1):
@@ -80,8 +201,12 @@ def detrended_dem(dem_path, depth_path, output_path=None, method="nearest", step
         step (int): sample every n-th thalweg cell. Raise it on very large rasters.
 
     Returns:
-        tuple: ``(detrended, profile)``.
+        tuple: ``(detrended, profile)``. On a grid too large to hold, ``detrended`` is
+        ``output_path``, which is then required.
     """
+    if _blockwise(raster.profile_of(dem_path), 6, output_path):
+        return _surface_blockwise(dem_path, depth_path, output_path, method, step,
+                                  "thalweg", "locate a thalweg")
     dem, profile = raster.read(dem_path)
     depth, depth_profile = raster.read(depth_path)
     depth = raster.align(depth, depth_profile, profile)
@@ -113,8 +238,12 @@ def water_level_elevation(dem_path, depth_path, output_path=None, method="neares
     depth-to-groundwater raster possible on dry land.
 
     Returns:
-        tuple: ``(wle, profile)``.
+        tuple: ``(wle, profile)``. On a grid too large to hold, ``wle`` is
+        ``output_path``, which is then required.
     """
+    if _blockwise(raster.profile_of(dem_path), 6, output_path):
+        return _surface_blockwise(dem_path, depth_path, output_path, method, step,
+                                  "wle", "build a water surface")
     dem, profile = raster.read(dem_path)
     depth, depth_profile = raster.read(depth_path)
     depth = raster.align(depth, depth_profile, profile)
@@ -140,19 +269,58 @@ def interpolated_depth(dem_path, depth_path, output_path=None, wle=None, **kwarg
     ``wle - dem``, kept where positive. Used where a 2D model covers less than the area an
     analysis needs.
 
+    Args:
+        wle: the water surface, as an array or a raster path. Built when not given.
+
     Returns:
-        tuple: ``(depth, profile)``.
+        tuple: ``(depth, profile)``, with ``output_path`` for ``depth`` on a grid too
+        large to hold.
     """
+    def derive(dem, surface):
+        depth = surface - dem
+        with np.errstate(invalid="ignore"):
+            return raster.con(depth > 0.0, depth)
+
+    return _from_surface(dem_path, depth_path, output_path, wle, derive, kwargs)
+
+
+def _from_surface(dem_path, depth_path, output_path, wle, derive, kwargs):
+    """Shared body of :func:`interpolated_depth` and :func:`depth_to_water_table`."""
+    profile = raster.profile_of(dem_path)
+    if _blockwise(profile, 4, output_path):
+        scratch = None
+        if wle is None:
+            # A surface of its own, beside the output but never over an existing file.
+            import tempfile
+
+            scratch = tempfile.mkdtemp(
+                prefix="wle-", dir=os.path.dirname(os.path.abspath(output_path)))
+            wle, _profile = water_level_elevation(
+                dem_path, depth_path, os.path.join(scratch, "wle.tif"), **kwargs)
+
+        def work(block):
+            dem = tiled.read(dem_path, profile, block.window)
+            if np.isfinite(dem).any():
+                out.write(block, derive(dem, _as_surface(wle, profile, block.window)))
+
+        try:
+            with tiled.Writer(output_path, profile) as out:
+                tiled.map_blocks(work, profile, layers=4, needs=[dem_path])
+        finally:
+            if scratch:
+                import shutil
+
+                shutil.rmtree(scratch, ignore_errors=True)
+        return output_path, profile
+
     dem, profile = raster.read(dem_path)
     if wle is None:
         wle, profile = water_level_elevation(dem_path, depth_path, **kwargs)
-
-    depth = wle - dem
-    depth = raster.con(depth > 0.0, depth)
+    result = derive(dem, _as_surface(wle, profile))
 
     if output_path:
-        raster.write(output_path, depth, profile)
-    return depth, profile
+        raster.write(output_path, result, profile)
+    return result, profile
 
 
 def depth_to_water_table(dem_path, depth_path, output_path=None, wle=None, **kwargs):
@@ -162,18 +330,15 @@ def depth_to_water_table(dem_path, depth_path, output_path=None, wle=None, **kwa
     vegetation-planting features are keyed to. Cells below the water surface are negative,
     and are kept rather than clipped - a planting feature needs to know it is under water.
 
+    Args:
+        wle: the water surface, as an array or a raster path. Built when not given.
+
     Returns:
-        tuple: ``(d2w, profile)``.
+        tuple: ``(d2w, profile)``, with ``output_path`` for ``d2w`` on a grid too large
+        to hold.
     """
-    dem, profile = raster.read(dem_path)
-    if wle is None:
-        wle, profile = water_level_elevation(dem_path, depth_path, **kwargs)
-
-    d2w = dem - wle
-
-    if output_path:
-        raster.write(output_path, d2w, profile)
-    return d2w, profile
+    return _from_surface(dem_path, depth_path, output_path, wle,
+                         lambda dem, surface: dem - surface, kwargs)
 
 
 # -------------------------------------------------------------- morphological units
@@ -292,33 +457,77 @@ def morphological_units(depth_path, velocity_path, output_path=None, table=None,
         unit (str): unit system of the rasters.
 
     Returns:
-        tuple: ``(mu, profile, table)``.
+        tuple: ``(mu, profile, table)``. On a grid too large to hold, ``mu`` is
+        ``output_path``, which is then required.
     """
     table = table or MorphologicalUnits(unit=unit)
+    units = table.classifiable()
+    if _blockwise(raster.profile_of(depth_path), 2 * len(units) + 4, output_path):
+        return _morphological_units_blockwise(depth_path, velocity_path, output_path,
+                                              table, 2 * len(units) + 4)
     depth, profile = raster.read(depth_path)
     velocity, velocity_profile = raster.read(velocity_path)
     velocity = raster.align(velocity, velocity_profile, profile)
 
-    wet = np.nan_to_num(depth) > 0.0
-    layers = []
-    for name, entry in table.classifiable().items():
-        with np.errstate(invalid="ignore"):
-            selected = (wet
-                        & (depth >= entry["h_min"]) & (depth < entry["h_max"])
-                        & (velocity >= entry["u_min"]) & (velocity < entry["u_max"]))
-        if selected.any():
-            layers.append(raster.con(selected, float(entry["code"])))
-            logger.info("   >> %-22s code %-3d %d cell(s)", name, entry["code"],
-                        int(selected.sum()))
+    layers, counts = _classify(depth, velocity, units)
+    for name, count in counts.items():
+        if count:
+            logger.info("   >> %-22s code %-3d %d cell(s)", name, units[name]["code"], count)
 
     if not layers:
-        raise ValueError("no cell falls into any morphological unit - check the units of "
-                         "the depth and velocity rasters against the table")
+        raise ValueError(_NO_UNIT)
 
     mu = raster.cell_statistics(layers, "MAXIMUM")
     if output_path:
         raster.write(output_path, mu, profile)
     return mu, profile, table
+
+
+_NO_UNIT = ("no cell falls into any morphological unit - check the units of the depth and "
+            "velocity rasters against the table")
+
+
+def _classify(depth, velocity, units):
+    """Per-unit code layers of the cells each unit claims, and how many it claims."""
+    wet = np.nan_to_num(depth) > 0.0
+    layers, counts = [], {}
+    for name, entry in units.items():
+        with np.errstate(invalid="ignore"):
+            selected = (wet
+                        & (depth >= entry["h_min"]) & (depth < entry["h_max"])
+                        & (velocity >= entry["u_min"]) & (velocity < entry["u_max"]))
+        counts[name] = int(selected.sum())
+        if counts[name]:
+            layers.append(raster.con(selected, float(entry["code"])))
+    return layers, counts
+
+
+def _morphological_units_blockwise(depth_path, velocity_path, output_path, table, layers):
+    units = table.classifiable()
+    profile = raster.profile_of(depth_path)
+
+    def work(block):
+        depth = tiled.read(depth_path, profile, block.window)
+        if not (np.nan_to_num(depth) > 0.0).any():
+            return None
+        velocity = tiled.read(velocity_path, profile, block.window)
+        classes, counts = _classify(depth, velocity, units)
+        if classes:
+            out.write(block, raster.cell_statistics(classes, "MAXIMUM"))
+        return counts
+
+    with tiled.Writer(output_path, profile) as out:
+        parts = [p for p in tiled.map_blocks(work, profile, layers=layers,
+                                             label="morphological units",
+                                             needs=[depth_path]) if p]
+    totals = {name: sum(part[name] for part in parts) for name in units}
+    for name, count in totals.items():
+        if count:
+            logger.info("   >> %-22s code %-3d %d cell(s)", name, units[name]["code"], count)
+    if not any(totals.values()):
+        os.remove(output_path)
+        raise ValueError(_NO_UNIT)
+    return output_path, profile, table
 
 
 # -------------------------------------------------------------- bed shear stress
@@ -355,6 +564,72 @@ def write_shear_rasters(result, profile, output_dir, token):
             raster.write(path, array, profile)
         written[quantity] = path
     return written
+
+
+class ShearRasterWriters:
+    """:func:`write_shear_rasters`, block by block, for any number of discharges.
+
+    Thread-safe. Also keeps the regime counts that :func:`shear.regime_summary` would give
+    for the whole grid.
+
+    Args:
+        profile (dict): the grid.
+        output_dir (str): destination folder, or ``None`` to only count the regimes.
+    """
+
+    def __init__(self, profile, output_dir):
+        self.profile = profile
+        self.output_dir = output_dir
+        self._seen = {}
+        self._writers = {}
+        self._counts = {}
+        self._lock = threading.Lock()
+
+    def _writer(self, token, quantity):
+        from . import tiled
+
+        key = (token, quantity)
+        with self._lock:
+            if key not in self._writers:
+                os.makedirs(self.output_dir, exist_ok=True)
+                path = os.path.join(self.output_dir,
+                                    "%s%s.tif" % (SHEAR_PREFIXES[quantity], token))
+                if quantity == "regime":
+                    self._writers[key] = tiled.Writer(path, self.profile, dtype="uint8",
+                                                      nodata=0)
+                else:
+                    self._writers[key] = tiled.Writer(path, self.profile)
+            return self._writers[key]
+
+    def write(self, token, block, result):
+        """Write the part of ``result`` (over ``block.outer``) that ``block`` owns."""
+        if self.output_dir is not None:
+            for quantity in SHEAR_PREFIXES:
+                self._writer(token, quantity).write(block,
+                                                    block.crop(getattr(result, quantity)))
+        counts = np.bincount(block.crop(result.regime).ravel(), minlength=4)
+        with self._lock:
+            self._seen.setdefault(token, None)
+            self._counts[token] = self._counts.get(token, 0) + counts
+
+    def tokens(self):
+        """Discharge tokens seen so far, in the order first seen."""
+        return list(self._seen)
+
+    def summary(self, token):
+        """:func:`shear.regime_summary` of one discharge over the whole grid."""
+        counts = np.array(self._counts.get(token, np.zeros(4, dtype=np.int64)))
+        cells = int(self.profile["height"]) * int(self.profile["width"])
+        counts[0] = cells - int(counts[1:].sum())
+        return {shear.REGIME_LABELS[code]: int(counts[code])
+                for code in sorted(shear.REGIME_LABELS)}
+
+    def close(self):
+        """Finish every file. Returns ``{token: {quantity: path}}``."""
+        written = {}
+        for (token, quantity), writer in self._writers.items():
+            written.setdefault(token, {})[quantity] = writer.close()
+        return written
 
 
 def bed_shear_stress(condition, unit="us", discharges=None, output_dir=None,
@@ -415,6 +690,10 @@ def bed_shear_stress(condition, unit="us", discharges=None, output_dir=None,
         raise ValueError("condition %r has no paired depth and velocity rasters.\n\n%s"
                          % (condition.name, condition.describe()))
 
+    reference = raster.profile_of(grain_path)
+    if tiled.enabled(reference, 12):
+        return _bed_shear_stress_blockwise(condition, discharges, target, gravity,
+                                           grain_path, grain_kind, reference)
     grain, reference = raster.read(grain_path)
     d84 = shear.d84_of(grain, grain_kind)
 
@@ -443,12 +722,77 @@ def bed_shear_stress(condition, unit="us", discharges=None, output_dir=None,
                     ", ".join("%s %d" % item for item in summary.items()))
         results.append({"discharge": discharge, "rasters": written, "regime": summary})
 
+    _check_shear(results, condition)
+    return results
+
+
+def _check_shear(results, condition):
     if results and not any(entry["regime"]["invalid"] < sum(entry["regime"].values())
                            for entry in results):
         raise ValueError(
             "the bed shear stress is NoData everywhere, at every discharge. Check that the "
             "grain raster %r holds grain diameters in the condition's length unit and "
             "shares the extent of the hydraulic rasters." % condition.grain_raster)
+
+
+def _bed_shear_stress_blockwise(condition, discharges, target, gravity, grain_path,
+                                grain_kind, reference):
+    from .condition import discharge_token
+
+    logger.info("   >> %d x %d cells exceed the memory budget - processing block by block",
+                reference["height"], reference["width"])
+    pairs = []
+    for discharge in discharges:
+        depth_name = condition.depth_raster_for(discharge)
+        velocity_name = condition.velocity_raster_for(discharge)
+        if not (depth_name and velocity_name):
+            logger.info("   >> no depth/velocity pair at %s - skipped",
+                        discharge_token(discharge))
+            continue
+        pairs.append((discharge, condition.token_for(discharge),
+                      condition.path(depth_name), condition.path(velocity_name)))
+
+    sink = ShearRasterWriters(reference, target)
+
+    def work(block):
+        grain = tiled.read(grain_path, reference, block.window)
+        if not np.isfinite(grain).any():
+            return
+        d84 = shear.d84_of(grain, grain_kind)
+        for _discharge, token, depth_path, velocity_path in pairs:
+            depth = tiled.read(depth_path, reference, block.window)
+            depth = np.where(depth > 0, depth, np.nan)
+            if not np.isfinite(depth).any():
+                continue
+            velocity = tiled.read(velocity_path, reference, block.window)
+            sink.write(token, block, shear.calculate_taux(velocity, depth, d84,
+                                                          gravity=gravity))
+
+    try:
+        tiled.map_blocks(work, reference, layers=12, label="bed shear stress",
+                         needs=[grain_path])
+    finally:
+        written = sink.close()
+
+    results = []
+    for discharge, token, _depth, _velocity in pairs:
+        # A discharge that wets no cell with a grain size is still reported, and written,
+        # as the whole-grid path does.
+        rasters = written.get(token)
+        if rasters is None:
+            rasters = {}
+            for quantity, prefix in SHEAR_PREFIXES.items():
+                path = os.path.join(target, "%s%s.tif" % (prefix, token))
+                if quantity == "regime":
+                    tiled.Writer(path, reference, dtype="uint8", nodata=0).close()
+                else:
+                    tiled.Writer(path, reference).close()
+                rasters[quantity] = path
+        summary = sink.summary(token)
+        logger.info("   >> taux %s: %s", token,
+                    ", ".join("%s %d" % item for item in summary.items()))
+        results.append({"discharge": discharge, "rasters": rasters, "regime": summary})
+    _check_shear(results, condition)
     return results
 
 
@@ -556,9 +900,10 @@ def align_condition(condition_dir, reference=None, output_dir=None, pattern="*.t
     output_dir = output_dir or condition_dir
     os.makedirs(output_dir, exist_ok=True)
 
+    blockwise = tiled.enabled(reference_profile, 3)
     results = {}
     for path in paths:
-        array, profile = raster.read(path)
+        profile = raster.profile_of(path)
         same_grid = (profile["width"] == reference_profile["width"]
                      and profile["height"] == reference_profile["height"]
                      and profile["transform"] == reference_profile["transform"])
@@ -566,8 +911,20 @@ def align_condition(condition_dir, reference=None, output_dir=None, pattern="*.t
         if same_grid and os.path.abspath(target) == os.path.abspath(path):
             results[path] = "unchanged"
             continue
-        aligned = array if same_grid else raster.align(array, profile, reference_profile)
-        raster.write(target, aligned, reference_profile)
+        if blockwise:
+            # Written beside the target and moved over it, since the source may be it.
+            partial = target + ".partial.tif"
+            with tiled.Writer(partial, reference_profile) as out:
+                tiled.map_blocks(
+                    lambda block, path=path: out.write(
+                        block, tiled.read(path, reference_profile, block.window)),
+                    reference_profile, needs=[path])
+            os.replace(partial, target)
+        else:
+            array, profile = raster.read(path)
+            aligned = array if same_grid \
+                else raster.align(array, profile, reference_profile)
+            raster.write(target, aligned, reference_profile)
         results[path] = "unchanged" if same_grid else "aligned"
     logger.info("   >> aligned %d of %d raster(s) onto %s",
                 sum(1 for value in results.values() if value == "aligned"), len(results),
@@ -650,13 +1007,30 @@ def build_product(condition_name, key, discharge=None, method="nearest", unit="u
         lines.append("wrote %s" % path)
     elif key == "water":
         wle_path = os.path.join(target, "wle.tif")
-        wle, _profile = water_level_elevation(dem, depth, wle_path, method=method)
-        lines.append("wrote %s" % wle_path)
-        for maker, filename in ((interpolated_depth, "h_interp.tif"),
-                                (depth_to_water_table, "d2w.tif")):
-            path = os.path.join(target, filename)
-            maker(dem, depth, path, wle=wle)
-            lines.append("wrote %s" % path)
+        scratch = None
+        if tiled.enabled(raster.profile_of(dem), 6):
+            # The products below are derived from the float64 surface, as in memory; the
+            # file the user gets is its float32 copy, rounded as raster.write rounds.
+            import shutil
+            import tempfile
+
+            scratch = tempfile.mkdtemp(prefix="wle-", dir=target)
+            wle, _profile = _surface_blockwise(
+                dem, depth, os.path.join(scratch, "wle.tif"), method, 1, "wle",
+                "build a water surface", dtype="float64")
+            _copy_raster(wle, wle_path)
+        else:
+            wle, _profile = water_level_elevation(dem, depth, wle_path, method=method)
+        try:
+            lines.append("wrote %s" % wle_path)
+            for maker, filename in ((interpolated_depth, "h_interp.tif"),
+                                    (depth_to_water_table, "d2w.tif")):
+                path = os.path.join(target, filename)
+                maker(dem, depth, path, wle=wle)
+                lines.append("wrote %s" % path)
+        finally:
+            if scratch:
+                shutil.rmtree(scratch, ignore_errors=True)
     elif key == "mu":
         velocity = condition.path(condition.velocity_raster_for(discharge))
         path = os.path.join(target, "mu.tif")

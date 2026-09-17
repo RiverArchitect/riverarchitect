@@ -103,13 +103,24 @@ def write(path, array, prof, dtype="float32", nodata=None, compress="lzw"):
     out = prof.copy()
     out.update(dtype=dtype, nodata=nodata, count=1, compress=compress)
     out.pop("photometric", None)
-    filled = np.where(np.isfinite(array), array, nodata).astype(dtype)
+    filled = stamp_nodata(array, nodata, dtype)
     directory = os.path.dirname(os.path.abspath(path))
     if directory:
         os.makedirs(directory, exist_ok=True)
     with rasterio.open(path, "w", **out) as dst:
         dst.write(filled, 1)
     return path
+
+
+def stamp_nodata(array, nodata, dtype):
+    """``array`` as ``dtype`` with every non-finite cell set to ``nodata``.
+
+    Integer arrays carry no NaN and are only cast.
+    """
+    array = np.asarray(array)
+    if not np.issubdtype(array.dtype, np.floating):
+        return array.astype(dtype)
+    return np.where(np.isfinite(array), array, nodata).astype(dtype)
 
 
 def cell_size(prof):
@@ -232,6 +243,12 @@ def cell_statistics(arrays, statistic="MAXIMUM", ignore_nodata=True):
     if key not in funcs:
         raise ValueError("unsupported statistic %r" % statistic)
 
+    if ignore_nodata and key in ("MAXIMUM", "MINIMUM"):
+        # fmax/fmin skip NaN like nanmax/nanmin and give NaN where every value is NaN, but
+        # without a warning - and so without `catch_warnings`, which is process-wide and not
+        # safe to enter from the threads of a block-wise run.
+        return (np.fmax if key == "MAXIMUM" else np.fmin).reduce(stack, axis=0)
+
     func = funcs[key][0 if ignore_nodata else 1]
     with np.errstate(invalid="ignore"):
         # all-NaN slices legitimately produce NaN; arcpy returns NoData there too
@@ -260,12 +277,18 @@ def reclassify(array, breaks, values, right=True):
     return np.where(np.isfinite(array), out, np.nan)
 
 
-def slope(dem, dx, dy, units="DEGREE"):
+def slope(dem, dx, dy, units="DEGREE", fill_value=None):
     """Surface slope. Replaces ``arcpy.sa.Slope``.
 
     Returns degrees by default, or percent rise when ``units="PERCENT"``.
+
+    NoData cells are filled with ``fill_value`` before differencing, which by default is
+    the mean of ``dem``. A caller working on part of a raster passes the mean of the whole
+    one, so that cells next to NoData get the same slope in every part.
     """
-    filled = np.where(np.isfinite(dem), dem, np.nanmean(dem))
+    if fill_value is None:
+        fill_value = np.nanmean(dem)
+    filled = np.where(np.isfinite(dem), dem, fill_value)
     grad_y, grad_x = np.gradient(filled, dy, dx)
     rise = np.hypot(grad_x, grad_y)
     result = rise * 100.0 if str(units).upper() == "PERCENT" else np.degrees(np.arctan(rise))
@@ -341,15 +364,29 @@ def raster_to_points(array, prof, step=1):
     return np.column_stack([xs, ys]), array[rows, cols]
 
 
-def _target_grid(prof):
-    rows, cols = np.mgrid[0:prof["height"], 0:prof["width"]]
+def _grid_shape(prof, window=None):
+    if window is None:
+        return int(prof["height"]), int(prof["width"])
+    return int(window.height), int(window.width)
+
+
+def _target_grid(prof, window=None):
+    """Cell centres of ``prof``, or of ``window`` within it.
+
+    A window's centres are computed from their indices in the *whole* grid, so every part
+    of a raster processed in parts sees exactly the coordinates the whole would.
+    """
+    height, width = _grid_shape(prof, window)
+    rows, cols = np.mgrid[0:height, 0:width]
+    if window is not None:
+        rows, cols = rows + int(window.row_off), cols + int(window.col_off)
     xs, ys = rasterio.transform.xy(prof["transform"], rows.ravel(), cols.ravel())
     return np.column_stack([xs, ys])
 
 
 # ----------------------------------------------------------------- interpolation
 
-def idw(points, values, prof, k=12, power=2.0):
+def idw(points, values, prof, k=12, power=2.0, window=None, tree=None):
     """Inverse-distance weighted interpolation onto the grid of ``prof``.
 
     Replaces ``arcpy.Idw_3d(..., search_radius="Variable 12")`` with its default power of 2.
@@ -360,22 +397,25 @@ def idw(points, values, prof, k=12, power=2.0):
         prof (dict): profile describing the output grid.
         k (int): number of nearest neighbours.
         power (float): inverse-distance exponent.
+        window (rasterio.windows.Window): interpolate only this part of the grid.
+        tree (scipy.spatial.cKDTree): a tree over ``points`` built already, for callers
+            interpolating many windows from the same points.
 
     Returns:
         numpy.ndarray: interpolated grid.
     """
-    tree = cKDTree(points)
+    tree = cKDTree(points) if tree is None else tree
     k = min(int(k), len(points))
-    distance, index = tree.query(_target_grid(prof), k=k)
+    distance, index = tree.query(_target_grid(prof, window), k=k)
     if k == 1:
         distance, index = distance[:, None], index[:, None]
     distance = np.maximum(distance, 1e-12)
     weight = 1.0 / distance ** float(power)
     grid = (weight * np.asarray(values)[index]).sum(axis=1) / weight.sum(axis=1)
-    return grid.reshape(prof["height"], prof["width"])
+    return grid.reshape(_grid_shape(prof, window))
 
 
-def nearest_neighbour(points, values, prof):
+def nearest_neighbour(points, values, prof, window=None, tree=None):
     """Nearest-neighbour interpolation.
 
     Matches the original's "Nearest Neighbor" option, which was ``Idw_3d`` with a single
@@ -383,13 +423,13 @@ def nearest_neighbour(points, values, prof):
     inverse-distance weighting, so the output reproduces input values exactly instead of
     carrying the rounding error of a weight division.
     """
-    tree = cKDTree(points)
-    _, index = tree.query(_target_grid(prof), k=1)
-    return np.asarray(values)[index].reshape(prof["height"], prof["width"])
+    tree = cKDTree(points) if tree is None else tree
+    _, index = tree.query(_target_grid(prof, window), k=1)
+    return np.asarray(values)[index].reshape(_grid_shape(prof, window))
 
 
 def kriging(points, values, prof, model="spherical", nlags=12, n_closest=12,
-            return_variance=False):
+            return_variance=False, window=None):
     """Ordinary kriging onto the grid of ``prof``.
 
     Replaces ``arcpy.sa.Kriging(..., KrigingModelOrdinary("Spherical", ...))``.
@@ -408,6 +448,7 @@ def kriging(points, values, prof, model="spherical", nlags=12, n_closest=12,
         nlags (int): number of variogram lag bins.
         n_closest (int): neighbours used per estimate.
         return_variance (bool): also return the estimation variance grid.
+        window (rasterio.windows.Window): interpolate only this part of the grid.
 
     Returns:
         numpy.ndarray or tuple: the grid, or ``(grid, variance)``.
@@ -417,12 +458,13 @@ def kriging(points, values, prof, model="spherical", nlags=12, n_closest=12,
     ok = OrdinaryKriging(points[:, 0], points[:, 1], values,
                          variogram_model=model, nlags=int(nlags),
                          enable_plotting=False, coordinates_type="euclidean")
-    target = _target_grid(prof)
+    target = _target_grid(prof, window)
     estimate, variance = ok.execute("points", target[:, 0], target[:, 1],
                                     n_closest_points=int(n_closest), backend="loop")
-    grid = np.asarray(estimate).reshape(prof["height"], prof["width"])
+    shape = _grid_shape(prof, window)
+    grid = np.asarray(estimate).reshape(shape)
     if return_variance:
-        return grid, np.asarray(variance).reshape(prof["height"], prof["width"])
+        return grid, np.asarray(variance).reshape(shape)
     return grid
 
 
@@ -508,7 +550,7 @@ def focal_fraction(mask, window=1, valid=None):
 
 
 def least_cost_distance(passable, sources, dx=1.0, dy=1.0, connectivity=8, allowed=None,
-                        towards_sources=False):
+                        towards_sources=False, seed_cost=None):
     """Least-cost distance between ``sources`` and every reachable cell, by Dijkstra.
 
     Replaces ``arcpy.sa.CostDistance`` and, more to the point, the hand-built weighted
@@ -536,6 +578,10 @@ def least_cost_distance(passable, sources, dx=1.0, dy=1.0, connectivity=8, allow
             escape-route direction - a fish leaves the pool for the mainstem - and it is why
             1.x traversed its graph outwards from the mainstem. Without a directed
             ``allowed`` the two are identical.
+        seed_cost (numpy.ndarray): a known cost for some passable cells, ``numpy.nan``
+            elsewhere. Those cells start the search at that cost rather than at 0. This is
+            how :func:`riverarchitect.tiled.least_cost_distance` hands the costs found in
+            one part of a raster to the next.
 
     Returns:
         numpy.ndarray: cost between each cell and the nearest source, ``numpy.nan`` where
@@ -546,8 +592,10 @@ def least_cost_distance(passable, sources, dx=1.0, dy=1.0, connectivity=8, allow
 
     passable = np.asarray(passable).astype(bool)
     sources = np.asarray(sources).astype(bool) & passable
+    seeded = np.zeros(passable.shape, dtype=bool) if seed_cost is None \
+        else np.isfinite(seed_cost) & passable & ~sources
     cost = np.full(passable.shape, np.nan)
-    if not passable.any() or not sources.any():
+    if not passable.any() or not (sources.any() or seeded.any()):
         return cost
 
     rows, cols = passable.shape
@@ -586,6 +634,8 @@ def least_cost_distance(passable, sources, dx=1.0, dy=1.0, connectivity=8, allow
     n = int(passable.sum())
     if not weight:
         cost[sources] = 0.0
+        if seeded.any():
+            cost[seeded] = seed_cost[seeded]
         return cost
     graph = coo_matrix((np.concatenate(weight),
                         (np.concatenate(from_index), np.concatenate(to_index))),
@@ -594,7 +644,22 @@ def least_cost_distance(passable, sources, dx=1.0, dy=1.0, connectivity=8, allow
     # this cell from reaching the mainstem", which is the question a stranded fish asks.
     graph = (graph.T if towards_sources else graph).tocsr()
 
-    distance = dijkstra(graph, directed=True, indices=index[sources], min_only=True)
+    if not seeded.any():
+        distance = dijkstra(graph, directed=True, indices=index[sources], min_only=True)
+    else:
+        # A virtual node with an edge to every start cell, weighted by its starting cost.
+        # scipy keeps explicit zeros as edges, so true sources join at exactly 0 and every
+        # route cost is summed in the same order as without the virtual node.
+        starts = sources | seeded
+        start_cost = np.where(sources, 0.0, np.nan if seed_cost is None else seed_cost)
+        # One COO build: adding sparse matrices would prune the zero-weight edges.
+        graph = graph.tocoo()
+        graph = coo_matrix(
+            (np.concatenate([graph.data, start_cost[starts]]),
+             (np.concatenate([graph.row, np.full(int(starts.sum()), n)]),
+              np.concatenate([graph.col, index[starts]]))),
+            shape=(n + 1, n + 1)).tocsr()
+        distance = dijkstra(graph, directed=True, indices=n)[:n]
     cost[passable] = np.where(np.isfinite(distance), distance, np.nan)
     return cost
 

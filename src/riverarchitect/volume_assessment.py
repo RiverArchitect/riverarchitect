@@ -29,7 +29,7 @@ import os
 
 import numpy as np
 
-from . import config, raster, volume
+from . import config, raster, tiled, volume
 
 __all__ = ["VolumeAssessment"]
 
@@ -89,11 +89,7 @@ class VolumeAssessment:
                              "original grid (%s -> %s).", modified.shape, original.shape)
             modified = raster.align(modified, modified_profile, original_profile)
 
-        dod = modified - original
-
-        # Suppress changes below the level of detection.
-        dod = np.where(np.abs(dod) < self.level_of_detection, 0.0, dod)
-        dod = np.where(np.isfinite(original) & np.isfinite(modified), dod, np.nan)
+        dod = self._dod(original, modified)
 
         self.dod = dod
         self.profile = original_profile
@@ -113,18 +109,7 @@ class VolumeAssessment:
         fill = volume.surface_volume(self.dod, dx, dy, plane=0.0, reference="ABOVE")
         cut = volume.surface_volume(self.dod, dx, dy, plane=0.0, reference="BELOW")
 
-        return {
-            "fill_volume": fill["volume"] * self.volume_factor,
-            "excavation_volume": cut["volume"] * self.volume_factor,
-            "net_volume": (fill["volume"] - cut["volume"]) * self.volume_factor,
-            "fill_area": fill["area_2d"],
-            "excavation_area": cut["area_2d"],
-            "fill_area_3d": fill["area_3d"],
-            "excavation_area_3d": cut["area_3d"],
-            "volume_unit": self.labels["volume"],
-            "area_unit": self.labels["area"],
-            "level_of_detection": self.level_of_detection,
-        }
+        return self._volumes(fill, cut)
 
     # -------------------------------------------------------------------- output
 
@@ -163,8 +148,13 @@ class VolumeAssessment:
         self.logger.info("Volume assessment: %s -> %s",
                          os.path.basename(self.original_dem),
                          os.path.basename(self.modified_dem))
-        self.difference()
-        result = self.volumes()
+        profile = raster.profile_of(self.original_dem)
+        blockwise = tiled.enabled(profile, 16)
+        if blockwise:
+            result = self._run_blockwise(profile, output_dir)
+        else:
+            self.difference()
+            result = self.volumes()
 
         self.logger.info("  fill        : %12.2f %s over %.1f %s",
                          result["fill_volume"], result["volume_unit"],
@@ -175,6 +165,78 @@ class VolumeAssessment:
         self.logger.info("  net         : %12.2f %s",
                          result["net_volume"], result["volume_unit"])
 
-        if output_dir:
+        if output_dir and not blockwise:
             result["rasters"] = self.write_rasters(output_dir)
+        return result
+
+    def _dod(self, original, modified):
+        dod = modified - original
+        # Suppress changes below the level of detection.
+        dod = np.where(np.abs(dod) < self.level_of_detection, 0.0, dod)
+        return np.where(np.isfinite(original) & np.isfinite(modified), dod, np.nan)
+
+    def _volumes(self, fill, cut):
+        return {
+            "fill_volume": fill["volume"] * self.volume_factor,
+            "excavation_volume": cut["volume"] * self.volume_factor,
+            "net_volume": (fill["volume"] - cut["volume"]) * self.volume_factor,
+            "fill_area": fill["area_2d"],
+            "excavation_area": cut["area_2d"],
+            "fill_area_3d": fill["area_3d"],
+            "excavation_area_3d": cut["area_3d"],
+            "volume_unit": self.labels["volume"],
+            "area_unit": self.labels["area"],
+            "level_of_detection": self.level_of_detection,
+        }
+
+    def _run_blockwise(self, profile, output_dir):
+        """:meth:`run` for DEMs too large to hold, one block at a time.
+
+        Each block is read with one extra row and column on its lower and right side, so
+        that every quad of four cell centres is integrated exactly once. :meth:`difference`
+        and :meth:`volumes` hold whole grids and are not used on this path; the DoD is only
+        available as the raster written to ``output_dir``.
+        """
+        self.logger.info("DEMs of %d x %d cells exceed the memory budget - processing "
+                         "block by block", profile["height"], profile["width"])
+        self.profile = profile
+        dx, dy = raster.cell_size(profile)
+        names = ("dod", "fill", "excavation")
+        paths = {name: os.path.join(output_dir, "%s.tif" % name) for name in names} \
+            if output_dir else {}
+        writers = {name: tiled.Writer(path, profile) for name, path in paths.items()}
+
+        def work(block):
+            original = tiled.read(self.original_dem, profile, block.outer)
+            if not np.isfinite(original).any():
+                return None
+            modified = tiled.read(self.modified_dem, profile, block.outer)
+            dod = self._dod(original, modified)
+            if writers:
+                inner = block.crop(dod)
+                writers["dod"].write(block, inner)
+                with np.errstate(invalid="ignore"):
+                    writers["fill"].write(block, raster.con(inner > 0, inner))
+                    writers["excavation"].write(block, raster.con(inner < 0, inner))
+            return (volume.surface_volume(dod, dx, dy, plane=0.0, reference="ABOVE"),
+                    volume.surface_volume(dod, dx, dy, plane=0.0, reference="BELOW"))
+
+        try:
+            parts = [p for p in tiled.map_blocks(work, profile, halo=(0, 1, 0, 1),
+                                                 layers=16, label="volumes",
+                                                 needs=[self.original_dem])
+                     if p is not None]
+        finally:
+            for writer in writers.values():
+                writer.close()
+
+        def total(index):
+            return {key: sum(part[index][key] for part in parts)
+                    for key in ("volume", "area_2d", "area_3d")}
+
+        result = self._volumes(total(0), total(1))
+        if paths:
+            for name, path in paths.items():
+                self.logger.info("Wrote %s raster: %s", name, path)
+            result["rasters"] = paths
         return result

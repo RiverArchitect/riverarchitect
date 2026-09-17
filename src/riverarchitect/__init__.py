@@ -9,6 +9,8 @@ Modules
 -------
 :mod:`riverarchitect.raster`
     Raster I/O, alignment, map algebra, interpolation, connectivity and zonal statistics.
+:mod:`riverarchitect.tiled`
+    Block-wise processing of rasters too large to hold in memory.
 :mod:`riverarchitect.volume`
     Triangulated-surface volume integration.
 :mod:`riverarchitect.volume_assessment`
@@ -58,7 +60,7 @@ __license__ = "BSD-3-Clause"
 
 from . import config  # noqa: F401
 
-__all__ = ["config", "guide", "condition", "raster", "shear", "volume",
+__all__ = ["config", "guide", "condition", "raster", "tiled", "shear", "volume",
            "volume_assessment", "lifespan", "maxlifespan", "terraforming",
            "riverbuilder", "stranding", "sharc", "preprocessing", "recruitment",
            "flows", "projectmaker", "poolriffle", "mapping", "tools", "__version__"]
@@ -71,7 +73,7 @@ def __getattr__(name):
     optional dependency (QGIS, pykrige, rasterstats) is missing: only the module that needs
     it fails, and only when it is actually used.
     """
-    if name in ("raster", "shear", "volume", "volume_assessment", "condition", "lifespan",
+    if name in ("raster", "tiled", "shear", "volume", "volume_assessment", "condition", "lifespan",
                 "maxlifespan", "terraforming", "riverbuilder", "stranding", "sharc",
                 "preprocessing", "recruitment", "flows", "projectmaker", "mapping",
                 "guide", "tools"):

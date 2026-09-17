@@ -5,6 +5,7 @@ API reference
    :maxdepth: 2
 
    raster
+   tiled
    condition
    shear
    preprocessing

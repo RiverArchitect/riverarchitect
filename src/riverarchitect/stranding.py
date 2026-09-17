@@ -47,10 +47,12 @@ stranded.
 
 import logging
 import os
+import shutil
+import tempfile
 
 import numpy as np
 
-from . import config, raster
+from . import config, raster, tiled
 from .condition import Condition, discharge_token
 
 __all__ = ["TRAVEL_THRESHOLDS", "travel_thresholds", "StrandingRisk"]
@@ -265,7 +267,10 @@ class StrandingRisk:
             self.logger.info("      * no velocity components for Q = %g - the velocity "
                              "criterion does not apply there", discharge)
             return None
+        return self._rule(ux, uy, dx, dy)
 
+    def _rule(self, ux, uy, dx, dy):
+        """``allowed(dr, dc)`` from eastward and northward velocity arrays."""
         def allowed(dr, dc):
             # Row indices grow southwards, so a step of +1 row moves -dy northwards.
             east, north = dc * abs(dx), -dr * abs(dy)
@@ -386,6 +391,11 @@ class StrandingRisk:
         reference = raster.profile_of(self._available[self.discharges[0]])
         dx, dy = raster.cell_size(reference)
         cell_area = dx * dy
+        # A wetted mask, its labels, and a directed graph of several arrays per cell.
+        layers = 12 if self.velocity_limited else 4
+        if tiled.enabled(reference, layers + len(self.discharges)):
+            return self._run_blockwise(output_dir, write_rasters, write_escape_routes,
+                                       reference, layers)
 
         self.main_channel(reference)
         if self.u_max is not None and not self.velocity_limited:
@@ -401,16 +411,8 @@ class StrandingRisk:
             mask, pools = self._disconnected(discharge, wet, reference)
             per_discharge_masks.append(raster.con(mask, float(discharge)))
 
-            wetted_area = float(wet.sum() * cell_area)
-            stranded_area = float(mask.sum() * cell_area)
-            rows.append({
-                "discharge": discharge,
-                "pools": int(pools),
-                "wetted_area": wetted_area,
-                "stranded_area": stranded_area,
-                "percent_stranded": (100.0 * stranded_area / wetted_area)
-                                    if wetted_area else 0.0,
-            })
+            rows.append(self._row(discharge, pools, int(wet.sum()), int(mask.sum()),
+                                  cell_area))
 
             if write_rasters:
                 raster.write(os.path.join(output_dir, "disconnected_%s.tif"
@@ -421,6 +423,26 @@ class StrandingRisk:
                                           % discharge_token(discharge)),
                              self.escape_routes(discharge, reference), reference)
 
+        result = self._result(rows)
+        q_disconnect = raster.cell_statistics(per_discharge_masks, "MAXIMUM")
+        result["total_disconnected_area"] = float(
+            np.isfinite(q_disconnect).sum() * cell_area)
+        worst = self._worst(result, rows)
+
+        if write_rasters:
+            path = os.path.join(output_dir, "Q_disconnect.tif")
+            raster.write(path, q_disconnect, reference)
+            result["q_disconnect_raster"] = path
+            result["output_dir"] = output_dir
+            if worst:
+                pools_path = self.write_pools(worst["discharge"], output_dir, reference)
+                if pools_path:
+                    result["pools_layer"] = pools_path
+
+        return result
+
+    def _result(self, rows):
+        """The summary of :meth:`run`, less the parts that need the rasters."""
         # The original expressed the disconnected area as a share of the wetted extent at
         # the *highest* discharge rather than at the discharge in hand, so the column is
         # comparable down the recession. It is the largest wetted extent that is meant, and
@@ -432,7 +454,7 @@ class StrandingRisk:
             row["percent_of_max_wetted"] = (100.0 * row["stranded_area"] / reference_area) \
                 if reference_area else 0.0
 
-        result = {
+        return {
             "condition": self.condition.name,
             "h_min": self.h_min,
             "species": self.species,
@@ -446,25 +468,243 @@ class StrandingRisk:
             "u_max": self.u_max,
         }
 
-        q_disconnect = raster.cell_statistics(per_discharge_masks, "MAXIMUM")
-        result["total_disconnected_area"] = float(
-            np.isfinite(q_disconnect).sum() * cell_area)
-
+    @staticmethod
+    def _worst(result, rows):
         worst = max(rows, key=lambda row: row["stranded_area"]) if rows else None
         result["worst_discharge"] = worst["discharge"] if worst else None
         result["worst_stranded_area"] = worst["stranded_area"] if worst else 0.0
+        return worst
 
-        if write_rasters:
-            path = os.path.join(output_dir, "Q_disconnect.tif")
-            raster.write(path, q_disconnect, reference)
-            result["q_disconnect_raster"] = path
-            result["output_dir"] = output_dir
-            if worst:
-                pools_path = self.write_pools(worst["discharge"], output_dir, reference)
-                if pools_path:
-                    result["pools_layer"] = pools_path
+    @staticmethod
+    def _row(discharge, pools, wet_cells, stranded_cells, cell_area):
+        wetted_area = float(wet_cells * cell_area)
+        stranded_area = float(stranded_cells * cell_area)
+        return {
+            "discharge": discharge,
+            "pools": int(pools),
+            "wetted_area": wetted_area,
+            "stranded_area": stranded_area,
+            "percent_stranded": (100.0 * stranded_area / wetted_area)
+                                if wetted_area else 0.0,
+        }
 
+    # ------------------------------------------------------------------ block-wise
+
+    def _run_blockwise(self, output_dir, write_rasters, write_escape_routes, reference,
+                       layers):
+        """:meth:`run` for a grid too large to hold, one block at a time.
+
+        The main channel and the pools come from connected components stitched across
+        block seams (:func:`riverarchitect.tiled.label_components`), the escape routes from
+        a block-wise Dijkstra search (:func:`riverarchitect.tiled.least_cost_distance`);
+        both give exactly what the whole grid does.
+        """
+        self.logger.info("   >> %d x %d cells exceed the memory budget - processing block "
+                         "by block", reference["height"], reference["width"])
+        if self.u_max is not None and not self.velocity_limited:
+            self.logger.info("   >> u_max = %g is recorded but not applied: the condition "
+                             "carries flow speed, not direction. See velocity_field.",
+                             self.u_max)
+        dx, dy = raster.cell_size(reference)
+        cell_area = dx * dy
+        keep = write_rasters or write_escape_routes
+        scratch = tempfile.mkdtemp(prefix="stranding-", dir=output_dir if keep else None)
+        try:
+            target = self._main_channel_blockwise(reference, scratch, layers)
+            rows, masks = [], []
+            for discharge in self.discharges:
+                token = discharge_token(discharge)
+                mask_path = os.path.join(output_dir if write_rasters else scratch,
+                                         "disconnected_%s.tif" % token)
+                escape_path = os.path.join(output_dir if write_escape_routes else scratch,
+                                           "escape_%s.tif" % token)
+                counts = self._disconnected_blockwise(discharge, reference, target,
+                                                      mask_path, escape_path, scratch,
+                                                      layers, write_escape_routes)
+                rows.append(self._row(discharge, *counts, cell_area=cell_area))
+                masks.append((discharge, mask_path))
+
+            result = self._result(rows)
+            q_path = os.path.join(output_dir if write_rasters else scratch,
+                                  "Q_disconnect.tif")
+            result["total_disconnected_area"] = float(
+                self._q_disconnect_blockwise(reference, masks, q_path, layers) * cell_area)
+            worst = self._worst(result, rows)
+            if write_rasters:
+                result["q_disconnect_raster"] = q_path
+                result["output_dir"] = output_dir
+                if worst and worst["stranded_area"]:
+                    pools_path = self._write_pools_blockwise(
+                        dict(masks)[worst["discharge"]], worst["discharge"], output_dir,
+                        reference, layers)
+                    if pools_path:
+                        result["pools_layer"] = pools_path
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
         return result
+
+    def _wet_window(self, discharge, reference, window):
+        depth = tiled.read(self._available[float(discharge)], reference, window)
+        return np.nan_to_num(depth) > self.h_min
+
+    def _main_channel_blockwise(self, reference, scratch, layers):
+        """Path of a raster marking the main channel, or None; see :meth:`main_channel`."""
+        if self.target_discharge is False:
+            return None
+        discharge = self.target_discharge
+        components = tiled.label_components(
+            lambda block: (self._wet_window(discharge, reference, block.window), None),
+            reference, os.path.join(scratch, "labels_target.tif"),
+            connectivity=self.connectivity, layers=layers,
+            needs=[self._available[float(discharge)]])
+        try:
+            if not components.count:
+                self.logger.info("      * nothing is wetted at the target discharge %g - "
+                                 "falling back to the largest region per discharge",
+                                 discharge)
+                return None
+            largest = components.largest()
+            self.logger.info("   >> main channel from Q = %g: %d cell(s)", discharge,
+                             int(components.sizes[largest]))
+            path = os.path.join(scratch, "main_channel.tif")
+            with tiled.Writer(path, reference, dtype="uint8", nodata=0,
+                              overviews=False) as out:
+                tiled.map_blocks(lambda block: out.write(
+                    block, (components.ids(block) == largest).astype("uint8")),
+                    reference, layers=layers, needs=[components.path])
+            return path
+        finally:
+            components.remove()
+
+    def _disconnected_blockwise(self, discharge, reference, target, mask_path,
+                                escape_path, scratch, layers, write_escape=False):
+        """Write the disconnected mask of one discharge; ``(pools, wet, stranded)`` cells."""
+        def target_in(window):
+            return np.isfinite(tiled.read(target, reference, window)) if target else None
+
+        depth_path = self._available[float(discharge)]
+
+        def components_of(mask_of, name, needs):
+            return tiled.label_components(
+                mask_of, reference, os.path.join(scratch, name),
+                connectivity=self.connectivity, layers=layers, needs=needs)
+
+        wet_components = components_of(
+            lambda block: (self._wet_window(discharge, reference, block.window),
+                           target_in(block.window)), "labels_wet.tif", [depth_path])
+        try:
+            wet_cells = int(wet_components.sizes.sum())
+            connected = wet_components.touching.copy()
+            if not connected.any() and wet_components.count:
+                connected[wet_components.largest()] = True
+
+            if not self.velocity_limited:
+                # The component rule: a region is stranded when it does not reach the
+                # main channel.
+                stranded = ~connected
+                with tiled.Writer(mask_path, reference) as out:
+                    def work(block):
+                        ids = wet_components.ids(block)
+                        found = ids >= 0
+                        mask = np.zeros(ids.shape, dtype=bool)
+                        mask[found] = stranded[ids[found]]
+                        out.write(block, raster.con(mask, 1.0))
+                    tiled.map_blocks(work, reference, layers=layers,
+                                     needs=[wet_components.path])
+                if write_escape:
+                    self._escape_routes_blockwise(discharge, reference, target,
+                                                  wet_components, connected, escape_path,
+                                                  layers)
+                return (int(stranded.sum()), wet_cells,
+                        int(wet_components.sizes[stranded].sum()))
+
+            self._escape_routes_blockwise(discharge, reference, target, wet_components,
+                                          connected, escape_path, layers)
+        finally:
+            wet_components.remove()
+
+        with tiled.Writer(mask_path, reference) as out:
+            def work(block):
+                wet = self._wet_window(discharge, reference, block.window)
+                if not wet.any():
+                    return 0
+                escape = tiled.read(escape_path, reference, block.window)
+                mask = wet & ~np.isfinite(escape)
+                out.write(block, raster.con(mask, 1.0))
+                return int(mask.sum())
+            stranded_cells = sum(n for n in tiled.map_blocks(
+                work, reference, layers=layers, needs=[depth_path]) if n)
+        pools = components_of(
+            lambda block: (np.isfinite(tiled.read(mask_path, reference, block.window)),
+                           None), "labels_pools.tif", [mask_path])
+        pools.remove()
+        return pools.count, wet_cells, stranded_cells
+
+    def _escape_routes_blockwise(self, discharge, reference, target, wet_components,
+                                 connected, path, layers):
+        """Write :meth:`escape_routes` of one discharge to ``path``."""
+        dx, dy = raster.cell_size(reference)
+        field = self.velocity_field if self.velocity_limited else None
+        components = None
+        if field is not None:
+            components = field(float(discharge), reference) if callable(field) \
+                else field.get(float(discharge))
+        if field is not None and components is None:
+            self.logger.info("      * no velocity components for Q = %g - the velocity "
+                             "criterion does not apply there", discharge)
+
+        def inputs(block):
+            wet = self._wet_window(discharge, reference, block.outer)
+            if target:
+                seeds = np.isfinite(tiled.read(target, reference, block.outer))
+            else:
+                # No low-flow mainstem: the largest wetted region at this discharge.
+                ids = wet_components.ids(block.outer)
+                seeds = np.zeros(ids.shape, dtype=bool)
+                found = ids >= 0
+                seeds[found] = connected[ids[found]]
+            allowed = None
+            if components is not None and wet.any():
+                ux, uy = (np.nan_to_num(tiled.read(
+                    c if isinstance(c, str) else (np.asarray(c, dtype="float64"), reference),
+                    reference, block.outer)) for c in components)
+                allowed = self._rule(ux, uy, dx, dy)
+            return wet, seeds & wet, allowed
+
+        tiled.least_cost_distance(inputs, reference, path, dx, dy,
+                                  connectivity=self.connectivity, towards_sources=True,
+                                  layers=layers, needs=[self._available[float(discharge)]])
+
+    def _q_disconnect_blockwise(self, reference, masks, path, layers):
+        """Write ``Q_disconnect`` from the per-discharge masks; returns its cell count."""
+        with tiled.Writer(path, reference) as out:
+            def work(block):
+                stack = [raster.con(np.isfinite(tiled.read(mask, reference, block.window)),
+                                    float(discharge)) for discharge, mask in masks]
+                q_disconnect = raster.cell_statistics(stack, "MAXIMUM")
+                out.write(block, q_disconnect)
+                return int(np.isfinite(q_disconnect).sum())
+            return sum(n for n in tiled.map_blocks(
+                work, reference, layers=layers + len(masks), label="Q_disconnect",
+                needs=[mask for _discharge, mask in masks]) if n)
+
+    def _write_pools_blockwise(self, mask_path, discharge, output_dir, reference, layers):
+        def values(block):
+            mask = np.isfinite(tiled.read(mask_path, reference, block.window))
+            return mask.astype("int32"), mask
+
+        pools = tiled.polygonize(values, reference, layers=layers, needs=[mask_path])
+        if pools.empty:
+            return None
+        pools["area"] = pools.geometry.area
+        pools = pools.sort_values("area", ascending=False)
+        path = os.path.join(output_dir, "pools_%s.gpkg" % discharge_token(discharge))
+        try:
+            pools.to_file(path, driver="GPKG")
+        except Exception as exc:  # a missing vector driver must not lose the rasters
+            self.logger.info("      * could not write %s (%s)", path, exc)
+            return None
+        return path
 
     def write_pools(self, discharge, output_dir, reference=None):
         """Polygonise the disconnected pools at one discharge into a GeoPackage."""

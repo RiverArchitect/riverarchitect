@@ -36,9 +36,9 @@ import os
 import sys
 
 try:
-    from riverarchitect import config, raster, shear
+    from riverarchitect import config, raster, shear, tiled
 except ImportError:  # pragma: no cover - exercised only without the geospatial stack
-    config = raster = shear = None
+    config = raster = shear = tiled = None
 
 
 def dependencies_available():
@@ -71,6 +71,15 @@ def compute(velocity_path, depth_path, grains_path, output_prefix, grain_kind="d
     if high_limit is not None:
         kwargs["high_limit"] = high_limit
 
+    directory = os.path.dirname(os.path.abspath(output_prefix))
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+
+    reference = raster.profile_of(velocity_path)
+    if tiled.enabled(reference, 16):
+        return _compute_blockwise(velocity_path, depth_path, grains_path, output_prefix,
+                                  grain_kind, unit, reference, kwargs)
+
     velocity, reference = raster.read(velocity_path)
     depth, depth_profile = raster.read(depth_path)
     grain, grain_profile = raster.read(grains_path)
@@ -79,10 +88,6 @@ def compute(velocity_path, depth_path, grains_path, output_prefix, grain_kind="d
 
     result = shear.calculate_taux(velocity, depth, shear.d84_of(grain, grain_kind),
                                   gravity=shear.gravity_of(unit), **kwargs)
-
-    directory = os.path.dirname(os.path.abspath(output_prefix))
-    if directory:
-        os.makedirs(directory, exist_ok=True)
 
     written = {}
     for quantity in ("ustar2", "theta84", "h_over_ks"):
@@ -94,6 +99,45 @@ def compute(velocity_path, depth_path, grains_path, output_prefix, grain_kind="d
     written["regime"] = path
 
     written["_summary"] = shear.regime_summary(result.regime)
+    return written
+
+
+def _compute_blockwise(velocity_path, depth_path, grains_path, output_prefix, grain_kind,
+                       unit, reference, kwargs):
+    """:func:`compute` for rasters too large to hold, one block at a time."""
+    import numpy as np
+
+    paths = {quantity: "%s_%s.tif" % (output_prefix, quantity)
+             for quantity in ("ustar2", "theta84", "h_over_ks", "regime")}
+    writers = {quantity: tiled.Writer(path, reference, dtype="uint8", nodata=0)
+               if quantity == "regime" else tiled.Writer(path, reference)
+               for quantity, path in paths.items()}
+
+    def work(block):
+        velocity = tiled.read(velocity_path, reference, block.window)
+        if not np.isfinite(velocity).any():
+            return np.zeros(4, dtype=np.int64)
+        depth = tiled.read(depth_path, reference, block.window)
+        grain = tiled.read(grains_path, reference, block.window)
+        result = shear.calculate_taux(velocity, depth, shear.d84_of(grain, grain_kind),
+                                      gravity=shear.gravity_of(unit), **kwargs)
+        for quantity, writer in writers.items():
+            writer.write(block, getattr(result, quantity))
+        return np.bincount(result.regime.ravel(), minlength=4)
+
+    try:
+        counts = np.zeros(4, dtype=np.int64)
+        for part in tiled.map_blocks(work, reference, layers=16, label="taux",
+                                     needs=[velocity_path]):
+            if part is not None:
+                counts += part
+    finally:
+        for writer in writers.values():
+            writer.close()
+    written = dict(paths)
+    counts[0] = int(reference["height"]) * int(reference["width"]) - int(counts[1:].sum())
+    written["_summary"] = {shear.REGIME_LABELS[code]: int(counts[code])
+                           for code in sorted(shear.REGIME_LABELS)}
     return written
 
 

@@ -34,12 +34,12 @@ import os
 
 import numpy as np
 
-from . import config, raster
+from . import config, raster, tiled
 from .condition import Condition, discharge_token
 
 __all__ = ["FishDatabase", "apply_curve", "cover_hsi", "SHArC", "COMBINE_METHODS",
            "COVER_TYPES", "GRAIN_SIZE_LIMITS", "MINERAL_COVER", "MINERAL_COVER_RULES",
-           "COVER_WINDOW"]
+           "COVER_WINDOW", "cover_halo"]
 
 logger = logging.getLogger("riverarchitect")
 
@@ -327,7 +327,7 @@ COVER_WINDOW = 1
 
 
 def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=None,
-              mineral_rule="radius", window=COVER_WINDOW):
+              mineral_rule="radius", window=COVER_WINDOW, quiet=False):
     """Cover habitat suitability: shelter from substrate, cobbles, boulders, plants and wood.
 
     Depth and velocity say whether a fish *can* be somewhere. Cover says whether it is safe
@@ -367,6 +367,8 @@ def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=N
         mineral_rule (str): ``"fraction"`` or ``"radius"``; see :data:`MINERAL_COVER_RULES`.
         window (int): neighbourhood radius in cells for the areal fraction.
             See :data:`COVER_WINDOW`.
+        quiet (bool): do not log what each cover type contributed. Block-wise runs set it,
+            since they call this once per block.
 
     Returns:
         tuple: ``(cover, used)`` - the suitability array with NoData where no cover applies,
@@ -443,13 +445,17 @@ def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=N
             fraction = raster.focal_fraction(mask, window=window, valid=covered)
             with np.errstate(invalid="ignore"):
                 sheltered = np.nan_to_num(fraction) > threshold
-            logger.info("      * cover %-10s fraction > %.2f over a %dx%d window, HSI %.2f, "
-                        "%d cell(s) sheltered", cover_type, threshold, 2 * window + 1,
-                        2 * window + 1, suitability_value, int(sheltered.sum()))
+            if not quiet:
+                logger.info("      * cover %-10s fraction > %.2f over a %dx%d window, "
+                            "HSI %.2f, %d cell(s) sheltered", cover_type, threshold,
+                            2 * window + 1, 2 * window + 1, suitability_value,
+                            int(sheltered.sum()))
         else:
             sheltered = raster.within_radius(mask, threshold, dx, dy)
-            logger.info("      * cover %-10s radius %.2f, HSI %.2f, %d cell(s) sheltered",
-                        cover_type, threshold, suitability_value, int(sheltered.sum()))
+            if not quiet:
+                logger.info("      * cover %-10s radius %.2f, HSI %.2f, %d cell(s) "
+                            "sheltered", cover_type, threshold, suitability_value,
+                            int(sheltered.sum()))
 
         if not sheltered.any():
             continue
@@ -460,6 +466,39 @@ def cover_hsi(species, lifestage, layers, profile, unit="us", fish=None, depth=N
         return None, []
     # The best shelter available wins, as CellStatistics(..., "MAXIMUM") did.
     return raster.cell_statistics(contributions, "MAXIMUM"), used
+
+
+def cover_halo(species, lifestage, profile, fish=None, mineral_rule="radius",
+               window=COVER_WINDOW):
+    """Cells :func:`cover_hsi` looks beyond a cell, for block-wise processing.
+
+    The largest cover radius in cells, or the mineral fraction window, whichever reaches
+    further. A block read with this many extra cells on every side gets exactly the cover
+    the whole raster would give it.
+    """
+    from . import raster
+
+    fish = fish or FishDatabase()
+    species = fish.resolve_species(species)
+    lifestage = fish.resolve_lifestage(species, lifestage)
+    dx, dy = raster.cell_size(profile)
+    halo = 0
+    for cover_type in COVER_TYPES:
+        if cover_type == "substrate":
+            continue
+        curve = fish.curve(species, lifestage, cover_type)
+        value = fish.cover_value(species, lifestage, cover_type)
+        if curve is not None:
+            threshold = float(curve[0][0])
+        elif value is not None:
+            threshold = float(value[0])
+        else:
+            continue
+        if cover_type in MINERAL_COVER and mineral_rule == "fraction":
+            halo = max(halo, int(window))
+        elif threshold > 0:
+            halo = max(halo, int(np.ceil(threshold / min(abs(dx), abs(dy)))) + 1)
+    return halo
 
 
 def apply_curve(array, curve):
@@ -591,15 +630,21 @@ class SHArC:
         reference = reference or depth_profile
         depth = raster.align(depth, depth_profile, reference)
         velocity = raster.align(velocity, velocity_profile, reference)
+        chsi, _covered = self._combine(species, lifestage, depth, velocity, reference,
+                                       cover=cover, cover_layers=cover_layers)
+        return chsi, reference
 
-        dsi = apply_curve(depth, depth_curve)
-        vsi = apply_curve(velocity, velocity_curve)
+    def _combine(self, species, lifestage, depth, velocity, profile, cover=None,
+                 cover_layers=None, quiet=False):
+        """cHSI from depth and velocity arrays: ``(chsi, whether cover entered it)``."""
+        dsi = apply_curve(depth, self.fish.curve(species, lifestage, "h"))
+        vsi = apply_curve(velocity, self.fish.curve(species, lifestage, "u"))
 
         if cover is None and cover_layers:
-            cover, used = cover_hsi(species, lifestage, cover_layers, reference,
+            cover, used = cover_hsi(species, lifestage, cover_layers, profile,
                                     unit=self.unit, fish=self.fish, depth=depth,
                                     mineral_rule=self.mineral_rule,
-                                    window=self.cover_window)
+                                    window=self.cover_window, quiet=quiet)
             self._cover_used.update(used)
 
         with np.errstate(invalid="ignore"):
@@ -614,7 +659,7 @@ class SHArC:
 
         # Habitat exists only in the wetted area. Two-argument con, so dry cells are NoData
         # rather than a suitability of zero, which would otherwise dilute the mean cHSI.
-        return raster.con(np.nan_to_num(depth) > 0.0, chsi), reference
+        return raster.con(np.nan_to_num(depth) > 0.0, chsi), cover is not None
 
     def usable_area(self, chsi, profile, weighted=False):
         """Area where cHSI exceeds the threshold, optionally weighted by the mean cHSI."""
@@ -628,7 +673,7 @@ class SHArC:
 
     # ----------------------------------------------------------------------- run
 
-    def cover_layers(self, extra=None):
+    def cover_layers(self, extra=None, paths=False):
         """Cover layers available in the condition, on its own grid.
 
         Looks for the rasters the cover analysis can use: the grain size raster named by
@@ -648,6 +693,8 @@ class SHArC:
             if self.condition.exists(cover_type):
                 found[cover_type] = self.condition.path(cover_type)
         found.update(extra or {})
+        if paths:
+            return {k: v for k, v in found.items() if v is not None}
 
         layers = {}
         for cover_type, source in found.items():
@@ -699,14 +746,37 @@ class SHArC:
         # built once and cropped per discharge inside composite_hsi.
         self._cover_used = set()
         cover_layers = None
+        extra = cover if isinstance(cover, dict) else None
         if cover is not False and cover is not None:
-            cover_layers = self.cover_layers(cover if isinstance(cover, dict) else None)
+            cover_layers = self.cover_layers(extra, paths=True)
             if not cover_layers:
                 self.logger.info("      * no cover layer found in condition %r - running "
                                  "without cover", self.condition.name)
 
+        # depth, velocity, two indices, their product, cHSI and its mask; cover adds its
+        # inputs, per-type contributions and their stack.
+        layers = 8 + (10 if cover_layers else 0)
+        blockwise = tiled.enabled(reference, layers)
+        if blockwise:
+            self.logger.info("   >> %d x %d cells exceed the memory budget - processing "
+                             "block by block", reference["height"], reference["width"])
+        elif cover_layers:
+            cover_layers = self.cover_layers(extra)
+
         rows = []
         for discharge in discharges:
+            path = os.path.join(output_dir, "csi_%s%s.tif"
+                                % (code, discharge_token(discharge))) if write_rasters \
+                else None
+            if blockwise:
+                row = self._run_blockwise(species, lifestage, discharge, reference,
+                                          cover_layers, weighted, path, layers)
+                if row is None:
+                    self.error = True
+                    continue
+                rows.append(row)
+                continue
+
             chsi, profile = self.composite_hsi(species, lifestage, discharge, reference,
                                                cover_layers=cover_layers)
             if chsi is None:
@@ -720,8 +790,6 @@ class SHArC:
             rows.append(row)
 
             if write_rasters:
-                path = os.path.join(output_dir, "csi_%s%s.tif"
-                                    % (code, discharge_token(discharge)))
                 raster.write(path, chsi, profile)
                 row["raster"] = path
 
@@ -746,6 +814,77 @@ class SHArC:
             result["sharea"] = self.sharea(rows, duration)
             result["flow_duration"] = duration
         return result
+
+    def _run_blockwise(self, species, lifestage, discharge, reference, cover_layers,
+                       weighted, path, layers):
+        """One discharge of :meth:`run`, block by block. Returns its row, or None."""
+        if self.fish.curve(species, lifestage, "h") is None \
+                or self.fish.curve(species, lifestage, "u") is None:
+            self.logger.info("      * no depth/velocity curve for %s %s", species, lifestage)
+            return None
+
+        depth_path = self._depth[discharge]
+        velocity_path = self._velocity[discharge]
+        halo = cover_halo(species, lifestage, reference, fish=self.fish,
+                          mineral_rule=self.mineral_rule, window=self.cover_window) \
+            if cover_layers else 0
+        dx, dy = raster.cell_size(reference)
+
+        def source(value):
+            return value if isinstance(value, str) else (value, reference)
+
+        def work(block, out, allow_cover):
+            depth = tiled.read(depth_path, reference, block.outer)
+            if not (np.nan_to_num(block.crop(depth)) > 0.0).any():
+                return None
+            velocity = tiled.read(velocity_path, reference, block.outer)
+            layers_here = None
+            if cover_layers and allow_cover:
+                layers_here = {k: tiled.read(source(v), reference, block.outer)
+                               for k, v in cover_layers.items()}
+            chsi, covered = self._combine(species, lifestage, depth, velocity,
+                                          block.profile, cover_layers=layers_here,
+                                          quiet=True)
+            chsi = block.crop(chsi)
+            with np.errstate(invalid="ignore"):
+                relevant = chsi[chsi > self.threshold]
+            stats = (int(relevant.size), float(relevant.sum()), tiled.Summary.of(chsi))
+            # Where cover exists anywhere, a block without any has no habitat at all
+            # (its cHSI is NoData), so it is only written once that is known.
+            if out is not None and (covered or not cover_layers or not allow_cover):
+                out.write(block, chsi)
+            return block, stats, covered
+
+        writer = tiled.Writer(path, reference) if path else None
+        try:
+            results = [r for r in tiled.map_blocks(
+                lambda block: work(block, writer, True), reference, halo=halo,
+                layers=layers, label="cHSI at Q = %g" % discharge,
+                needs=[depth_path]) if r is not None]
+            if cover_layers and not any(covered for _b, _s, covered in results):
+                # No cover at this discharge anywhere: the index is depth and velocity only.
+                self.logger.info("      * no cover applies at Q = %g", discharge)
+                redo = [block for block, _s, _c in results]
+                results = [r for r in tiled.map_blocks(
+                    lambda block: work(block, writer, False), reference, halo=halo,
+                    layers=layers, items=redo) if r is not None]
+            elif cover_layers:
+                results = [r for r in results if r[2]]
+        finally:
+            if writer is not None:
+                writer.close()
+
+        count = sum(stats[0] for _b, stats, _c in results)
+        total = sum(stats[1] for _b, stats, _c in results)
+        summary = tiled.Summary.merge(stats[2] for _b, stats, _c in results)
+        area = float(count * dx * dy)
+        if weighted and count:
+            area *= total / count
+        row = {"discharge": discharge, "usable_area": area,
+               "mean_chsi": summary.mean if summary.count else 0.0}
+        if path:
+            row["raster"] = path
+        return row
 
     def _resolve_flow_duration(self, flow_duration, code):
         """Accept a mapping, a workbook path, or find the workbook for this species code."""
