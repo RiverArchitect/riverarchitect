@@ -12,6 +12,8 @@ Things that are known to be wrong, missing or surprising. Each is documented her
 
 **"QGIS is not available" although QGIS is installed.** The bindings are compiled extension modules and load only in the Python minor version they were built for, which is usually the system interpreter rather than the conda environment. The Maps tab names the directory it rejected and the version it needs. See {doc}`../modules/maps`. Never work around it with `PYTHONPATH=/usr/lib/python3/dist-packages` - that silently downgrades numpy, pandas and scipy for every other module.
 
+**Block-wise runs differ from in-memory runs in three places.** Reaches too large for memory are processed block by block ({doc}`../guide/large_reaches`). The rasters and areas are the same, but an extrapolated water surface (`wle.tif`) and detrended DEM stop at blocks holding no terrain, a sample of wetted cells too large for memory is thinned (the log says so), and means and volumes may differ in the last digits because they are summed in a different order.
+
 ## How to troubleshoot
 
 **1. Read the log.** Every module logs through the `riverarchitect` logger, and the interface prints it to the console it was started from. Start the launcher from a terminal and keep it visible - most "nothing happened" reports are a message in that stream saying a criterion was skipped.
@@ -65,6 +67,8 @@ Two hydraulic raster naming forms are accepted: plain integers (`h000550.tif` mo
 | `a Gumbel fit needs at least 10 annual peaks` | too short a record for a return period estimate | use a longer record, or supply return periods from a formal analysis |
 | `the flow record has too few days in the <year> recession period` | the record does not cover that season | choose a year the record covers |
 | `no cell falls into any morphological unit` | depth and velocity are in different units from the threshold table | check the unit system |
+| `Unable to allocate ... GiB for an array` | an older version read a raster larger than memory whole | update; see {doc}`../guide/large_reaches` |
+| `... cells are too large to return in memory - pass output_path` | a preprocessing function was called on a grid it processes block by block, without a file to write to | pass `output_path`; the function then returns that path |
 | `DLL load failed while importing ...` (Windows) | the QGIS bindings were found but their Qt, GDAL and PROJ libraries were not | set `QGIS_PREFIX_PATH`, or start from an OSGeo4W shell |
 | `no fish database at <path>` | the workbook chosen for **Suitability curves** is not there | pick the file again; the packaged copy is used until one is chosen successfully |
 | a threshold workbook loads with no features | the sheet is not in the `threshold_values.xlsx` layout - row 5 must hold the feature ids | start from **Save the defaults ...** and edit that file rather than building one from scratch |

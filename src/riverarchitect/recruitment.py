@@ -34,10 +34,13 @@ two bracketing modelled discharges rather than re-interpolated from points each 
 import datetime as dt
 import logging
 import os
+import shutil
+import tempfile
+import threading
 
 import numpy as np
 
-from . import config, raster, shear
+from . import config, raster, shear, tiled
 from .condition import Condition
 # Reading a daily flow record lives in `flows`; it is re-exported here because this module
 # was the first to need one and callers import it from here. One implementation, not two.
@@ -203,12 +206,44 @@ class RecruitmentPotential:
         self._q_mobile_cache = {}              # tau_cr -> q_mobile raster
         self._taux_cache = {}                  # discharge token -> theta84
         self._shear_diagnostics = {}           # discharge token -> (h_over_ks, regime)
+        # Block-wise runs: the block a thread works on, per-block caches, cached water
+        # surfaces on disk, and where the shear rasters go.
+        self._local = threading.local()
+        self._lock = threading.Lock()
+        self._wle_dir = None
+        self._wle_paths = {}
+        self._shear_sink = None
+        self._logged = set()
+
+    @property
+    def _block(self):
+        return getattr(self._local, "block", None)
+
+    def _cached(self, key):
+        """The per-block cache of this thread; a whole-grid run caches on the instance."""
+        return self._local.cache.setdefault(key, {})
+
+    def _info(self, message, *args):
+        """Log, but only once per message while working block by block."""
+        if self._block is not None:
+            with self._lock:
+                if message in self._logged:
+                    return
+                self._logged.add(message)
+        self.logger.info(message, *args)
 
     # ------------------------------------------------------------------- terrain
 
     @property
     def dem(self):
         """The DEM, on the reference grid."""
+        block = self._block
+        if block is not None:
+            cache = self._cached("dem")
+            if "dem" not in cache:
+                cache["dem"] = tiled.read(self.condition.path(self.condition.dem_raster),
+                                          self._reference, block.window)
+            return cache["dem"]
         if self._dem is None:
             path = self.condition.path(self.condition.dem_raster)
             if not path or not os.path.isfile(path):
@@ -223,17 +258,56 @@ class RecruitmentPotential:
         path = name if os.path.isfile(str(name)) else self.condition.path(name)
         if not path or not os.path.isfile(path):
             return None
+        if self._block is not None:
+            return tiled.read(path, self._reference, self._block.window)
         array, profile = raster.read(path)
         return raster.align(array, profile, self._reference)
 
     def wle_at(self, discharge):
         """Water surface elevation of a modelled discharge, interpolated across the reach."""
+        block = self._block
+        if block is not None:
+            cache = self._cached("wle")
+            if discharge not in cache:
+                cache[discharge] = tiled.read(self._wle_path(discharge), self._reference,
+                                              block.window)
+            return cache[discharge]
         if discharge in self._wle_cache:
             return self._wle_cache[discharge]
         surface, _profile = water_level_elevation(
             self.condition.path(self.condition.dem_raster), self._depth[discharge], step=2)
         self._wle_cache[discharge] = surface
         return surface
+
+    def _wle_path(self, discharge):
+        """The water surface of a modelled discharge on disk, built on first use.
+
+        Float64 so that the block-wise run computes with the very values the whole-grid run
+        holds in memory, and NoData wherever the DEM is, since it is only ever compared with
+        the DEM.
+        """
+        with self._lock:
+            event = self._wle_paths.get(discharge)
+            if event is None:
+                event = self._wle_paths[discharge] = threading.Event()
+                build = True
+            else:
+                build = False
+        path = os.path.join(self._wle_dir, "wle_%s.tif"
+                            % self.condition.token_for(discharge))
+        if build:
+            from .preprocessing import _surface_blockwise
+
+            try:
+                _surface_blockwise(self.condition.path(self.condition.dem_raster),
+                                   self._depth[discharge], path, "nearest", 2, "wle",
+                                   "build a water surface", dtype="float64", clip=True)
+            finally:
+                event.set()
+        event.wait()
+        if not os.path.isfile(path):
+            raise RuntimeError("the water surface at Q = %g could not be built" % discharge)
+        return path
 
     def wle_for(self, discharge):
         """Water surface for any discharge, linearly interpolated between modelled ones.
@@ -265,7 +339,10 @@ class RecruitmentPotential:
         """
         result = shear.calculate_taux(velocity, depth, shear.d84_of(grain),
                                       gravity=self.g)
-        if token is not None:
+        if token is not None and self._block is not None:
+            if self._shear_sink is not None:
+                self._shear_sink.write(token, self._block, result)
+        elif token is not None:
             self._shear_diagnostics[token] = result
             self.logger.info("   >> taux %s: %s", token,
                              ", ".join("%s %d" % (label, count) for label, count
@@ -286,8 +363,11 @@ class RecruitmentPotential:
         prepared" downstream. Memoized: bed preparation and scour both ask for the same
         two thresholds, and each pass runs the shear closure over every discharge.
         """
-        if tau_cr in self._q_mobile_cache:
-            return self._q_mobile_cache[tau_cr]
+        block = self._block
+        q_cache = self._q_mobile_cache if block is None else self._cached("q_mobile")
+        taux_cache = self._taux_cache if block is None else self._cached("taux")
+        if tau_cr in q_cache:
+            return q_cache[tau_cr]
 
         grain = self._read(self.condition.grain_raster)
         if grain is None:
@@ -297,18 +377,25 @@ class RecruitmentPotential:
         per_discharge = []
         for discharge in self.discharges:
             token = self.condition.token_for(discharge)
-            taux = self._taux_cache.get(token)
+            taux = taux_cache.get(token)
             if taux is None:
-                depth, depth_profile = raster.read(self._depth[discharge])
-                velocity, velocity_profile = raster.read(self._velocity[discharge])
-                depth = raster.align(depth, depth_profile, self._reference)
-                velocity = raster.align(velocity, velocity_profile, self._reference)
+                if block is not None:
+                    depth = tiled.read(self._depth[discharge], self._reference, block.window)
+                    velocity = tiled.read(self._velocity[discharge], self._reference,
+                                          block.window)
+                else:
+                    depth, depth_profile = raster.read(self._depth[discharge])
+                    velocity, velocity_profile = raster.read(self._velocity[discharge])
+                    depth = raster.align(depth, depth_profile, self._reference)
+                    velocity = raster.align(velocity, velocity_profile, self._reference)
                 depth = np.where(depth > 0, depth, np.nan)
                 taux = self.shields_stress(depth, velocity, grain, token=token)
-                self._taux_cache[token] = taux
-            per_discharge.append(raster.con(taux >= tau_cr, float(discharge)))
+                taux_cache[token] = taux
+            with np.errstate(invalid="ignore"):
+                per_discharge.append(raster.con(taux >= tau_cr, float(discharge)))
 
-        if self._shear_diagnostics and not any(
+        # Block by block this is checked once for the whole grid, after the run.
+        if block is None and self._shear_diagnostics and not any(
                 result.regime.any() for result in self._shear_diagnostics.values()):
             raise ValueError(
                 "the dimensionless bed shear stress is NoData everywhere, at every "
@@ -317,7 +404,7 @@ class RecruitmentPotential:
                 % self.condition.grain_raster)
 
         result = raster.cell_statistics(per_discharge, "MINIMUM")
-        self._q_mobile_cache[tau_cr] = result
+        q_cache[tau_cr] = result
         return result
 
     # --------------------------------------------------------------- crop area
@@ -362,11 +449,11 @@ class RecruitmentPotential:
                         *self.parameters.seed_start)
         window = [q for date, q in self.flow_series.items() if start <= date < end]
         if not window:
-            self.logger.info("      * no flow record in the bed preparation period")
+            self._info("      * no flow record in the bed preparation period")
             self.error = True
             return raster.con(crop, 0.0)
         peak = max(window)
-        self.logger.info("   >> bed preparation: peak discharge %.0f", peak)
+        self._info("   >> bed preparation: peak discharge %.0f", peak)
 
         full = self.q_mobile(self.parameters.tau_cr_full)
         partial = self.q_mobile(self.parameters.tau_cr_partial)
@@ -478,9 +565,13 @@ class RecruitmentPotential:
                               np.where(longest_inundation >= self.parameters.inundation_stress,
                                        0.5, 1.0))
 
-        self.logger.info("   >> recession tracked over %d day(s) of %d; longest inundation "
-                         "%d day(s)", recession_days, len(days),
-                         int(np.nanmax(longest_inundation)) if longest_inundation.size else 0)
+        longest = int(np.nanmax(longest_inundation)) if longest_inundation.size else 0
+        if self._block is not None:
+            self._local.longest = longest
+        else:
+            self.logger.info("   >> recession tracked over %d day(s) of %d; longest "
+                             "inundation %d day(s)", recession_days, len(days), longest)
+        self._recession_days = (recession_days, len(days))
         return (raster.con(crop, desiccation), raster.con(crop, inundation),
                 raster.con(crop, mortality))
 
@@ -490,10 +581,10 @@ class RecruitmentPotential:
         baseflow = self.parameters.date_in(self.year, self.parameters.baseflow_start)
         window = [q for date, q in self.flow_series.items() if seed_end < date <= baseflow]
         if not window:
-            self.logger.info("      * no flow record after seed dispersal - assuming no scour")
+            self._info("      * no flow record after seed dispersal - assuming no scour")
             return raster.con(crop, 1.0)
         peak = max(window)
-        self.logger.info("   >> scour: peak discharge after seed dispersal %.0f", peak)
+        self._info("   >> scour: peak discharge after seed dispersal %.0f", peak)
 
         full = self.q_mobile(self.parameters.tau_cr_full)
         partial = self.q_mobile(self.parameters.tau_cr_partial)
@@ -519,6 +610,9 @@ class RecruitmentPotential:
 
         self.logger.info("\nRIPARIAN RECRUITMENT - %s, %d", self.parameters.species,
                          self.year)
+        layers = 2 * len(self.discharges) + 40
+        if tiled.enabled(self._reference, layers):
+            return self._run_blockwise(output_dir, write_rasters, layers)
         crop = self.crop_area()
         vegetation = self._read(self.existing_vegetation)
         if vegetation is not None:
@@ -526,20 +620,11 @@ class RecruitmentPotential:
             crop = crop & ~np.isfinite(vegetation)
         self.logger.info("   >> recruitment area: %d cell(s)", int(crop.sum()))
 
-        bed = self.bed_preparation(crop)
-        desiccation, inundation, mortality = self.recession_and_inundation(crop)
-        scour = self.scour_survival(crop)
-
-        with np.errstate(invalid="ignore"):
-            potential = bed * desiccation * inundation * scour
+        layers = self._objectives(crop)
 
         dx, dy = raster.cell_size(self._reference)
         cell_area = dx * dy
 
-        layers = {"bed_preparation": bed, "desiccation_survival": desiccation,
-                  "inundation_survival": inundation, "scour_survival": scour,
-                  "mortality_coefficient": mortality,
-                  "recruitment_potential": potential}
         written = {}
         if write_rasters:
             for name, array in layers.items():
@@ -555,24 +640,141 @@ class RecruitmentPotential:
                         result, self._reference, output_dir, token).items():
                     written["%s%s" % (SHEAR_PREFIXES[quantity], token)] = path
 
-        def area_of(array, low, high=None):
+        counts = self._area_counts(crop, layers)
+        result = self._summary(counts, cell_area, written)
+        if write_rasters:
+            result["output_dir"] = output_dir
+        self.logger.info("   >> full recruitment potential: %.0f %s",
+                         result["recruitment_area"], result["area_unit"])
+        return result
+
+    #: The objectives whose area at full potential the summary reports.
+    OBJECTIVES = ("bed_preparation", "desiccation_survival", "inundation_survival",
+                  "scour_survival")
+
+    def _objectives(self, crop):
+        """All four objectives and their product, as ``{raster name: array}``."""
+        bed = self.bed_preparation(crop)
+        desiccation, inundation, mortality = self.recession_and_inundation(crop)
+        scour = self.scour_survival(crop)
+        with np.errstate(invalid="ignore"):
+            potential = bed * desiccation * inundation * scour
+        return {"bed_preparation": bed, "desiccation_survival": desiccation,
+                "inundation_survival": inundation, "scour_survival": scour,
+                "mortality_coefficient": mortality,
+                "recruitment_potential": potential}
+
+    @classmethod
+    def _area_counts(cls, crop, layers):
+        """Cell counts behind the summary areas."""
+        def count(array, low, high=None):
             with np.errstate(invalid="ignore"):
                 mask = (array >= low) if high is None else ((array >= low) & (array < high))
-            return float((mask & np.isfinite(array)).sum() * cell_area)
+            return int((mask & np.isfinite(array)).sum())
 
-        result = {
+        potential = layers["recruitment_potential"]
+        counts = {"crop": int(crop.sum()), "full": count(potential, 1.0),
+                  "partial": count(potential, 0.125, 1.0)}
+        counts.update({name: count(layers[name], 1.0) for name in cls.OBJECTIVES})
+        return counts
+
+    def _summary(self, counts, cell_area, written):
+        return {
             "condition": self.condition.name,
             "species": self.parameters.species,
             "year": self.year,
             "area_unit": config.area_unit(self.unit),
-            "crop_area": float(crop.sum() * cell_area),
-            "recruitment_area": area_of(potential, 1.0),
-            "partial_area": area_of(potential, 0.125, 1.0),
-            "objectives": {name: area_of(layers[name], 1.0)
-                           for name in ("bed_preparation", "desiccation_survival",
-                                        "inundation_survival", "scour_survival")},
+            "crop_area": float(counts["crop"] * cell_area),
+            "recruitment_area": float(counts["full"] * cell_area),
+            "partial_area": float(counts["partial"] * cell_area),
+            "objectives": {name: float(counts[name] * cell_area)
+                           for name in self.OBJECTIVES},
             "rasters": written,
         }
+
+    def _run_blockwise(self, output_dir, write_rasters, layers):
+        """:meth:`run` for a grid too large to hold, one block at a time."""
+        from .preprocessing import ShearRasterWriters
+
+        reference = self._reference
+        self.logger.info("   >> %d x %d cells exceed the memory budget - processing block "
+                         "by block", reference["height"], reference["width"])
+        self._logged = set()
+        self._wle_paths = {}
+        self._wle_dir = tempfile.mkdtemp(prefix="wle-", dir=output_dir if write_rasters
+                                         else None)
+        names = ("bed_preparation", "desiccation_survival", "inundation_survival",
+                 "scour_survival", "mortality_coefficient", "recruitment_potential")
+        writers = {name: tiled.Writer(os.path.join(output_dir, "%s.tif" % name), reference)
+                   for name in names} if write_rasters else {}
+        # Without rasters to write the sink only counts, for the all-NoData check below.
+        self._shear_sink = ShearRasterWriters(reference,
+                                              output_dir if write_rasters else None)
+        dem_path = self.condition.path(self.condition.dem_raster)
+        if not dem_path or not os.path.isfile(dem_path):
+            raise FileNotFoundError("condition %r has no DEM" % self.condition.name)
+
+        def work(block):
+            self._local.block, self._local.cache = block, {}
+            try:
+                if not np.isfinite(self.dem).any():
+                    return None
+                crop = self.crop_area()
+                vegetation = self._read(self.existing_vegetation)
+                if vegetation is not None:
+                    crop = crop & ~np.isfinite(vegetation)
+                layers_here = self._objectives(crop)
+                longest = self._local.longest
+            finally:
+                self._local.block, self._local.cache = None, {}
+            for name, writer in writers.items():
+                writer.write(block, layers_here[name])
+            return self._area_counts(crop, layers_here), longest
+
+        try:
+            parts = [p for p in tiled.map_blocks(work, reference, layers=layers,
+                                                 label="recruitment", needs=[dem_path])
+                     if p is not None]
+        finally:
+            for writer in writers.values():
+                writer.close()
+            sink, self._shear_sink = self._shear_sink, None
+            if sink is not None:
+                sink.close()
+            shutil.rmtree(self._wle_dir, ignore_errors=True)
+            self._wle_dir = None
+
+        days = getattr(self, "_recession_days", None)
+        if days and parts:
+            self.logger.info("   >> recession tracked over %d day(s) of %d; longest "
+                             "inundation %d day(s)", days[0], days[1],
+                             max((longest for _c, longest in parts), default=0))
+        written = {}
+        if write_rasters:
+            written = {name: writer.path for name, writer in writers.items()}
+            from .preprocessing import SHEAR_PREFIXES
+
+            for token in sink.tokens():
+                for quantity, prefix in SHEAR_PREFIXES.items():
+                    written["%s%s" % (prefix, token)] = os.path.join(
+                        output_dir, "%s%s.tif" % (prefix, token))
+        for token in sink.tokens():
+            self.logger.info("   >> taux %s: %s", token, ", ".join(
+                "%s %d" % item for item in sink.summary(token).items()))
+        if sink.tokens() and all(sink.summary(token)["invalid"]
+                                 == sum(sink.summary(token).values())
+                                 for token in sink.tokens()):
+            raise ValueError(
+                "the dimensionless bed shear stress is NoData everywhere, at every "
+                "discharge. Check that the grain raster %r holds grain diameters in the "
+                "condition's length unit and shares the extent of the hydraulic rasters."
+                % self.condition.grain_raster)
+
+        counts = {key: sum(c[key] for c, _longest in parts)
+                  for key in ("crop", "full", "partial") + self.OBJECTIVES}
+        dx, dy = raster.cell_size(reference)
+        self.logger.info("   >> recruitment area: %d cell(s)", counts["crop"])
+        result = self._summary(counts, dx * dy, written)
         if write_rasters:
             result["output_dir"] = output_dir
         self.logger.info("   >> full recruitment potential: %.0f %s",

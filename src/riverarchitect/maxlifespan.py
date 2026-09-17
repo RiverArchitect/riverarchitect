@@ -23,7 +23,7 @@ import os
 
 import numpy as np
 
-from . import config, raster
+from . import config, raster, tiled
 
 __all__ = ["MaxLifespan"]
 
@@ -75,6 +75,10 @@ class MaxLifespan:
                                                 os.path.basename(self.lifespan_dir))
         os.makedirs(output_dir, exist_ok=True)
 
+        first = next(iter(self.rasters.values()))
+        if tiled.enabled(raster.profile_of(first), 2 * len(self.rasters) + 4):
+            return self._run_blockwise(output_dir, write_polygons)
+
         # The first raster defines the grid; the rest are aligned onto it. The originals
         # relied on arcpy.env.extent = "MAXOF" to reconcile differing extents implicitly.
         reference = None
@@ -115,19 +119,15 @@ class MaxLifespan:
             entry["raster"] = path
 
             if write_polygons and wins.any():
-                try:
-                    polygons = raster.polygonize(wins.astype("int32"), reference, mask=wins)
-                    polygons["feature"] = fid
-                    polygons["area"] = polygons.geometry.area
-                    vector_path = os.path.join(output_dir, "best_%s.gpkg" % fid)
-                    polygons.to_file(vector_path, driver="GPKG")
-                    entry["polygons"] = vector_path
-                except Exception as exc:  # a missing driver must not lose the rasters
-                    self.logger.info("      * could not polygonise %s (%s)", fid, exc)
-                    self.error = True
+                self._write_polygons(
+                    entry, output_dir,
+                    lambda: raster.polygonize(wins.astype("int32"), reference, mask=wins))
 
             summary.append(entry)
 
+        return self._result(summary, max_path, output_dir, total_mapped)
+
+    def _result(self, summary, max_path, output_dir, total_mapped):
         summary.sort(key=lambda entry: entry["area"], reverse=True)
         return {
             "max_lifespan_raster": max_path,
@@ -136,3 +136,80 @@ class MaxLifespan:
             "area_unit": config.area_unit(self.unit),
             "features": summary,
         }
+
+    def _write_polygons(self, entry, output_dir, polygonize):
+        fid = entry["feature"]
+        try:
+            polygons = polygonize()
+            polygons["feature"] = fid
+            polygons["area"] = polygons.geometry.area
+            vector_path = os.path.join(output_dir, "best_%s.gpkg" % fid)
+            polygons.to_file(vector_path, driver="GPKG")
+            entry["polygons"] = vector_path
+        except Exception as exc:  # a missing driver must not lose the rasters
+            self.logger.info("      * could not polygonise %s (%s)", fid, exc)
+            self.error = True
+
+    def _run_blockwise(self, output_dir, write_polygons):
+        """:meth:`run` for rasters too large to hold, one block at a time."""
+        fids = list(self.rasters)
+        reference = raster.profile_of(self.rasters[fids[0]])
+        layers = 2 * len(fids) + 4
+        self.logger.info("   >> %d x %d cells exceed the memory budget - processing block "
+                         "by block", reference["height"], reference["width"])
+        max_path = os.path.join(output_dir, "max_lf.tif")
+        paths = {fid: os.path.join(output_dir, "best_%s.tif" % fid) for fid in fids}
+        writers = {fid: tiled.Writer(path, reference) for fid, path in paths.items()}
+
+        def work(block):
+            arrays = {fid: tiled.read(self.rasters[fid], reference, block.window)
+                      for fid in fids}
+            if not any(np.isfinite(a).any() for a in arrays.values()):
+                return None
+            best = raster.cell_statistics(list(arrays.values()), "MAXIMUM")
+            best_out.write(block, best)
+            stats = {}
+            for fid, array in arrays.items():
+                with np.errstate(invalid="ignore"):
+                    wins = np.isfinite(array) & np.isfinite(best) & (array == best)
+                writers[fid].write(block, raster.con(wins, 1.0))
+                stats[fid] = tiled.Summary.of(array[wins])
+            return int(np.isfinite(best).sum()), stats
+
+        try:
+            with tiled.Writer(max_path, reference) as best_out:
+                parts = [p for p in tiled.map_blocks(work, reference, layers=layers,
+                                                     label="maximum lifespan",
+                                                     needs=list(self.rasters.values()))
+                         if p is not None]
+        finally:
+            for writer in writers.values():
+                writer.close()
+
+        dx, dy = raster.cell_size(reference)
+        cell_area = dx * dy
+        total_mapped = float(sum(count for count, _stats in parts) * cell_area)
+        summary = []
+        for fid in fids:
+            wins = tiled.Summary.merge(stats[fid] for _count, stats in parts)
+            area = float(wins.count * cell_area)
+            entry = {
+                "feature": fid,
+                "area": area,
+                "share": (100.0 * area / total_mapped) if total_mapped else 0.0,
+            }
+            if wins.count:
+                entry["max_lifespan"] = wins.maximum
+            entry["raster"] = paths[fid]
+            if write_polygons and wins.count:
+                self._write_polygons(entry, output_dir, lambda fid=fid: tiled.polygonize(
+                    lambda block: _mask_values(paths[fid], reference, block),
+                    reference, layers=layers, needs=[paths[fid]]))
+            summary.append(entry)
+        return self._result(summary, max_path, output_dir, total_mapped)
+
+
+def _mask_values(path, reference, block):
+    """``(values, mask)`` of the cells a best-feature raster marks, for polygonising."""
+    mask = np.isfinite(tiled.read(path, reference, block.window))
+    return mask.astype("int32"), mask

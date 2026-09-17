@@ -44,7 +44,7 @@ import os
 
 import numpy as np
 
-from . import config, raster
+from . import config, raster, tiled
 from .condition import Condition
 
 __all__ = ["Terraforming", "planting_depth_limit", "DEFAULT_D2W_MAX"]
@@ -187,12 +187,15 @@ class Terraforming:
         if write_rasters:
             os.makedirs(output_dir, exist_ok=True)
 
+        dx, dy = raster.cell_size(self.reference)
+        cell_area = dx * dy
+        layers = len(self.actions) + 10
+        if tiled.enabled(self.reference, layers):
+            return self._run_blockwise(output_dir, write_rasters, cell_area, layers)
+
         original = self._read(self.condition.path(self.condition.dem_raster))
         original_d2w = self._read(self.condition.path(self.condition.d2w_raster))
         dem = original.copy()
-
-        dx, dy = raster.cell_size(self.reference)
-        cell_area = dx * dy
         rows = []
 
         for fid, path in self.actions.items():
@@ -227,18 +230,8 @@ class Terraforming:
             total_cut = np.nan_to_num(original - dem)
         changed = total_cut > 0.0
 
-        result = {
-            "condition": self.condition.name,
-            "d2w_max": self.d2w_max,
-            "features": list(self.actions),
-            "per_feature": rows,
-            "modified_cells": int(changed.sum()),
-            "modified_area": float(changed.sum() * cell_area),
-            "cut_volume": float(total_cut.sum() * cell_area),
-            "max_cut": float(total_cut.max()) if changed.any() else 0.0,
-            "area_unit": config.area_unit(self.unit),
-            "length_unit": config.unit_labels(self.unit)["length"],
-        }
+        result = self._summary(rows, int(changed.sum()), float(total_cut.sum()),
+                               float(total_cut.max()) if changed.any() else 0.0, cell_area)
 
         if write_rasters:
             dem_path = os.path.join(output_dir, "dem_terraformed.tif")
@@ -255,4 +248,97 @@ class Terraforming:
             result["d2w_raster"] = d2w_path
             result["output_dir"] = output_dir
 
+        return result
+
+    def _summary(self, rows, modified_cells, cut_sum, max_cut, cell_area):
+        return {
+            "condition": self.condition.name,
+            "d2w_max": self.d2w_max,
+            "features": list(self.actions),
+            "per_feature": rows,
+            "modified_cells": modified_cells,
+            "modified_area": float(modified_cells * cell_area),
+            "cut_volume": float(cut_sum * cell_area),
+            "max_cut": max_cut,
+            "area_unit": config.area_unit(self.unit),
+            "length_unit": config.unit_labels(self.unit)["length"],
+        }
+
+    def _run_blockwise(self, output_dir, write_rasters, cell_area, layers):
+        """:meth:`run` for a grid too large to hold, one block at a time."""
+        reference = self.reference
+        self.logger.info("   >> %d x %d cells exceed the memory budget - processing block "
+                         "by block", reference["height"], reference["width"])
+        dem_path = self.condition.path(self.condition.dem_raster)
+        d2w_path = self.condition.path(self.condition.d2w_raster)
+        actions = {}
+        for fid, path in self.actions.items():
+            try:
+                raster.profile_of(path)
+            except Exception as exc:      # a corrupt mask must not lose the others
+                self.logger.error("   >> %s: could not read %s (%s)", fid, path, exc)
+                self.error = True
+                continue
+            actions[fid] = path
+
+        paths = {"dem_raster": os.path.join(output_dir, "dem_terraformed.tif"),
+                 "cut_raster": os.path.join(output_dir, "cut_depth.tif"),
+                 "d2w_raster": os.path.join(output_dir, "d2w_terraformed.tif")}
+        writers = {key: tiled.Writer(path, reference) for key, path in paths.items()} \
+            if write_rasters else {}
+
+        def work(block):
+            original = tiled.read(dem_path, reference, block.window)
+            original_d2w = tiled.read(d2w_path, reference, block.window)
+            if not (np.isfinite(original).any() or np.isfinite(original_d2w).any()):
+                return None
+            dem = original.copy()
+            stats = {}
+            for fid, path in actions.items():
+                d2w = original_d2w - (original - dem)
+                modified = self.apply_feature(dem, d2w, tiled.read(path, reference,
+                                                                   block.window))
+                with np.errstate(invalid="ignore"):
+                    cut = np.nan_to_num(dem - modified)
+                changed = cut > 0.0
+                stats[fid] = (int(changed.sum()), float(cut.sum()),
+                              float(cut.max()) if changed.any() else 0.0)
+                dem = modified
+            with np.errstate(invalid="ignore"):
+                total_cut = np.nan_to_num(original - dem)
+            changed = total_cut > 0.0
+            if writers:
+                writers["dem_raster"].write(block, dem)
+                writers["cut_raster"].write(block, raster.con(changed, total_cut))
+                writers["d2w_raster"].write(block, original_d2w - total_cut)
+            return stats, (int(changed.sum()), float(total_cut.sum()),
+                           float(total_cut.max()) if changed.any() else 0.0)
+
+        try:
+            parts = [p for p in tiled.map_blocks(work, reference, layers=layers,
+                                                 label="terraforming",
+                                                 needs=[dem_path, d2w_path])
+                     if p is not None]
+        finally:
+            for writer in writers.values():
+                writer.close()
+
+        def merge(items):
+            items = list(items)
+            return (sum(i[0] for i in items), sum(i[1] for i in items),
+                    max((i[2] for i in items), default=0.0))
+
+        rows = []
+        for fid in actions:
+            cells, cut_sum, max_cut = merge(stats[fid] for stats, _total in parts)
+            rows.append({"feature": fid, "cells": cells, "area": float(cells * cell_area),
+                         "volume": float(cut_sum * cell_area), "max_cut": max_cut})
+            self.logger.info("   >> %-12s lowered %d cell(s), %.0f %s excavated",
+                             fid, cells, rows[-1]["volume"],
+                             "cubic feet" if self.unit == "us" else "cubic metres")
+        result = self._summary(rows, *merge(total for _stats, total in parts),
+                               cell_area=cell_area)
+        if write_rasters:
+            result.update(paths)
+            result["output_dir"] = output_dir
         return result

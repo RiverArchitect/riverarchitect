@@ -16,7 +16,8 @@ __all__ = ["NODATA", "FT2AC", "FT2M", "CFS2CMS", "UNITS",
            "package_dir", "templates_dir", "symbology_dir",
            "project_home", "set_project_home", "user_config_dir",
            "dir_conditions", "dir_flows", "dir_maps", "dir_output",
-           "area_unit", "unit_labels"]
+           "area_unit", "unit_labels",
+           "TILING", "BLOCK_SIZE", "WORKERS", "memory_budget", "set_memory_budget"]
 
 APP_ID = "org.riverarchitect.RiverArchitect"
 
@@ -39,6 +40,99 @@ CFS2CMS = 0.0283168466
 UNITS = ("us", "si")
 
 _PROJECT_HOME = None
+
+#: When analyses process rasters block by block instead of whole: ``"auto"`` switches on
+#: when a run would not fit in :func:`memory_budget`, ``"always"`` and ``"never"`` force
+#: the choice. Read from :envvar:`RIVERARCHITECT_TILING`. See :mod:`riverarchitect.tiled`.
+TILING = os.environ.get("RIVERARCHITECT_TILING", "auto").strip().lower()
+
+#: Edge length in cells of one processing block, or a ``(rows, cols)`` pair. Read from
+#: :envvar:`RIVERARCHITECT_BLOCK_SIZE`.
+BLOCK_SIZE = int(os.environ.get("RIVERARCHITECT_BLOCK_SIZE", "4096"))
+
+#: Threads processing blocks in parallel; ``None`` picks up to four from the CPU count.
+#: Read from :envvar:`RIVERARCHITECT_WORKERS`.
+def _workers_from_environment():
+    value = os.environ.get("RIVERARCHITECT_WORKERS", "").strip().lower()
+    if value in ("", "auto"):
+        return None
+    try:
+        return max(1, int(value))
+    except ValueError:
+        import logging
+        logging.getLogger("riverarchitect").warning(
+            "RIVERARCHITECT_WORKERS=%r is not a whole number - using the default", value)
+        return None
+
+
+WORKERS = _workers_from_environment()
+
+_MEMORY_BUDGET = None
+_SIZE_SUFFIX = {"k": 1024, "m": 1024 ** 2, "g": 1024 ** 3, "t": 1024 ** 4}
+
+
+def _parse_bytes(text):
+    """``"16G"``, ``"512MB"`` or ``"1000000"`` in bytes."""
+    text = str(text).strip().lower().rstrip("ib").rstrip("b")
+    if text and text[-1] in _SIZE_SUFFIX:
+        return int(float(text[:-1]) * _SIZE_SUFFIX[text[-1]])
+    return int(float(text))
+
+
+def set_memory_budget(budget):
+    """Cap the memory an analysis may plan to hold at once.
+
+    Args:
+        budget (int or str): bytes, or a string such as ``"16G"``. ``None`` restores the
+            default.
+
+    Returns:
+        int: the budget now in force, in bytes.
+    """
+    global _MEMORY_BUDGET
+    _MEMORY_BUDGET = None if budget is None else _parse_bytes(budget)
+    return memory_budget()
+
+
+def memory_budget():
+    """Bytes an analysis may plan to hold in memory at once.
+
+    Resolution order: :func:`set_memory_budget`, then :envvar:`RIVERARCHITECT_MAX_MEMORY`,
+    then half of the physical memory of this machine (4 GiB where that cannot be
+    determined). Analyses whose rasters would exceed it are processed block by block.
+    """
+    if _MEMORY_BUDGET:
+        return _MEMORY_BUDGET
+    if os.environ.get("RIVERARCHITECT_MAX_MEMORY"):
+        return _parse_bytes(os.environ["RIVERARCHITECT_MAX_MEMORY"])
+    total = _physical_memory()
+    return total // 2 if total else 4 * 1024 ** 3
+
+
+def _physical_memory():
+    """Installed memory in bytes, or ``None``."""
+    try:
+        if os.name == "nt":
+            import ctypes
+
+            class _MemoryStatus(ctypes.Structure):
+                _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                            ("ullTotalPhys", ctypes.c_ulonglong),
+                            ("ullAvailPhys", ctypes.c_ulonglong),
+                            ("ullTotalPageFile", ctypes.c_ulonglong),
+                            ("ullAvailPageFile", ctypes.c_ulonglong),
+                            ("ullTotalVirtual", ctypes.c_ulonglong),
+                            ("ullAvailVirtual", ctypes.c_ulonglong),
+                            ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+
+            status = _MemoryStatus()
+            status.dwLength = ctypes.sizeof(_MemoryStatus)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status))
+            return int(status.ullTotalPhys)
+        return int(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES"))
+    except (AttributeError, OSError, ValueError):
+        return None
+
 
 def icon_path():
     return os.path.join(package_dir(), "assets", "icon-v2.png")

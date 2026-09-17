@@ -39,10 +39,11 @@ semantics are the documented ones:
 
 import logging
 import os
+import threading
 
 import numpy as np
 
-from . import config, raster, shear
+from . import config, raster, shear, tiled
 from .condition import Condition
 
 __all__ = ["Feature", "FEATURES", "LifespanDesign", "load_threshold_workbook",
@@ -402,6 +403,14 @@ class LifespanDesign:
         self._taux_cache = {}                  # discharge token -> theta84
         self._shear_diagnostics = {}           # discharge token -> (h_over_ks, regime)
         self._diagnostics_written = set()      # output dirs already holding them
+        self._slope_fill = None                # DEM mean, filling NoData for the slope
+        # Block-wise runs: the block a thread is working on, and where shear goes.
+        self._local = threading.local()
+        self._shear_sink = None
+
+    @property
+    def _block(self):
+        return getattr(self._local, "block", None)
 
     # ----------------------------------------------------------------------- inputs
 
@@ -409,6 +418,10 @@ class LifespanDesign:
         """Read a raster of the condition, aligned onto the reference grid, or None."""
         if not self.condition.exists(name):
             return None
+        if getattr(self._local, "probe", False):
+            return np.full((3, 3), np.nan)
+        if self._block is not None:
+            return tiled.read(self.condition.path(name), self._reference, self._block.outer)
         array, profile = raster.read(self.condition.path(name))
         if self._reference is None:
             self._reference = profile
@@ -419,7 +432,7 @@ class LifespanDesign:
         """Pick the grid everything is resampled onto: the grain raster, else the DEM."""
         for name in (self.condition.grain_raster, self.condition.dem_raster):
             if self.condition.exists(name):
-                _, self._reference = raster.read(self.condition.path(name))
+                self._reference = raster.profile_of(self.condition.path(name))
                 return self._reference
         for _period, depth_path, _u in self.condition.hydraulic_pairs():
             self._reference = raster.profile_of(depth_path)
@@ -438,10 +451,16 @@ class LifespanDesign:
             discharge = self.condition.discharge_of(depth_path)
             token = self.condition.token_for(discharge) if discharge is not None \
                 else os.path.splitext(os.path.basename(depth_path))[0]
-            depth, depth_profile = raster.read(depth_path)
-            velocity, velocity_profile = raster.read(velocity_path)
-            depth = raster.align(depth, depth_profile, self._reference)
-            velocity = raster.align(velocity, velocity_profile, self._reference)
+            if getattr(self._local, "probe", False):
+                depth = velocity = np.full((3, 3), np.nan)
+            elif self._block is not None:
+                depth = tiled.read(depth_path, self._reference, self._block.outer)
+                velocity = tiled.read(velocity_path, self._reference, self._block.outer)
+            else:
+                depth, depth_profile = raster.read(depth_path)
+                velocity, velocity_profile = raster.read(velocity_path)
+                depth = raster.align(depth, depth_profile, self._reference)
+                velocity = raster.align(velocity, velocity_profile, self._reference)
             # Dry cells must be NoData, not zero: h**(1/3) in the denominator of the
             # mobile-grain formula otherwise divides by zero across the whole dry bed.
             yield period, token, np.where(depth > 0, depth, np.nan), velocity
@@ -471,11 +490,18 @@ class LifespanDesign:
         describe. When ``token`` is given, the relative submergence and regime rasters of
         that discharge are kept for :meth:`write_shear_diagnostics`.
         """
-        if token is not None and token in self._taux_cache:
-            return self._taux_cache[token]
+        block = self._block
+        blockwise = block is not None or getattr(self._local, "probe", False)
+        cache = self._local.taux if blockwise else self._taux_cache
+        if token is not None and token in cache:
+            return cache[token]
         result = shear.calculate_taux(velocity, depth, shear.d84_of(grain),
                                       gravity=self.g)
-        if token is not None:
+        if token is not None and blockwise:
+            cache[token] = result.theta84
+            if block is not None and self._shear_sink is not None:
+                self._shear_sink.write(token, block, result)
+        elif token is not None:
             # theta84 does not depend on the feature, so one computation per discharge
             # serves every taux feature; the result is kept for writing once.
             self._taux_cache[token] = result.theta84
@@ -547,7 +573,11 @@ class LifespanDesign:
             dem = self._read(self.condition.dem_raster)
             if dem is not None:
                 dx, dy = raster.cell_size(self._reference)
-                slope = raster.slope(dem, dx, dy, units="PERCENT") / 100.0
+                if self._slope_fill is None:
+                    self._slope_fill = tiled.nanmean((dem, self._reference),
+                                                     self._reference)
+                slope = raster.slope(dem, dx, dy, units="PERCENT",
+                                     fill_value=self._slope_fill) / 100.0
                 masks.append(slope >= feature.terrain_slope)
 
         tcd = self._topographic_change_mask(feature)
@@ -659,6 +689,10 @@ class LifespanDesign:
             feature = self.features[feature]
         if self._reference is None:
             self._set_reference()
+        pairs = sum(1 for _pair in self.condition.hydraulic_pairs())
+        # One failure raster per criterion per discharge, plus the spatial layers.
+        if tiled.enabled(self._reference, 4 * pairs + 12):
+            return self._run_feature_blockwise(feature, output_dir, 4 * pairs + 12)
 
         grain = self._read(self.condition.grain_raster)
         lifespan = self._hydraulic_lifespan(feature, grain)
@@ -703,6 +737,153 @@ class LifespanDesign:
             result["median_lifespan"] = float(np.nanmedian(lifespan))
         return result
 
+    def _run_feature_blockwise(self, feature, output_dir, layers):
+        """:meth:`run_feature` for a grid too large to hold, one block at a time."""
+        reference = self._reference
+        self.logger.info("      * %d x %d cells exceed the memory budget - processing "
+                         "block by block", reference["height"], reference["width"])
+        grain_name = self.condition.grain_raster
+        has_grain = self.condition.exists(grain_name)
+        halo = 0
+        if feature.terrain_slope is not None and self.condition.exists(
+                self.condition.dem_raster):
+            halo = 1
+            if self._slope_fill is None:
+                self._slope_fill = tiled.nanmean(
+                    self.condition.path(self.condition.dem_raster), reference)
+        self._mu_codes()
+
+        uses_taux = (feature.tau_cr is not None and feature.safety_factor is None
+                     and has_grain and output_dir not in self._diagnostics_written)
+        from .preprocessing import ShearRasterWriters
+
+        self._shear_sink = ShearRasterWriters(reference, output_dir) if uses_taux \
+            else None
+
+        design_ok = (feature.design_mapping and feature.design_frequency is not None
+                     and feature.tau_cr is not None and has_grain)
+        if design_ok and not any(period >= feature.design_frequency for period, _h, _u
+                                 in self.condition.hydraulic_pairs()):
+            self.logger.info("      * no discharge reaches the %s-year design flood for %s",
+                             feature.design_frequency, feature.fid)
+            design_ok = False
+
+        max_lifespan = float(self.condition.max_lifespan)
+
+        def compute(block):
+            grain = self._read(grain_name)
+            lifespan = self._hydraulic_lifespan(feature, grain)
+            mask = self._spatial_mask(feature, grain)
+            if lifespan is None:
+                if mask is None:
+                    return None, None
+                lifespan = raster.con(mask, max_lifespan)
+            elif mask is not None:
+                lifespan = raster.con(mask, lifespan)
+            design = self._design_raster(feature, lifespan, grain, quiet=True) \
+                if design_ok else None
+            return lifespan, design
+
+        # Where every input is NoData the result nearly always is too, and then such blocks
+        # - most of a long reach's bounding box - need not be computed at all. Whether it
+        # is, is asked of the criteria themselves, on a block of nothing but NoData.
+        self._local.probe, self._local.taux = True, {}
+        try:
+            nothing, _design = compute(None)
+        finally:
+            self._local.probe, self._local.taux = False, {}
+        if nothing is None:
+            self._shear_sink = None
+            self.logger.info("   >> %s: no applicable criteria - skipped", feature.fid)
+            return None
+        os.makedirs(output_dir, exist_ok=True)
+        result = {"feature": feature.fid, "name": feature.name}
+        lf_path = os.path.join(output_dir, "lf_%s.tif" % feature.fid)
+        ds_path = os.path.join(output_dir, "ds_%s.tif" % feature.fid)
+        lf_out = tiled.Writer(lf_path, reference) if feature.lifespan_mapping else None
+        ds_out = tiled.Writer(ds_path, reference) if design_ok else None
+        skip_empty = not np.isfinite(nothing).any()
+        inputs = self._input_paths(feature)
+
+        def work(block):
+            if skip_empty and not any(
+                    np.isfinite(tiled.read(path, reference, block.outer)).any()
+                    for path in inputs):
+                return False
+            self._local.block, self._local.taux = block, {}
+            try:
+                lifespan, design = compute(block)
+                if lifespan is None:
+                    return None
+            finally:
+                self._local.block, self._local.taux = None, {}
+            inner = block.crop(lifespan)
+            if lf_out is not None:
+                lf_out.write(block, inner)
+            if design is not None:
+                ds_out.write(block, block.crop(design))
+            return tiled.Summary.of(inner), tiled.ValueCounts.of(inner)
+
+        try:
+            parts = tiled.map_blocks(work, reference, halo=halo, layers=layers,
+                                     label=feature.fid,
+                                     needs=inputs if skip_empty else None)
+        finally:
+            for out in (lf_out, ds_out):
+                if out is not None:
+                    out.close()
+            sink, self._shear_sink = self._shear_sink, None
+            if sink is not None:
+                sink.close()
+
+        if lf_out is not None:
+            result["lifespan_raster"] = lf_path
+        if ds_out is not None:
+            result["design_raster"] = ds_path
+        if sink is not None and sink.tokens():
+            for token in sink.tokens():
+                summary = sink.summary(token)
+                self.logger.info("      * taux %s: %s", token,
+                                 ", ".join("%s %d" % item for item in summary.items()))
+                if summary["invalid"] == sum(summary.values()):
+                    self.logger.warning(
+                        "      * taux %s is NoData everywhere: the grain raster %r may not "
+                        "share units or extent with the hydraulic rasters.", token,
+                        grain_name)
+            self._diagnostics_written.add(output_dir)
+
+        parts = [part for part in parts if part]
+        summary = tiled.Summary.merge(part[0] for part in parts)
+        dx, dy = raster.cell_size(reference)
+        result["area"] = float(summary.count * dx * dy)
+        result["area_unit"] = config.area_unit(self.unit)
+        if summary.count:
+            result["min_lifespan"] = summary.minimum
+            result["max_lifespan"] = summary.maximum
+            result["median_lifespan"] = tiled.ValueCounts.merge(
+                part[1] for part in parts).median()
+        return result
+
+    def _input_paths(self, feature):
+        """Every raster :meth:`run_feature` may read for ``feature``, grain first."""
+        names = [self.condition.grain_raster]
+        if feature.d2w_min is not None or feature.d2w_max is not None:
+            names.append(self.condition.d2w_raster)
+        if feature.det_min is not None or feature.det_max is not None:
+            names.append(self.condition.detrended_raster)
+        if feature.terrain_slope is not None:
+            names.append(self.condition.dem_raster)
+        if feature.scour_rate is not None:
+            names.append("scour")
+        if feature.fill_rate is not None:
+            names.append("fill")
+        if feature.mu_relevant or feature.mu_avoid:
+            names.append(self.condition.mu_raster)
+        paths = [self.condition.path(name) for name in names if self.condition.exists(name)]
+        for _period, depth_path, velocity_path in self.condition.hydraulic_pairs():
+            paths.extend((depth_path, velocity_path))
+        return list(dict.fromkeys(paths))
+
     def write_shear_diagnostics(self, output_dir):
         """Write the bed shear stress rasters of each discharge beside the lifespan maps.
 
@@ -719,7 +900,7 @@ class LifespanDesign:
             write_shear_rasters(result, self._reference, output_dir, token)
         self._diagnostics_written.add(output_dir)
 
-    def _design_raster(self, feature, lifespan, grain):
+    def _design_raster(self, feature, lifespan, grain, quiet=False):
         """Stable grain size, or stable log diameter, at the feature's design flood."""
         target = feature.design_frequency
         if target is None or feature.tau_cr is None or grain is None:
@@ -731,8 +912,9 @@ class LifespanDesign:
                 chosen = (depth, velocity)
                 break
         if chosen is None:
-            self.logger.info("      * no discharge reaches the %s-year design flood for %s",
-                             target, feature.fid)
+            if not quiet:
+                self.logger.info("      * no discharge reaches the %s-year design flood "
+                                 "for %s", target, feature.fid)
             return None
 
         depth, velocity = chosen

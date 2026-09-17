@@ -41,6 +41,9 @@ The questions that come up most often. If something has already gone wrong, {doc
 **How do I change a feature's survival thresholds?**
 : The defaults are Python, in {data}`riverarchitect.lifespan.FEATURES`, so they can be read and diffed. For a project-specific set, keep a `threshold_values.xlsx` with the project and load it with {func}`riverarchitect.lifespan.load_threshold_workbook`. See {doc}`../modules/features`.
 
+**An analysis fails with `Unable to allocate ... GiB for an array`.**
+: Older versions read every raster whole. Update: large rasters are now processed block by block, automatically, with the same results. See {doc}`../guide/large_reaches`, which also explains how to set the memory budget and prepare inputs for a long reach.
+
 **Can I use the modules without the interface?**
 : Yes. Every tab is a thin front end over an ordinary Python module. See {doc}`../guide/quickstart` and the {doc}`API reference <../api/index>`.
 
