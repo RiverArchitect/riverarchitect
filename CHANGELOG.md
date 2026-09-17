@@ -4,6 +4,65 @@ All notable changes to River Architect are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-09-17
+
+**Reaches too large for memory are analysed block by block.** Every module read each raster
+whole, so a long reach failed before any analysis started: a 400 km river mapped at 1 to
+2 m spans a bounding box of tens of billions of cells, and a single float raster of it
+needs more than 100 GiB (`numpy._core._exceptions._ArrayMemoryError: Unable to allocate
+143. GiB for an array with shape (1, 221184, 173568)`). No amount of installed memory
+fixes that. Now every analysis checks whether its rasters would fit and, when they would
+not, runs the same computation one block at a time. Nothing has to be switched on, and
+small reaches take exactly the code path they took before.
+
+### Added
+
+- **`riverarchitect.tiled`**, the block-wise engine: windowed reads that equal
+  `raster.align` cell for cell, a thread-safe `Writer` producing tiled, sparse BigTIFFs
+  with overviews, and a thread pool. Operations that reach across the whole grid are
+  stitched across block seams so that they give what the whole grid gives: connected
+  components (`label_components`), least-cost distance (`least_cost_distance`, a
+  block-wise Dijkstra search that sweeps until no seam cost changes) and vectorising
+  (`polygonize`).
+- **Block-wise paths in every analysis module**: SHArC (cover included), Lifespan Design,
+  Max Lifespan, Terraforming, Volume Assessment, Stranding Risk (component rule and
+  escape routes with a velocity criterion), Riparian Recruitment, every Get Started
+  product, and the `taux` and `reconcile-nodata` tools. Neighbourhood operations read a
+  halo of extra cells; per-cell summaries become exact cell counts, so areas are unchanged.
+- **Empty blocks cost almost nothing.** Which tiles of a compressed GeoTIFF can hold data
+  is read from its tile index: a tile never written, or byte-identical to a tile decoded
+  and found empty, is skipped without being decompressed. On a synthetic 60000 x 60000
+  reach this cut a two-discharge SHArC run from 188 s to 62 s.
+- **Settings** for the memory budget, the switch, the block size and the number of
+  threads: `config.set_memory_budget()`, `config.TILING`, `config.BLOCK_SIZE` and
+  `config.WORKERS`, or `RIVERARCHITECT_MAX_MEMORY`, `RIVERARCHITECT_TILING`,
+  `RIVERARCHITECT_BLOCK_SIZE` and `RIVERARCHITECT_WORKERS`. The budget defaults to half of
+  the installed memory, and GDAL's block cache is kept within it during block-wise runs.
+- A **Large reaches** page in the documentation: what stays the same, what differs, the
+  settings, and how to prepare inputs for a long reach.
+- `raster.slope(fill_value=)`, `seed_cost=` for `raster.least_cost_distance`, and
+  `window=` (and `tree=`) for the interpolators, which the block-wise paths build on.
+
+### Changed
+
+- On a grid too large to hold, `detrended_dem`, `water_level_elevation`,
+  `interpolated_depth`, `depth_to_water_table` and `morphological_units` work block by
+  block when given an `output_path` and return that path instead of an array; without
+  one they raise an error saying so. Block by block, an extrapolated water surface and
+  detrended DEM stop at blocks holding no DEM cell, and a sample of wetted cells too large
+  for memory is thinned, which the log reports.
+- `raster.cell_statistics` computes `MAXIMUM` and `MINIMUM` with `numpy.fmax`/`fmin`,
+  which give the same values without the process-wide warning filter the NaN-aware
+  functions needed.
+
+### Verification
+
+Every module is run both ways on the sample reach with blocks small enough that every seam
+cuts the channel (`tests/test_tiled_modules.py`): rasters match cell for cell and areas
+exactly. The whole previous suite also passes with block-wise processing forced at 64-cell
+blocks, and every tab of both interfaces and the Maps tab gave identical results and maps
+in both modes.
+
 ## [2.8.1] - 2026-09-06
 
 A test-only fix. The library, the interface and the documentation are byte-for-byte those
@@ -666,6 +725,7 @@ licence on Windows. Described in the accompanying paper:
 > Schwindt, S., Larrieu, K., Pasternack, G.B., Rabone, G. (2020). River Architect.
 > *SoftwareX* 11, 100438. <https://doi.org/10.1016/j.softx.2020.100438>
 
+[2.9.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.9.0
 [2.8.1]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.8.1
 [2.8.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.8.0
 [2.7.0]: https://github.com/RiverArchitect/riverarchitect/releases/tag/v2.7.0
