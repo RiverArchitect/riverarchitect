@@ -15,6 +15,7 @@ The one exception is the Maps tab, which needs the QGIS Python bindings; see {do
 :caption: In this section
 
 ../guide/installation
+../guide/updating
 ../guide/installation_detailed
 ```
 
@@ -30,6 +31,17 @@ pip install -e ".[all]"
 ```
 
 The launcher opens the interface on the bundled sample data. Open **Help ▸ Live Guide: Example** and work through {doc}`../guide/example_walkthrough`.
+
+## Already installed? Update
+
+```bash
+cd riverarchitect
+git pull
+mamba env update -f environment.yml --prune
+pip install -e ".[all]"
+```
+
+Same commands on Linux, macOS and Windows; {doc}`../guide/updating` covers release tags, what to check afterwards and what to do when an update misbehaves.
 
 ## Requirements at a glance
 

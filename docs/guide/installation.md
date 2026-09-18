@@ -167,4 +167,5 @@ export RIVERARCHITECT_HOME="$PWD/sample-data"     # Windows: setx RIVERARCHITECT
 * {doc}`gui` covers the graphical interface and the launchers.
 * {doc}`tutorial` runs lifespan mapping and fish stranding on the sample data.
 * {doc}`quickstart` is a tour of the individual building blocks.
+* {doc}`updating` is the four-command update to a newer release.
 * {doc}`installation_detailed` explains the dependency choices, the project directory layout and what to do when an install goes wrong.
