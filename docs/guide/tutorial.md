@@ -360,7 +360,8 @@ MaxLifespan("sample-data/Output/LifespanDesign/2100_sample").run()
 
 {class}`~riverarchitect.maxlifespan.MaxLifespan` takes the cell-wise maximum across the feature lifespan rasters and writes a best-feature mask and polygon layer per feature. It has no equivalent above because it only becomes meaningful once several features have been mapped.
 
-## Next
+```{rubric} Next
+```
 
 * {doc}`gui` runs all of this from the graphical interface.
 * {doc}`quickstart` covers the remaining primitives: interpolation, zonal statistics, reclassification, NoData reconciliation.

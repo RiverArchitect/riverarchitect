@@ -166,7 +166,7 @@ In the stranding tab, `h_min` moves the result more than anything else, and it i
 
 *Live Guide: Example* is the third, and it is the one to open first.
 
-### The Live Guide
+## The Live Guide
 
 The modules chain together, and the step people get stuck on is the first one: a condition that has not been prepared produces either an error or - worse - an empty map that looks like an answer. The Live Guide walks through a whole project on the sample reach, in fifteen steps, without leaving the program:
 
@@ -204,7 +204,8 @@ The window is not modal, so leave it open beside the main window and work throug
 
 The sample data ships with a source clone rather than with an installed wheel. Without it the guide still describes every step, and says so.
 
-## Everything is also a Python API
+```{rubric} Everything is also a Python API
+```
 
 The tabs are a front end over ordinary modules, so anything the interface does can be scripted and put under version control:
 

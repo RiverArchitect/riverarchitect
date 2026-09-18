@@ -71,7 +71,7 @@ Runs the Shields stress calculation of {mod}`riverarchitect.shear` on one set of
 
 Depth and grain size are resampled onto the velocity raster's grid, so the three need not share an extent. They **must** share a unit system, and `--unit` must name it. Pass `--grain-kind d84` when the grain raster holds a measured $D_{84}$; the default `dmean` estimates it as $2.2\,D_{\mathrm{mean}}$, which is what the analysis modules do.
 
-## lyrx2qml
+## Convert layer styles
 
 ```bash
 riverarchitect-lyrx2qml input.lyrx output.qml

@@ -26,7 +26,8 @@ with $E_i$ the cumulative per-cent exceedance of discharge $i$ and $A_i$ its usa
 Usable area is not monotonic in discharge. A high flow can inundate a large area of channel margin shallowly enough to clear the threshold even though the reach as a whole is less suitable. Area and quality are different questions; SHArea is the one that weighs them together.
 ```
 
-### Cover
+```{rubric} Cover
+```
 
 Depth and velocity say whether a fish *can* be somewhere. **Cover** says whether it is safe to be there - a fry in open water at the right depth and velocity is still a meal. Pass `cover=True` to {meth}`riverarchitect.sharc.SHArC.run`, or call {func}`riverarchitect.sharc.cover_hsi` directly.
 
@@ -103,7 +104,8 @@ The **main channel is defined once**, as the largest wetted region at the lowest
 
 The minimum swimming depth comes from `Fish.xlsx` (0.2 ft for Chinook fry). **It is the single most influential parameter in the analysis** - at `h_min = 0` every wet cell counts and much of the pool count is single cells at the wetted edge, real in the raster and meaningless in the river. State the value you used alongside any result.
 
-### The velocity criterion
+```{rubric} The velocity criterion
+```
 
 A fish cannot swim upstream against more than `u_max`, so fast water is a one-way door: it can be drifted down but not climbed back up. That makes the escape-route graph **directed**, and a directed graph needs the flow *direction*. Conditions ship `u<Q>.tif`, a speed, so the criterion applies only when the components are supplied as well:
 

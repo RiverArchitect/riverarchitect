@@ -162,7 +162,8 @@ riverarchitect sample-data
 export RIVERARCHITECT_HOME="$PWD/sample-data"     # Windows: setx RIVERARCHITECT_HOME ...
 ```
 
-## Next
+```{rubric} Next
+```
 
 * {doc}`gui` covers the graphical interface and the launchers.
 * {doc}`tutorial` runs lifespan mapping and fish stranding on the sample data.

@@ -438,7 +438,8 @@ Two tabs also sit outside the chain. **Morphology ▸ River Builder** synthesise
 
 **Do the hydraulic rasters make sense against each other?** Plot maximum depth and maximum velocity against discharge before you start. Ten seconds of that would have found both bad rasters in this condition.
 
-### Where to go from there
+```{rubric} Where to go from there
+```
 
 {doc}`../modules/index` explains what each analysis computes and cites the literature its defaults come from. {doc}`../modules/features` lists every restoration feature and every threshold behind it, which is the reference to keep open while editing the workbook of section 4. {doc}`../help/known-issues` is the honest list of rough edges in this release - read it before concluding something is broken - and {doc}`../help/faq` answers what comes up first.
 

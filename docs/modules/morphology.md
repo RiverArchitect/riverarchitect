@@ -30,7 +30,8 @@ So a lowered cell lands *at* the deepest tolerable depth to water and no lower. 
 
 **Features are applied in sequence, and each works on the terrain the previous one left.** That matters: lowering the ground also lowers its depth to the water table, so the second feature must see the first one's excavation rather than the original DEM.
 
-### Inputs and outputs
+```{rubric} Inputs and outputs
+```
 
 | | |
 |---|---|
